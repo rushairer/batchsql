@@ -50,16 +50,30 @@ type TestConfig struct {
 
 // TestResult 测试结果
 type TestResult struct {
-	Database          string        `json:"database"`
-	TestName          string        `json:"test_name"`
-	Duration          time.Duration `json:"duration"`
-	TotalRecords      int64         `json:"total_records"`  // 成功提交的记录数
-	ActualRecords     int64         `json:"actual_records"` // 数据库中实际的记录数
-	RecordsPerSecond  float64       `json:"records_per_second"`
-	ConcurrentWorkers int           `json:"concurrent_workers"`
-	MemoryUsage       MemoryStats   `json:"memory_usage"`
-	Errors            []string      `json:"errors"`
-	Success           bool          `json:"success"`
+	Database            string        `json:"database"`
+	TestName            string        `json:"test_name"`
+	Duration            time.Duration `json:"duration"`
+	TotalRecords        int64         `json:"total_records"`         // 成功提交的记录数
+	ActualRecords       int64         `json:"actual_records"`        // 数据库中实际的记录数
+	DataIntegrityRate   float64       `json:"data_integrity_rate"`   // 数据完整性百分比
+	DataIntegrityStatus string        `json:"data_integrity_status"` // 数据完整性状态描述
+	RecordsPerSecond    float64       `json:"records_per_second"`    // RPS (仅在数据完整性100%时有效)
+	RPSValid            bool          `json:"rps_valid"`             // RPS是否有效
+	RPSNote             string        `json:"rps_note"`              // RPS说明
+	ConcurrentWorkers   int           `json:"concurrent_workers"`
+	TestParameters      TestParams    `json:"test_parameters"` // 测试参数
+	MemoryUsage         MemoryStats   `json:"memory_usage"`
+	Errors              []string      `json:"errors"`
+	Success             bool          `json:"success"`
+}
+
+// TestParams 测试参数
+type TestParams struct {
+	BatchSize       uint32        `json:"batch_size"`
+	BufferSize      uint32        `json:"buffer_size"`
+	FlushInterval   time.Duration `json:"flush_interval"`
+	ExpectedRecords int64         `json:"expected_records"`
+	TestDuration    time.Duration `json:"test_duration"`
 }
 
 // MemoryStats 内存统计
@@ -300,27 +314,87 @@ func calculateMemoryDiffMB(after, before uint64) float64 {
 	return 0.0
 }
 
+// calculateDataIntegrity 计算数据完整性状态
+func calculateDataIntegrity(submitted, actual int64) (rate float64, status string, rpsValid bool, rpsNote string) {
+	if actual < 0 {
+		return 0.0, "❓ 无法验证", false, "无法获取实际记录数，RPS无效"
+	}
+
+	if submitted == 0 {
+		return 0.0, "❌ 无提交记录", false, "无提交记录，RPS无效"
+	}
+
+	rate = float64(actual) / float64(submitted) * 100.0
+
+	if actual == submitted {
+		return 100.0, "✅ 完全一致", true, "数据完整性100%，RPS有效"
+	} else if actual > submitted {
+		return rate, fmt.Sprintf("⚠️ 超出预期 (+%d条)", actual-submitted), false, "数据超出预期，RPS无效"
+	} else {
+		lossCount := submitted - actual
+		lossRate := float64(lossCount) / float64(submitted) * 100.0
+		return rate, fmt.Sprintf("❌ 数据丢失 (-%d条, %.1f%%)", lossCount, lossRate), false, fmt.Sprintf("数据丢失%.1f%%，RPS无效", lossRate)
+	}
+}
+
 // 清理测试表数据 - 使用高性能的清理方式
 func clearTestTable(db *sql.DB, dbType string) error {
-	var clearSQL string
-
 	switch dbType {
 	case "mysql":
 		// MySQL 使用 TRUNCATE，性能最佳
-		clearSQL = "TRUNCATE TABLE integration_test"
+		_, err := db.Exec("TRUNCATE TABLE integration_test")
+		return err
 	case "postgres":
 		// PostgreSQL 使用 TRUNCATE，支持级联
-		clearSQL = "TRUNCATE TABLE integration_test RESTART IDENTITY"
+		_, err := db.Exec("TRUNCATE TABLE integration_test RESTART IDENTITY")
+		return err
 	case "sqlite3":
-		// SQLite 不支持 TRUNCATE，使用 DELETE + VACUUM 优化
-		clearSQL = "DELETE FROM integration_test; VACUUM;"
+		// SQLite 使用重建表方式，避免锁定问题
+		return clearSQLiteTableByRecreate(db)
 	default:
 		// 兜底方案
-		clearSQL = "DELETE FROM integration_test"
+		_, err := db.Exec("DELETE FROM integration_test")
+		return err
+	}
+}
+
+// clearSQLiteTableByRecreate SQLite专用的重建表清理方式
+func clearSQLiteTableByRecreate(db *sql.DB) error {
+	// 1. 删除表
+	if _, err := db.Exec("DROP TABLE IF EXISTS integration_test"); err != nil {
+		return fmt.Errorf("failed to drop table: %v", err)
 	}
 
-	_, err := db.Exec(clearSQL)
-	return err
+	// 2. 重新创建表
+	createSQL := `
+	CREATE TABLE integration_test (
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		email TEXT NOT NULL,
+		data TEXT,
+		value REAL,
+		is_active INTEGER DEFAULT 1,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`
+
+	if _, err := db.Exec(createSQL); err != nil {
+		return fmt.Errorf("failed to create table: %v", err)
+	}
+
+	// 3. 重新创建索引
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_name ON integration_test(name)",
+		"CREATE INDEX IF NOT EXISTS idx_email ON integration_test(email)",
+	}
+
+	for _, indexSQL := range indexes {
+		if _, err := db.Exec(indexSQL); err != nil {
+			return fmt.Errorf("failed to create index: %v", err)
+		}
+	}
+
+	log.Printf("  ✅ SQLite table recreated successfully")
+	return nil
 }
 
 func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestResult {
@@ -414,12 +488,32 @@ TestComplete:
 		actualRecords = -1 // 标记为无法获取
 	}
 
+	// 计算数据完整性
+	dataIntegrityRate, integrityStatus, rpsValid, rpsNote := calculateDataIntegrity(recordCount, actualRecords)
+
+	// 只有在数据完整性100%时才计算有效的RPS
+	rps := 0.0
+	if rpsValid && duration.Seconds() > 0 {
+		rps = float64(recordCount) / duration.Seconds()
+	}
+
 	return TestResult{
-		Duration:          duration,
-		TotalRecords:      recordCount,
-		ActualRecords:     actualRecords,
-		RecordsPerSecond:  float64(recordCount) / duration.Seconds(),
-		ConcurrentWorkers: 1,
+		Duration:            duration,
+		TotalRecords:        recordCount,
+		ActualRecords:       actualRecords,
+		DataIntegrityRate:   dataIntegrityRate,
+		DataIntegrityStatus: integrityStatus,
+		RecordsPerSecond:    rps,
+		RPSValid:            rpsValid,
+		RPSNote:             rpsNote,
+		ConcurrentWorkers:   1,
+		TestParameters: TestParams{
+			BatchSize:       config.BatchSize,
+			BufferSize:      config.BufferSize,
+			FlushInterval:   config.FlushInterval,
+			ExpectedRecords: int64(config.ConcurrentWorkers * config.RecordsPerWorker),
+			TestDuration:    config.TestDuration,
+		},
 		MemoryUsage: MemoryStats{
 			AllocMB:      calculateMemoryDiffMB(m2.Alloc, m1.Alloc),
 			TotalAllocMB: calculateMemoryDiffMB(m2.TotalAlloc, m1.TotalAlloc),
@@ -427,7 +521,7 @@ TestComplete:
 			NumGC:        m2.NumGC - m1.NumGC,
 		},
 		Errors:  errors,
-		Success: len(errors) == 0,
+		Success: len(errors) == 0 && rpsValid, // 只有数据完整性100%才算成功
 	}
 }
 
@@ -540,12 +634,32 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 		actualRecords = -1 // 标记为无法获取
 	}
 
+	// 计算数据完整性
+	dataIntegrityRate, integrityStatus, rpsValid, rpsNote := calculateDataIntegrity(totalRecords, actualRecords)
+
+	// 只有在数据完整性100%时才计算有效的RPS
+	rps := 0.0
+	if rpsValid && duration.Seconds() > 0 {
+		rps = float64(totalRecords) / duration.Seconds()
+	}
+
 	return TestResult{
-		Duration:          duration,
-		TotalRecords:      totalRecords,
-		ActualRecords:     actualRecords,
-		RecordsPerSecond:  float64(totalRecords) / duration.Seconds(),
-		ConcurrentWorkers: config.ConcurrentWorkers,
+		Duration:            duration,
+		TotalRecords:        totalRecords,
+		ActualRecords:       actualRecords,
+		DataIntegrityRate:   dataIntegrityRate,
+		DataIntegrityStatus: integrityStatus,
+		RecordsPerSecond:    rps,
+		RPSValid:            rpsValid,
+		RPSNote:             rpsNote,
+		ConcurrentWorkers:   config.ConcurrentWorkers,
+		TestParameters: TestParams{
+			BatchSize:       config.BatchSize,
+			BufferSize:      config.BufferSize,
+			FlushInterval:   config.FlushInterval,
+			ExpectedRecords: int64(config.ConcurrentWorkers * config.RecordsPerWorker),
+			TestDuration:    config.TestDuration,
+		},
 		MemoryUsage: MemoryStats{
 			AllocMB:      calculateMemoryDiffMB(m2.Alloc, m1.Alloc),
 			TotalAllocMB: calculateMemoryDiffMB(m2.TotalAlloc, m1.TotalAlloc),
@@ -553,7 +667,7 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 			NumGC:        m2.NumGC - m1.NumGC,
 		},
 		Errors:  errors,
-		Success: len(errors) == 0,
+		Success: len(errors) == 0 && rpsValid, // 只有数据完整性100%才算成功
 	}
 }
 
@@ -563,7 +677,9 @@ func runLargeBatchTest(db *sql.DB, dbType string, config TestConfig) TestResult 
 	largeConfig.BatchSize = 5000
 	largeConfig.BufferSize = 50000
 
-	return runHighThroughputTest(db, dbType, largeConfig)
+	result := runHighThroughputTest(db, dbType, largeConfig)
+	result.TestName = "Large Batch Test"
+	return result
 }
 
 func runMemoryPressureTest(db *sql.DB, dbType string, config TestConfig) TestResult {
@@ -573,7 +689,9 @@ func runMemoryPressureTest(db *sql.DB, dbType string, config TestConfig) TestRes
 	memConfig.BufferSize = 1000
 	memConfig.RecordsPerWorker = 50000
 
-	return runConcurrentWorkersTest(db, dbType, memConfig)
+	result := runConcurrentWorkersTest(db, dbType, memConfig)
+	result.TestName = "Memory Pressure Test"
+	return result
 }
 
 func runLongDurationTest(db *sql.DB, dbType string, config TestConfig) TestResult {
@@ -581,7 +699,26 @@ func runLongDurationTest(db *sql.DB, dbType string, config TestConfig) TestResul
 	longConfig := config
 	longConfig.TestDuration = 10 * time.Minute
 
-	return runHighThroughputTest(db, dbType, longConfig)
+	result := runHighThroughputTest(db, dbType, longConfig)
+	result.TestName = "Long Duration Test"
+	return result
+}
+
+// getReportsDirectory 智能检测报告目录，兼容本地和Docker环境
+func getReportsDirectory() string {
+	// 检查是否在Docker环境中（通过检查/app目录是否存在且可写）
+	if info, err := os.Stat("/app"); err == nil && info.IsDir() {
+		// 尝试在/app目录创建测试文件来检查写权限
+		testFile := "/app/.write_test"
+		if file, err := os.Create(testFile); err == nil {
+			file.Close()
+			os.Remove(testFile)
+			return "/app/reports" // Docker环境，使用/app/reports
+		}
+	}
+
+	// 本地环境或Docker环境无写权限，使用相对路径
+	return "reports"
 }
 
 func generateSummary(results []TestResult, totalDuration time.Duration) TestSummary {
@@ -591,7 +728,8 @@ func generateSummary(results []TestResult, totalDuration time.Duration) TestSumm
 	}
 
 	var totalRecords int64
-	var totalRPS float64
+	var validRPSCount int
+	var totalValidRPS float64
 	maxRPS := 0.0
 
 	for _, result := range results {
@@ -602,32 +740,40 @@ func generateSummary(results []TestResult, totalDuration time.Duration) TestSumm
 		}
 
 		totalRecords += result.TotalRecords
-		totalRPS += result.RecordsPerSecond
 
-		if result.RecordsPerSecond > maxRPS {
-			maxRPS = result.RecordsPerSecond
+		// 只统计有效的RPS
+		if result.RPSValid {
+			totalValidRPS += result.RecordsPerSecond
+			validRPSCount++
+
+			if result.RecordsPerSecond > maxRPS {
+				maxRPS = result.RecordsPerSecond
+			}
 		}
 	}
 
 	summary.TotalRecords = totalRecords
 	summary.MaxRPS = maxRPS
-	if len(results) > 0 {
-		summary.AverageRPS = totalRPS / float64(len(results))
+	if validRPSCount > 0 {
+		summary.AverageRPS = totalValidRPS / float64(validRPSCount)
+	} else {
+		summary.AverageRPS = 0.0 // 没有有效的RPS数据
 	}
 
 	return summary
 }
 
 func saveReport(report *TestReport) {
-	// 确保报告目录存在
-	if err := os.MkdirAll("/app/reports", 0755); err != nil {
+	// 智能检测报告目录 - 兼容本地和Docker环境
+	reportsDir := getReportsDirectory()
+	if err := os.MkdirAll(reportsDir, 0755); err != nil {
 		log.Printf("❌ Failed to create reports directory: %v", err)
 		return
 	}
 
 	// 生成文件名
 	timestamp := report.Timestamp.Format("2006-01-02_15-04-05")
-	filename := fmt.Sprintf("/app/reports/integration_test_report_%s.json", timestamp)
+	filename := fmt.Sprintf("%s/integration_test_report_%s.json", reportsDir, timestamp)
 
 	// 保存 JSON 报告
 	data, err := json.MarshalIndent(report, "", "  ")
@@ -644,10 +790,10 @@ func saveReport(report *TestReport) {
 	log.Printf("📊 Test report saved to: %s", filename)
 
 	// 生成 HTML 报告
-	generateHTMLReport(report, timestamp)
+	generateHTMLReport(report, timestamp, reportsDir)
 }
 
-func generateHTMLReport(report *TestReport, timestamp string) {
+func generateHTMLReport(report *TestReport, timestamp string, reportsDir string) {
 	htmlContent := fmt.Sprintf(`
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -715,21 +861,20 @@ func generateHTMLReport(report *TestReport, timestamp string) {
 			statusIcon = "❌"
 		}
 
-		// 计算数据一致性状态
-		consistencyStatus := ""
-		if result.ActualRecords >= 0 {
-			if result.ActualRecords == result.TotalRecords {
-				consistencyStatus = "✅ 一致"
-			} else {
-				consistencyStatus = fmt.Sprintf("⚠️ 不一致 (差异: %d)", result.ActualRecords-result.TotalRecords)
-			}
-		} else {
-			consistencyStatus = "❓ 无法验证"
-		}
+		// 使用新的数据完整性状态
+		consistencyStatus := result.DataIntegrityStatus
 
 		actualRecordsDisplay := "N/A"
 		if result.ActualRecords >= 0 {
 			actualRecordsDisplay = fmt.Sprintf("%d", result.ActualRecords)
+		}
+
+		// RPS显示逻辑
+		rpsDisplay := ""
+		if result.RPSValid {
+			rpsDisplay = fmt.Sprintf("%.2f", result.RecordsPerSecond)
+		} else {
+			rpsDisplay = fmt.Sprintf("<s>%.2f</s> (无效)", result.RecordsPerSecond)
 		}
 
 		htmlContent += fmt.Sprintf(`
@@ -740,9 +885,13 @@ func generateHTMLReport(report *TestReport, timestamp string) {
             <tr><td>测试耗时</td><td>%s</td></tr>
             <tr><td>提交记录数</td><td>%d</td></tr>
             <tr><td>数据库实际记录数</td><td>%s</td></tr>
-            <tr><td>数据一致性</td><td>%s</td></tr>
-            <tr><td>每秒记录数 (RPS)</td><td>%.2f</td></tr>
+            <tr><td>数据完整性</td><td>%s (%.1f%%)</td></tr>
+            <tr><td>每秒记录数 (RPS)</td><td>%s</td></tr>
+            <tr><td>RPS有效性</td><td>%s</td></tr>
             <tr><td>并发工作者数</td><td>%d</td></tr>
+            <tr><td>批次大小</td><td>%d</td></tr>
+            <tr><td>缓冲区大小</td><td>%d</td></tr>
+            <tr><td>刷新间隔</td><td>%s</td></tr>
             <tr><td>内存分配 (MB)</td><td>%.2f</td></tr>
             <tr><td>总内存分配 (MB)</td><td>%.2f</td></tr>
             <tr><td>系统内存 (MB)</td><td>%.2f</td></tr>
@@ -758,8 +907,13 @@ func generateHTMLReport(report *TestReport, timestamp string) {
 			result.TotalRecords,
 			actualRecordsDisplay,
 			consistencyStatus,
-			result.RecordsPerSecond,
+			result.DataIntegrityRate,
+			rpsDisplay,
+			result.RPSNote,
 			result.ConcurrentWorkers,
+			result.TestParameters.BatchSize,
+			result.TestParameters.BufferSize,
+			result.TestParameters.FlushInterval.String(),
 			result.MemoryUsage.AllocMB,
 			result.MemoryUsage.TotalAllocMB,
 			result.MemoryUsage.SysMB,
@@ -786,7 +940,7 @@ func generateHTMLReport(report *TestReport, timestamp string) {
 </body>
 </html>`
 
-	htmlFilename := fmt.Sprintf("/app/reports/integration_test_report_%s.html", timestamp)
+	htmlFilename := fmt.Sprintf("%s/integration_test_report_%s.html", reportsDir, timestamp)
 	if err := os.WriteFile(htmlFilename, []byte(htmlContent), 0644); err != nil {
 		log.Printf("❌ Failed to save HTML report: %v", err)
 		return
@@ -820,23 +974,22 @@ func printSummary(report *TestReport) {
 			status = "❌"
 		}
 
-		// 计算数据一致性状态
-		consistencyInfo := ""
-		if result.ActualRecords >= 0 {
-			if result.ActualRecords == result.TotalRecords {
-				consistencyInfo = " | 数据一致 ✅"
-			} else {
-				consistencyInfo = fmt.Sprintf(" | 数据不一致 ⚠️ (实际:%d vs 提交:%d)", result.ActualRecords, result.TotalRecords)
-			}
+		// 使用新的数据完整性信息
+		consistencyInfo := fmt.Sprintf(" | %s (%.1f%%)", result.DataIntegrityStatus, result.DataIntegrityRate)
+
+		// RPS显示
+		rpsInfo := ""
+		if result.RPSValid {
+			rpsInfo = fmt.Sprintf("RPS: %.2f", result.RecordsPerSecond)
 		} else {
-			consistencyInfo = " | 数据验证失败 ❓"
+			rpsInfo = fmt.Sprintf("RPS: ~~%.2f~~ (无效)", result.RecordsPerSecond)
 		}
 
 		fmt.Printf("   %s %s - %s\n", status, result.Database, result.TestName)
-		fmt.Printf("      耗时: %s | 提交: %d | RPS: %.2f | 工作者: %d | 错误: %d%s\n",
+		fmt.Printf("      耗时: %s | 提交: %d | %s | 工作者: %d | 错误: %d%s\n",
 			result.Duration.String(),
 			result.TotalRecords,
-			result.RecordsPerSecond,
+			rpsInfo,
 			result.ConcurrentWorkers,
 			len(result.Errors),
 			consistencyInfo,

@@ -3,6 +3,7 @@ coverage.out
 coverage.html
 *.cover
 *.coverprofile
+test/reports
 
 # 构建产物
 *.exe
@@ -51,7 +52,10 @@ logs/
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
 
 # 备份文件
 *.bak
 *.backup
+test/integration/reports
+test_integration

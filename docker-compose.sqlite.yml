@@ -1,12 +1,12 @@
 services:
-  # SQLite 压力测试运行器
+  # SQLite 压力测试运行器 - 使用 SQLite 优化配置
   sqlite-test:
     build:
       context: .
-      dockerfile: Dockerfile.integration
+      dockerfile: Dockerfile.cgo.integration
     container_name: batchsql-sqlite-test
     env_file:
-      - .env.test
+      - .env.sqlite.test  # 使用 SQLite 专用配置
     environment:
       - SQLITE_DSN=/app/data/test.db
       - TEST_TYPE=sqlite

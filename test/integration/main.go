@@ -291,6 +291,15 @@ func getActualRecordCount(db *sql.DB) (int64, error) {
 	return count, err
 }
 
+// 安全计算内存差值，避免负数溢出
+func calculateMemoryDiffMB(after, before uint64) float64 {
+	if after >= before {
+		return float64(after-before) / 1024 / 1024
+	}
+	// 如果 after < before（GC回收了内存），返回0而不是负数
+	return 0.0
+}
+
 // 清理测试表数据 - 使用高性能的清理方式
 func clearTestTable(db *sql.DB, dbType string) error {
 	var clearSQL string
@@ -412,9 +421,9 @@ TestComplete:
 		RecordsPerSecond:  float64(recordCount) / duration.Seconds(),
 		ConcurrentWorkers: 1,
 		MemoryUsage: MemoryStats{
-			AllocMB:      float64(m2.Alloc-m1.Alloc) / 1024 / 1024,
-			TotalAllocMB: float64(m2.TotalAlloc-m1.TotalAlloc) / 1024 / 1024,
-			SysMB:        float64(m2.Sys-m1.Sys) / 1024 / 1024,
+			AllocMB:      calculateMemoryDiffMB(m2.Alloc, m1.Alloc),
+			TotalAllocMB: calculateMemoryDiffMB(m2.TotalAlloc, m1.TotalAlloc),
+			SysMB:        calculateMemoryDiffMB(m2.Sys, m1.Sys),
 			NumGC:        m2.NumGC - m1.NumGC,
 		},
 		Errors:  errors,
@@ -538,9 +547,9 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 		RecordsPerSecond:  float64(totalRecords) / duration.Seconds(),
 		ConcurrentWorkers: config.ConcurrentWorkers,
 		MemoryUsage: MemoryStats{
-			AllocMB:      float64(m2.Alloc-m1.Alloc) / 1024 / 1024,
-			TotalAllocMB: float64(m2.TotalAlloc-m1.TotalAlloc) / 1024 / 1024,
-			SysMB:        float64(m2.Sys-m1.Sys) / 1024 / 1024,
+			AllocMB:      calculateMemoryDiffMB(m2.Alloc, m1.Alloc),
+			TotalAllocMB: calculateMemoryDiffMB(m2.TotalAlloc, m1.TotalAlloc),
+			SysMB:        calculateMemoryDiffMB(m2.Sys, m1.Sys),
 			NumGC:        m2.NumGC - m1.NumGC,
 		},
 		Errors:  errors,

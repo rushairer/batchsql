@@ -306,11 +306,12 @@ func TestLargeData_HighThroughput(t *testing.T) {
 	timer := time.NewTimer(testDuration)
 	defer timer.Stop()
 
+MainLoop:
 	for {
 		select {
 		case <-timer.C:
 			// 测试时间到
-			goto TestComplete
+			break MainLoop
 		default:
 			// 继续提交数据
 			request := batchsql.NewRequest(schema).
@@ -336,12 +337,11 @@ func TestLargeData_HighThroughput(t *testing.T) {
 
 			// 如果达到最大记录数，也退出
 			if recordCount >= numRecords {
-				break
+				break MainLoop
 			}
 		}
 	}
 
-TestComplete:
 	actualDuration := time.Since(startTime)
 	finalRate := float64(recordCount) / actualDuration.Seconds()
 

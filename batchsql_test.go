@@ -12,13 +12,18 @@ func TestBatchSQL(t *testing.T) {
 	ctx := context.Background()
 
 	// 使用模拟执行器进行测试
-	batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, 100, 10, time.Second)
+	config := batchsql.PipelineConfig{
+		BufferSize:    100,
+		FlushSize:     10,
+		FlushInterval: time.Second,
+	}
+	batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
 	defer batch.Close()
 
 	// 创建不同的 schema
-	mysqlSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, batchsql.MySQL, "id", "name", "email", "created_at")
-	postgresSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, batchsql.PostgreSQL, "id", "name", "price")
-	sqliteSchema := batchsql.NewSchema("logs", batchsql.ConflictReplace, batchsql.SQLite, "id", "message", "timestamp")
+	mysqlSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email", "created_at")
+	postgresSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")
+	sqliteSchema := batchsql.NewSchema("logs", batchsql.ConflictReplace, "id", "message", "timestamp")
 
 	// 提交不同类型的请求
 	for i := 0; i < 50; i++ {
@@ -74,12 +79,17 @@ func TestBatchSQL(t *testing.T) {
 
 func TestSchemaGrouping(t *testing.T) {
 	ctx := context.Background()
-	batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, 100, 5, 100*time.Millisecond)
+	config := batchsql.PipelineConfig{
+		BufferSize:    100,
+		FlushSize:     5,
+		FlushInterval: 100 * time.Millisecond,
+	}
+	batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
 	defer batch.Close()
 
 	// 创建两个相同的 schema 实例
-	schema1 := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, batchsql.MySQL, "id", "name")
-	schema2 := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, batchsql.MySQL, "id", "name")
+	schema1 := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
+	schema2 := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 
 	// 提交使用不同 schema 实例的请求
 	for i := 0; i < 3; i++ {
@@ -113,24 +123,31 @@ func TestSQLGeneration(t *testing.T) {
 	}{
 		{
 			name:     "MySQL INSERT IGNORE",
-			schema:   batchsql.NewSchema("users", batchsql.ConflictIgnore, batchsql.MySQL, "id", "name"),
+			schema:   batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name"),
 			expected: "INSERT IGNORE INTO users (id, name) VALUES (?, ?), (?, ?)",
 		},
 		{
 			name:     "PostgreSQL ON CONFLICT DO NOTHING",
-			schema:   batchsql.NewSchema("users", batchsql.ConflictIgnore, batchsql.PostgreSQL, "id", "name"),
+			schema:   batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name"),
 			expected: "INSERT INTO users (id, name) VALUES (?, ?), (?, ?) ON CONFLICT DO NOTHING",
 		},
 		{
 			name:     "SQLite INSERT OR IGNORE",
-			schema:   batchsql.NewSchema("users", batchsql.ConflictIgnore, batchsql.SQLite, "id", "name"),
+			schema:   batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name"),
 			expected: "INSERT OR IGNORE INTO users (id, name) VALUES (?, ?), (?, ?)",
 		},
 	}
 
+	drivers := map[string]batchsql.SQLDriver{
+		"MySQL INSERT IGNORE":               batchsql.DefaultMySQLDriver,
+		"PostgreSQL ON CONFLICT DO NOTHING": batchsql.DefaultPostgreSQLDriver,
+		"SQLite INSERT OR IGNORE":           batchsql.DefaultSQLiteDriver,
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sql := tt.schema.GenerateInsertSQL(2)
+			driver := drivers[tt.name]
+			sql := driver.GenerateInsertSQL(tt.schema, 2)
 			if sql != tt.expected {
 				t.Errorf("Expected: %s\nGot: %s", tt.expected, sql)
 			}

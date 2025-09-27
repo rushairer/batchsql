@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// 用来存储请求的数据的各种字段信息和对应的schema
 type Request struct {
 	schema  *Schema
 	columns map[string]any // 使用 map 存储列名到值的映射

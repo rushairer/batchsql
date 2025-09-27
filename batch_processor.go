@@ -9,12 +9,16 @@ import (
 
 // BatchProcessor 批量处理器
 type BatchProcessor struct {
-	db *sql.DB
+	db        *sql.DB
+	sqlDriver SQLDriver
 }
 
 // NewBatchProcessor 创建批量处理器
-func NewBatchProcessor(db *sql.DB) *BatchProcessor {
-	return &BatchProcessor{db: db}
+func NewBatchProcessor(db *sql.DB, sqlDriver SQLDriver) *BatchProcessor {
+	return &BatchProcessor{
+		db:        db,
+		sqlDriver: sqlDriver,
+	}
 }
 
 // ProcessBatch 处理批量数据
@@ -62,8 +66,8 @@ func (bp *BatchProcessor) processSchemaGroup(ctx context.Context, schema *Schema
 		}
 	}
 
-	// 生成批量插入 SQL
-	sql := schema.GenerateInsertSQL(len(requests))
+	// 使用SQLDriver生成批量插入SQL
+	sql := bp.sqlDriver.GenerateInsertSQL(schema, len(requests))
 	if sql == "" {
 		return fmt.Errorf("failed to generate SQL for schema %s", schema.TableName())
 	}
@@ -98,55 +102,4 @@ func (bp *BatchProcessor) prepareArgs(schema *Schema, requests []*Request) []any
 	}
 
 	return args
-}
-
-// BatchExecutor 批量执行器接口
-type BatchExecutor interface {
-	ExecuteBatch(ctx context.Context, batchData []*Request) error
-}
-
-// DatabaseBatchExecutor 数据库批量执行器
-type DatabaseBatchExecutor struct {
-	processor *BatchProcessor
-}
-
-// NewDatabaseBatchExecutor 创建数据库批量执行器
-func NewDatabaseBatchExecutor(db *sql.DB) *DatabaseBatchExecutor {
-	return &DatabaseBatchExecutor{
-		processor: NewBatchProcessor(db),
-	}
-}
-
-// ExecuteBatch 执行批量操作
-func (dbe *DatabaseBatchExecutor) ExecuteBatch(ctx context.Context, batchData []*Request) error {
-	return dbe.processor.ProcessBatch(ctx, batchData)
-}
-
-// MockBatchExecutor 模拟批量执行器（用于测试）
-type MockBatchExecutor struct {
-	ExecutedBatches [][]*Request
-}
-
-// NewMockBatchExecutor 创建模拟批量执行器
-func NewMockBatchExecutor() *MockBatchExecutor {
-	return &MockBatchExecutor{
-		ExecutedBatches: make([][]*Request, 0),
-	}
-}
-
-// ExecuteBatch 模拟执行批量操作
-func (mbe *MockBatchExecutor) ExecuteBatch(ctx context.Context, batchData []*Request) error {
-	mbe.ExecutedBatches = append(mbe.ExecutedBatches, batchData)
-
-	// 按 schema 分组并打印信息
-	processor := &BatchProcessor{}
-	groups := processor.groupBySchema(batchData)
-
-	for schema, requests := range groups {
-		sql := schema.GenerateInsertSQL(len(requests))
-		log.Printf("Mock execution - Table: %s, Requests: %d, SQL: %s",
-			schema.TableName(), len(requests), sql)
-	}
-
-	return nil
 }

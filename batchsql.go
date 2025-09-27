@@ -68,7 +68,9 @@ func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushIn
 	)
 
 	batchSQL.pipeline = pipeline
-	go pipeline.AsyncPerform(ctx)
+	go func() {
+		_ = pipeline.AsyncPerform(ctx)
+	}()
 
 	return batchSQL
 }

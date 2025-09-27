@@ -21,7 +21,9 @@ func TestBatchSQL(t *testing.T) {
 		FlushInterval: time.Second,
 	}
 	batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer batch.Close()
+	defer func() {
+		_ = batch.Close()
+	}()
 
 	// 创建不同的 schema
 	mysqlSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email", "created_at")

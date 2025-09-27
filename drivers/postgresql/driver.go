@@ -1,6 +1,7 @@
 package postgresql
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -23,7 +24,7 @@ func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]int
 
 	columns := schema.Columns
 	if len(columns) == 0 {
-		return "", nil, fmt.Errorf("no columns defined in schema")
+		return "", nil, errors.New("no columns defined in schema")
 	}
 
 	columnsStr := strings.Join(columns, ", ")
@@ -41,7 +42,7 @@ func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]int
 
 	switch schema.ConflictStrategy {
 	case drivers.ConflictIgnore:
-		sql := fmt.Sprintf("%s ON CONFLICT DO NOTHING", baseSQL)
+		sql := baseSQL + " ON CONFLICT DO NOTHING"
 		return sql, args, nil
 	case drivers.ConflictReplace, drivers.ConflictUpdate:
 		updatePairs := make([]string, len(columns))

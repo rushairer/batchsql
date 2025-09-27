@@ -33,7 +33,7 @@ func NewBatchExecutorWithDriver(driver drivers.SQLDriver) *Executor {
 }
 
 // ExecuteBatch 模拟执行批量操作
-func (e *Executor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]interface{}) error {
+func (e *Executor) ExecuteBatch(_ context.Context, schema *drivers.Schema, data []map[string]interface{}) error {
 	e.ExecutedBatches = append(e.ExecutedBatches, data)
 
 	// 生成并打印SQL信息

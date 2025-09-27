@@ -126,30 +126,30 @@ type Client struct {
 }
 
 // NewClient 创建新的客户端
-func NewClient() *Client <span class="cov10" title="9">{
+func NewClient() *Client <span class="cov10" title="12">{
         return &amp;Client{
                 reporter: nil, // 默认不启用监控
         }
 }</span>
 
 // WithMetricsReporter 设置监控报告器
-func (c *Client) WithMetricsReporter(reporter MetricsReporter) *Client <span class="cov3" title="2">{
+func (c *Client) WithMetricsReporter(reporter MetricsReporter) *Client <span class="cov6" title="4">{
         c.reporter = reporter
         return c
 }</span>
 
 // ExecuteWithSchema 使用Schema执行批量操作
-func (c *Client) ExecuteWithSchema(ctx context.Context, schema SchemaInterface, data []map[string]interface{}) error <span class="cov7" title="5">{
-        if schema == nil </span><span class="cov1" title="1">{
+func (c *Client) ExecuteWithSchema(ctx context.Context, schema SchemaInterface, data []map[string]interface{}) error <span class="cov8" title="8">{
+        if schema == nil </span><span class="cov3" title="2">{
                 return fmt.Errorf("schema cannot be nil")
         }</span>
 
-        <span class="cov6" title="4">if len(data) == 0 </span><span class="cov1" title="1">{
+        <span class="cov7" title="6">if len(data) == 0 </span><span class="cov3" title="2">{
                 return nil
         }</span>
 
         // 记录开始时间（用于监控）
-        <span class="cov5" title="3">startTime := time.Now()
+        <span class="cov6" title="4">startTime := time.Now()
 
         // 验证Schema
         if err := schema.Validate(); err != nil </span><span class="cov1" title="1">{
@@ -157,27 +157,27 @@ func (c *Client) ExecuteWithSchema(ctx context.Context, schema SchemaInterface, 
         }</span>
 
         // 转换数据为请求
-        <span class="cov3" title="2">requests := make([]*Request, len(data))
-        for i, item := range data </span><span class="cov5" title="3">{
+        <span class="cov4" title="3">requests := make([]*Request, len(data))
+        for i, item := range data </span><span class="cov6" title="5">{
                 request := NewRequestFromInterface(schema)
-                for key, value := range item </span><span class="cov7" title="5">{
+                for key, value := range item </span><span class="cov9" title="11">{
                         request.Set(key, value)
                 }</span>
-                <span class="cov5" title="3">requests[i] = request</span>
+                <span class="cov6" title="5">requests[i] = request</span>
         }
 
         // 生成批量命令
-        <span class="cov3" title="2">driver := schema.GetDatabaseDriver()
+        <span class="cov4" title="3">driver := schema.GetDatabaseDriver()
         command, err := driver.GenerateBatchCommand(schema, requests)
         if err != nil </span><span class="cov0" title="0">{
                 return fmt.Errorf("failed to generate batch command: %w", err)
         }</span>
 
         // 执行操作
-        <span class="cov3" title="2">execErr := c.simulateExecution(ctx, driver.GetName(), command)
+        <span class="cov4" title="3">execErr := c.simulateExecution(ctx, driver.GetName(), command)
 
         // 报告监控指标（如果启用了监控）
-        if c.reporter != nil </span><span class="cov1" title="1">{
+        if c.reporter != nil </span><span class="cov3" title="2">{
                 metrics := BatchMetrics{
                         Driver:    driver.GetName(),
                         Table:     schema.GetIdentifier(),
@@ -189,11 +189,11 @@ func (c *Client) ExecuteWithSchema(ctx context.Context, schema SchemaInterface, 
                 c.reporter.ReportBatchExecution(ctx, metrics)
         }</span>
 
-        <span class="cov3" title="2">return execErr</span>
+        <span class="cov4" title="3">return execErr</span>
 }
 
 // simulateExecution 模拟执行命令
-func (c *Client) simulateExecution(ctx context.Context, driverName string, command BatchCommand) error <span class="cov3" title="2">{
+func (c *Client) simulateExecution(ctx context.Context, driverName string, command BatchCommand) error <span class="cov4" title="3">{
         // 在实际实现中，这里会连接真实的数据库并执行命令
         // 现在只是模拟执行过程
         return nil
@@ -1326,7 +1326,7 @@ type Request struct {
 }
 
 // NewRequest creates a new request with the given schema
-func NewRequest(schema SchemaInterface) *Request <span class="cov7" title="3">{
+func NewRequest(schema SchemaInterface) *Request <span class="cov7" title="5">{
         return &amp;Request{
                 schema: schema,
                 data:   make(map[string]interface{}),
@@ -1334,12 +1334,12 @@ func NewRequest(schema SchemaInterface) *Request <span class="cov7" title="3">{
 }</span>
 
 // NewRequestFromInterface creates a new request from a schema interface
-func NewRequestFromInterface(schema SchemaInterface) *Request <span class="cov7" title="3">{
+func NewRequestFromInterface(schema SchemaInterface) *Request <span class="cov7" title="5">{
         return NewRequest(schema)
 }</span>
 
 // Set sets a value for the given key
-func (r *Request) Set(key string, value interface{}) <span class="cov10" title="5">{
+func (r *Request) Set(key string, value interface{}) <span class="cov10" title="11">{
         r.data[key] = value
 }</span>
 
@@ -1534,7 +1534,7 @@ func NewSchema(
         conflictStrategy ConflictStrategy,
         driver DatabaseDriver,
         columns ...string,
-) *Schema <span class="cov10" title="15">{
+) *Schema <span class="cov10" title="21">{
         return &amp;Schema{
                 identifier:       identifier,
                 conflictStrategy: conflictStrategy,
@@ -1545,22 +1545,22 @@ func NewSchema(
 }</span>
 
 // GetIdentifier 获取标识符（表名/集合名/键前缀等）
-func (s *Schema) GetIdentifier() string <span class="cov8" title="9">{
+func (s *Schema) GetIdentifier() string <span class="cov8" title="13">{
         return s.identifier
 }</span>
 
 // GetConflictStrategy 获取冲突策略
-func (s *Schema) GetConflictStrategy() ConflictStrategy <span class="cov6" title="5">{
+func (s *Schema) GetConflictStrategy() ConflictStrategy <span class="cov7" title="9">{
         return s.conflictStrategy
 }</span>
 
 // GetColumns 获取列名
-func (s *Schema) GetColumns() []string <span class="cov6" title="5">{
+func (s *Schema) GetColumns() []string <span class="cov6" title="6">{
         return s.columns
 }</span>
 
 // GetDatabaseDriver 获取数据库驱动
-func (s *Schema) GetDatabaseDriver() DatabaseDriver <span class="cov6" title="5">{
+func (s *Schema) GetDatabaseDriver() DatabaseDriver <span class="cov6" title="7">{
         return s.driver
 }</span>
 
@@ -1570,7 +1570,7 @@ func (s *Schema) SetMetadata(key string, value interface{}) <span class="cov5" t
 }</span>
 
 // GetMetadata 获取元数据
-func (s *Schema) GetMetadata(key string) (interface{}, bool) <span class="cov6" title="5">{
+func (s *Schema) GetMetadata(key string) (interface{}, bool) <span class="cov5" title="5">{
         value, exists := s.metadata[key]
         return value, exists
 }</span>
@@ -1581,19 +1581,19 @@ func (s *Schema) GetAllMetadata() map[string]interface{} <span class="cov1" titl
 }</span>
 
 // Validate 验证 Schema
-func (s *Schema) Validate() error <span class="cov7" title="7">{
+func (s *Schema) Validate() error <span class="cov7" title="8">{
         if s.identifier == "" </span><span class="cov1" title="1">{
                 return fmt.Errorf("identifier cannot be empty")
         }</span>
-        <span class="cov6" title="6">if len(s.columns) == 0 </span><span class="cov1" title="1">{
+        <span class="cov6" title="7">if len(s.columns) == 0 </span><span class="cov1" title="1">{
                 return fmt.Errorf("columns cannot be empty")
         }</span>
-        <span class="cov6" title="5">if s.driver == nil </span><span class="cov1" title="1">{
+        <span class="cov6" title="6">if s.driver == nil </span><span class="cov1" title="1">{
                 return fmt.Errorf("database driver cannot be nil")
         }</span>
 
         // 使用驱动验证
-        <span class="cov5" title="4">return s.driver.ValidateSchema(s)</span>
+        <span class="cov5" title="5">return s.driver.ValidateSchema(s)</span>
 }
 
 // Clone 克隆 Schema
@@ -1651,7 +1651,7 @@ func (s *Schema) RemoveColumn(column string) *Schema <span class="cov1" title="1
 
 // HasColumn 检查是否包含指定列
 func (s *Schema) HasColumn(column string) bool <span class="cov4" title="3">{
-        for _, col := range s.columns </span><span class="cov7" title="7">{
+        for _, col := range s.columns </span><span class="cov6" title="7">{
                 if col == column </span><span class="cov1" title="1">{
                         return true
                 }</span>

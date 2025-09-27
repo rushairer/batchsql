@@ -8,7 +8,7 @@
 
 1. **Fork 项目**
    ```bash
-   git clone https://github.com/your-username/batchsql.git
+   git clone https://github.com/rushairer/batchsql.git
    cd batchsql
    ```
 

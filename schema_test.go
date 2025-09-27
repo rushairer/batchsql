@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+const testTableName = "users"
+
 // 这个文件包含Schema的白盒测试，测试内部实现
 // 公开API测试请参考 client_integration_test.go
 
@@ -12,9 +14,9 @@ func TestNewSchema(t *testing.T) {
 	mockDriver := NewMockDriver("mysql")
 	columns := []string{"id", "name", "age"}
 
-	schema := NewSchema("users", ConflictIgnore, mockDriver, columns...)
+	schema := NewSchema(testTableName, ConflictIgnore, mockDriver, columns...)
 
-	if schema.GetIdentifier() != "users" {
+	if schema.GetIdentifier() != testTableName {
 		t.Errorf("Expected identifier 'users', got '%s'", schema.GetIdentifier())
 	}
 

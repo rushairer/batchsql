@@ -14,7 +14,11 @@ func main() {
 
 	// 创建客户端
 	client := batchsql.NewClient()
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.Printf("关闭客户端时出错: %v", err)
+		}
+	}()
 
 	ctx := context.Background()
 

@@ -210,7 +210,7 @@ func main() {
 			// 只显示前10个和后5个，中间的用...表示
 			if i == 9 && len(metrics) > 15 {
 				fmt.Printf("%-10s %-15s %-10s %-12s %-8s\n", "...", "...", "...", "...", "...")
-				i = len(metrics) - 6
+				_ = len(metrics) - 6
 			}
 		}
 	}

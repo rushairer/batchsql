@@ -79,7 +79,7 @@ func (p *PrometheusReporter) ReportBatchExecution(ctx context.Context, metrics b
 	p.total.WithLabelValues(metrics.Driver, metrics.Table, status).Inc()
 }
 
-func prometheusMain() {
+func RunPrometheusExample() {
 	log.Println("=== BatchSQL Prometheus集成示例 ===")
 
 	// 创建Prometheus监控报告器

@@ -1,7 +1,7 @@
 # BatchSQL 压力测试报告
 
 ## 测试环境
-- 时间: 2025年 9月27日 星期六 12时33分43秒 CST
+- 时间: 2025年 9月27日 星期六 12时54分04秒 CST
 - Go 版本: go version go1.25.1 darwin/arm64
 - 系统: Darwin AbendeMacBook-Pro.local 25.0.0 Darwin Kernel Version 25.0.0: Mon Aug 25 21:12:01 PDT 2025; root:xnu-12377.1.9~3/RELEASE_ARM64_T8132 arm64
 

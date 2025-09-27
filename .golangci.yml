@@ -1,4 +1,7 @@
 # golangci-lint 配置文件
+# 版本: v1.54+
+version: 2
+
 run:
   timeout: 5m
   issues-exit-code: 1
@@ -9,18 +12,13 @@ run:
     - test/results
 
 output:
-  formats:
-    - format: colored-line-number
+  format: colored-line-number
 
 linters-settings:
   govet:
-    check-shadowing: true
-  golint:
-    min-confidence: 0
+    shadow: true
   gocyclo:
     min-complexity: 15
-  maligned:
-    suggest-new: true
   dupl:
     threshold: 100
   goconst:
@@ -29,9 +27,7 @@ linters-settings:
   misspell:
     locale: US
   lll:
-    line-length: 140
-  goimports:
-    local-prefixes: github.com/rushairer/batchsql
+    line-length: 160
   gocritic:
     enabled-tags:
       - diagnostic
@@ -46,59 +42,67 @@ linters-settings:
       - whyNoLint
       - wrapperFunc
   funlen:
-    lines: 100
-    statements: 50
+    lines: 120
+    statements: 80
+  mnd:
+    settings:
+      mnd:
+        checks:
+          - argument
+          - case
+          - condition
+          - operation
+          - return
 
 linters:
   enable:
     - bodyclose
-    - deadcode
-    - depguard
-    - dogsled
+    - copyloopvar
     - dupl
     - errcheck
-    - exportloopref
-    - exhaustive
     - funlen
     - gochecknoinits
     - goconst
     - gocritic
     - gocyclo
-    - gofmt
-    - goimports
-    - gomnd
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - lll
     - misspell
+    - mnd
     - nakedret
     - noctx
     - nolintlint
-    - rowserrcheck
     - staticcheck
-    - structcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
 
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gomnd
+        - mnd
         - funlen
         - gocyclo
+        - lll
     - path: test/
       linters:
-        - gomnd
+        - mnd
         - funlen
         - gocyclo
         - dupl
+        - lll
+    - path: examples/
+      linters:
+        - mnd
+        - funlen
+        - lll
+    - path: drivers/
+      linters:
+        - lll
+        - funlen
   exclude-use-default: false

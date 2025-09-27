@@ -1,0 +1,29 @@
+services:
+  # SQLite 压力测试运行器
+  sqlite-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.integration
+    container_name: batchsql-sqlite-test
+    environment:
+      - SQLITE_DSN=/app/data/test.db
+      - TEST_DURATION=1800s
+      - CONCURRENT_WORKERS=10
+      - RECORDS_PER_WORKER=2000
+      - BATCH_SIZE=200
+      - BUFFER_SIZE=5000
+      - FLUSH_INTERVAL=100ms
+      - TEST_TYPE=sqlite
+    volumes:
+      - ./test/reports:/app/reports
+      - ./test/data:/app/data
+    networks:
+      - batchsql-network
+    command: ["./run-single-db-test.sh"]
+
+volumes:
+  sqlite_data:
+
+networks:
+  batchsql-network:
+    driver: bridge

@@ -43,10 +43,12 @@ services:
         condition: service_healthy
     environment:
       - POSTGRES_DSN=postgres://testuser:testpass123@postgres:5432/batchsql_test?sslmode=disable
-      - TEST_DURATION=300s
-      - CONCURRENT_WORKERS=20
-      - RECORDS_PER_WORKER=5000
-      - BATCH_SIZE=500
+      - TEST_DURATION=1800s
+      - CONCURRENT_WORKERS=10
+      - RECORDS_PER_WORKER=2000
+      - BATCH_SIZE=200
+      - BUFFER_SIZE=5000
+      - FLUSH_INTERVAL=100ms
       - TEST_TYPE=postgres
     volumes:
       - ./test/reports:/app/reports

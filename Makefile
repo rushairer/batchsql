@@ -54,7 +54,9 @@ docker-postgres-test:
 docker-sqlite-test:
 	@echo "🐳 Starting SQLite 30-minute pressure test..."
 	@echo "📊 Configuration: 10 workers × 2000 records × 30min = High-performance pressure test"
-	./test/integration/run-single-db-test.sh sqlite
+	docker-compose -f docker-compose.sqlite.yml down -v --remove-orphans
+	docker-compose -f docker-compose.sqlite.yml build --no-cache
+	docker-compose -f docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test
 
 docker-all-tests: docker-mysql-test docker-postgres-test docker-sqlite-test
 	@echo "🎉 All 30-minute pressure tests completed!"
@@ -93,6 +95,7 @@ clean:
 	rm -rf test/reports/*
 	docker-compose -f docker-compose.mysql.yml down -v --remove-orphans 2>/dev/null || true
 	docker-compose -f docker-compose.postgres.yml down -v --remove-orphans 2>/dev/null || true
+	docker-compose -f docker-compose.sqlite.yml down -v --remove-orphans 2>/dev/null || true
 	docker system prune -f
 
 # 完整的 CI/CD 流程

@@ -1,3 +1,4 @@
+// Package main provides simple BatchSQL usage examples
 package main
 
 import (

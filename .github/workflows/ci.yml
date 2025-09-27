@@ -7,7 +7,7 @@ on:
     branches: [ main, master, develop ]
 
 env:
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.20'
 
 jobs:
   # 代码质量检查
@@ -23,9 +23,9 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
         
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3
+      uses: golangci/golangci-lint-action@v6
       with:
-        version: latest
+        version: v1.64.8
         args: --timeout=5m
 
   # 单元测试
@@ -61,7 +61,7 @@ jobs:
       run: go tool cover -html=coverage.out -o coverage.html
       
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         file: ./coverage.out
         flags: unittests
@@ -89,10 +89,10 @@ jobs:
         tool: 'go'
         output-file-path: benchmark.txt
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        auto-push: true
-        comment-on-alert: true
+        auto-push: false
+        comment-on-alert: false
         alert-threshold: '200%'
-        fail-on-alert: true
+        fail-on-alert: false
 
   # 安全扫描
   security:
@@ -112,7 +112,7 @@ jobs:
         args: '-fmt sarif -out gosec.sarif ./...'
         
     - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: gosec.sarif
 

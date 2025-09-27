@@ -24,14 +24,22 @@ type BatchMetrics struct {
 
 // Client 批量SQL客户端
 type Client struct {
-	reporter MetricsReporter // 可选的监控报告器
+	executor BatchExecutorInterface // 批量执行器
+	reporter MetricsReporter        // 可选的监控报告器
 }
 
 // NewClient 创建新的客户端
 func NewClient() *Client {
 	return &Client{
+		executor: NewBatchExecutor(),
 		reporter: nil, // 默认不启用监控
 	}
+}
+
+// WithExecutor 设置批量执行器
+func (c *Client) WithExecutor(executor BatchExecutorInterface) *Client {
+	c.executor = executor
+	return c
 }
 
 // WithMetricsReporter 设置监控报告器
@@ -40,13 +48,18 @@ func (c *Client) WithMetricsReporter(reporter MetricsReporter) *Client {
 	return c
 }
 
-// ExecuteWithSchema 使用Schema执行批量操作
-func (c *Client) ExecuteWithSchema(ctx context.Context, schema SchemaInterface, data []map[string]interface{}) error {
+// GetExecutor 获取执行器（用于添加数据库连接）
+func (c *Client) GetExecutor() BatchExecutorInterface {
+	return c.executor
+}
+
+// ExecuteBatch 执行批量操作（核心方法）
+func (c *Client) ExecuteBatch(ctx context.Context, schema SchemaInterface, requests []*Request) error {
 	if schema == nil {
 		return fmt.Errorf("schema cannot be nil")
 	}
 
-	if len(data) == 0 {
+	if len(requests) == 0 {
 		return nil
 	}
 
@@ -56,6 +69,38 @@ func (c *Client) ExecuteWithSchema(ctx context.Context, schema SchemaInterface, 
 	// 验证Schema
 	if err := schema.Validate(); err != nil {
 		return fmt.Errorf("schema validation failed: %w", err)
+	}
+
+	// 生成批量命令
+	driver := schema.GetDatabaseDriver()
+	command, err := driver.GenerateBatchCommand(schema, requests)
+	if err != nil {
+		return fmt.Errorf("failed to generate batch command: %w", err)
+	}
+
+	// 执行操作
+	execErr := c.executor.ExecuteBatch(ctx, []BatchCommand{command})
+
+	// 报告监控指标（如果启用了监控）
+	if c.reporter != nil {
+		metrics := BatchMetrics{
+			Driver:    driver.GetName(),
+			Table:     schema.GetIdentifier(),
+			BatchSize: len(requests),
+			Duration:  time.Since(startTime),
+			Error:     execErr,
+			StartTime: startTime,
+		}
+		c.reporter.ReportBatchExecution(ctx, metrics)
+	}
+
+	return execErr
+}
+
+// ExecuteWithSchema 使用Schema执行批量操作（便捷方法）
+func (c *Client) ExecuteWithSchema(ctx context.Context, schema SchemaInterface, data []map[string]interface{}) error {
+	if len(data) == 0 {
+		return nil
 	}
 
 	// 转换数据为请求
@@ -68,36 +113,85 @@ func (c *Client) ExecuteWithSchema(ctx context.Context, schema SchemaInterface, 
 		requests[i] = request
 	}
 
-	// 生成批量命令
-	driver := schema.GetDatabaseDriver()
-	command, err := driver.GenerateBatchCommand(schema, requests)
-	if err != nil {
-		return fmt.Errorf("failed to generate batch command: %w", err)
-	}
-
-	// 执行操作
-	execErr := c.simulateExecution(ctx, driver.GetName(), command)
-
-	// 报告监控指标（如果启用了监控）
-	if c.reporter != nil {
-		metrics := BatchMetrics{
-			Driver:    driver.GetName(),
-			Table:     schema.GetIdentifier(),
-			BatchSize: len(data),
-			Duration:  time.Since(startTime),
-			Error:     execErr,
-			StartTime: startTime,
-		}
-		c.reporter.ReportBatchExecution(ctx, metrics)
-	}
-
-	return execErr
+	return c.ExecuteBatch(ctx, schema, requests)
 }
 
-// simulateExecution 模拟执行命令
-func (c *Client) simulateExecution(ctx context.Context, driverName string, command BatchCommand) error {
-	// 在实际实现中，这里会连接真实的数据库并执行命令
-	// 现在只是模拟执行过程
+// ExecuteStreamBatch 流式批处理（处理海量数据）
+func (c *Client) ExecuteStreamBatch(ctx context.Context, schema SchemaInterface, dataStream <-chan map[string]interface{}, batchSize int) error {
+	if schema == nil {
+		return fmt.Errorf("schema cannot be nil")
+	}
+
+	if batchSize <= 0 {
+		batchSize = 1000 // 默认批大小
+	}
+
+	batch := make([]*Request, 0, batchSize)
+
+	for {
+		select {
+		case data, ok := <-dataStream:
+			if !ok {
+				// 处理最后一批数据
+				if len(batch) > 0 {
+					if err := c.ExecuteBatch(ctx, schema, batch); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
+			// 转换数据为请求
+			request := NewRequestFromInterface(schema)
+			for key, value := range data {
+				request.Set(key, value)
+			}
+			batch = append(batch, request)
+
+			// 当批次满了时执行
+			if len(batch) >= batchSize {
+				if err := c.ExecuteBatch(ctx, schema, batch); err != nil {
+					return err
+				}
+				batch = batch[:0] // 重置批次
+			}
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// ExecuteLargeBatch 处理大批量数据（自动分批）
+func (c *Client) ExecuteLargeBatch(ctx context.Context, schema SchemaInterface, data []map[string]interface{}, batchSize int) error {
+	if len(data) == 0 {
+		return nil
+	}
+
+	if batchSize <= 0 {
+		batchSize = 1000 // 默认批大小
+	}
+
+	// 分批处理
+	for i := 0; i < len(data); i += batchSize {
+		end := i + batchSize
+		if end > len(data) {
+			end = len(data)
+		}
+
+		batch := data[i:end]
+		if err := c.ExecuteWithSchema(ctx, schema, batch); err != nil {
+			return fmt.Errorf("failed to execute batch %d-%d: %w", i, end-1, err)
+		}
+
+		// 检查上下文是否被取消
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+	}
+
 	return nil
 }
 
@@ -108,6 +202,8 @@ func (c *Client) CreateSchema(identifier string, strategy ConflictStrategy, driv
 
 // Close 关闭客户端
 func (c *Client) Close() error {
-	// 清理资源
+	if c.executor != nil {
+		return c.executor.Close()
+	}
 	return nil
 }

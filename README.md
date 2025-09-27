@@ -324,14 +324,33 @@ go test -v
 
 ```
 batchsql/
-├── batchsql.go          # 主入口和工厂方法
-├── schema.go            # Schema定义（表结构）
-├── request.go           # Request定义（类型安全的数据操作）
-├── batch_processor.go   # 批量处理核心逻辑
-├── batch_executor.go    # 批量执行器实现
-├── sql_driver.go        # SQL生成器（支持多数据库）
-├── error.go            # 错误定义
-└── batchsql_test.go    # 测试文件
+├── batchsql.go              # 主入口和工厂方法
+├── schema.go                # Schema定义（表结构）
+├── request.go               # Request定义（类型安全的数据操作）
+├── batch_processor.go       # 批量处理核心逻辑
+├── interfaces.go            # 主要接口定义
+├── error.go                 # 错误定义
+├── batchsql_test.go         # 测试文件
+├── go.mod                   # Go模块定义
+├── go.sum                   # 依赖校验文件
+├── .golangci.yml            # Go代码检查配置
+├── README.md                # 项目文档
+├── drivers/                 # 数据库驱动目录
+│   ├── interfaces.go        # 驱动接口定义
+│   ├── mock/                # 模拟驱动（用于测试）
+│   │   ├── driver.go        # Mock SQL驱动实现
+│   │   └── executor.go      # Mock批量执行器实现
+│   ├── mysql/               # MySQL驱动
+│   │   ├── driver.go        # MySQL SQL驱动实现
+│   │   └── executor.go      # MySQL批量执行器实现
+│   ├── postgresql/          # PostgreSQL驱动
+│   │   ├── driver.go        # PostgreSQL SQL驱动实现
+│   │   └── executor.go      # PostgreSQL批量执行器实现
+│   └── sqlite/              # SQLite驱动
+│       ├── driver.go        # SQLite SQL驱动实现
+│       └── executor.go      # SQLite批量执行器实现
+└── test/                    # 测试目录
+    └── integration/         # 集成测试
 ```
 
 ## 🔧 架构图

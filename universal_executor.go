@@ -66,7 +66,46 @@ func (e *UniversalBatchExecutor) SetMetricsCollector(collector MetricsCollector)
 }
 
 // ExecuteBatch 执行批量操作
-func (e *UniversalBatchExecutor) ExecuteBatch(ctx context.Context, batchData []*Request) error {
+func (e *UniversalBatchExecutor) ExecuteBatch(ctx context.Context, commands []BatchCommand) error {
+	if len(commands) == 0 {
+		return nil
+	}
+
+	startTime := time.Now()
+
+	// 处理每个命令
+	for _, command := range commands {
+		if err := e.executeCommand(ctx, command.GetMetadata()["driver"].(string), command); err != nil {
+			duration := time.Since(startTime).Milliseconds()
+			if e.metricsCollector != nil {
+				e.metricsCollector.RecordBatchExecution(
+					command.GetMetadata()["driver"].(string),
+					1, // 单个命令
+					duration,
+					err,
+				)
+			}
+			return fmt.Errorf("failed to execute command: %w", err)
+		}
+	}
+
+	duration := time.Since(startTime).Milliseconds()
+	if e.metricsCollector != nil {
+		for _, command := range commands {
+			e.metricsCollector.RecordBatchExecution(
+				command.GetMetadata()["driver"].(string),
+				1,
+				duration,
+				nil,
+			)
+		}
+	}
+
+	return nil
+}
+
+// ExecuteBatchRequests 执行批量请求（保持向后兼容）
+func (e *UniversalBatchExecutor) ExecuteBatchRequests(ctx context.Context, batchData []*Request) error {
 	if len(batchData) == 0 {
 		return nil
 	}

@@ -1,0 +1,2128 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>batchsql: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/rushairer/batchsql/batchsql.go (96.4%)</option>
+				
+				<option value="file1">github.com/rushairer/batchsql/drivers/mongodb_driver.go (0.0%)</option>
+				
+				<option value="file2">github.com/rushairer/batchsql/drivers/redis_driver.go (0.0%)</option>
+				
+				<option value="file3">github.com/rushairer/batchsql/drivers/sql_driver.go (0.0%)</option>
+				
+				<option value="file4">github.com/rushairer/batchsql/examples/prometheus_example.go (0.0%)</option>
+				
+				<option value="file5">github.com/rushairer/batchsql/examples/simple_demo.go (0.0%)</option>
+				
+				<option value="file6">github.com/rushairer/batchsql/request.go (4.2%)</option>
+				
+				<option value="file7">github.com/rushairer/batchsql/schema.go (100.0%)</option>
+				
+				<option value="file8">github.com/rushairer/batchsql/test/cmd/stress/main.go (0.0%)</option>
+				
+				<option value="file9">github.com/rushairer/batchsql/types.go (11.8%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// Package batchsql provides a unified batch database operation framework
+package batchsql
+
+import (
+        "context"
+        "fmt"
+        "time"
+)
+
+// MetricsReporter 监控报告接口
+type MetricsReporter interface {
+        ReportBatchExecution(ctx context.Context, metrics BatchMetrics)
+}
+
+// BatchMetrics 批量操作指标
+type BatchMetrics struct {
+        Driver    string        // 数据库驱动名称
+        Table     string        // 表名/集合名
+        BatchSize int           // 批量大小
+        Duration  time.Duration // 执行时长
+        Error     error         // 错误信息（如果有）
+        StartTime time.Time     // 开始时间
+}
+
+// Client 批量SQL客户端
+type Client struct {
+        reporter MetricsReporter // 可选的监控报告器
+}
+
+// NewClient 创建新的客户端
+func NewClient() *Client <span class="cov10" title="9">{
+        return &amp;Client{
+                reporter: nil, // 默认不启用监控
+        }
+}</span>
+
+// WithMetricsReporter 设置监控报告器
+func (c *Client) WithMetricsReporter(reporter MetricsReporter) *Client <span class="cov3" title="2">{
+        c.reporter = reporter
+        return c
+}</span>
+
+// ExecuteWithSchema 使用Schema执行批量操作
+func (c *Client) ExecuteWithSchema(ctx context.Context, schema SchemaInterface, data []map[string]interface{}) error <span class="cov7" title="5">{
+        if schema == nil </span><span class="cov1" title="1">{
+                return fmt.Errorf("schema cannot be nil")
+        }</span>
+
+        <span class="cov6" title="4">if len(data) == 0 </span><span class="cov1" title="1">{
+                return nil
+        }</span>
+
+        // 记录开始时间（用于监控）
+        <span class="cov5" title="3">startTime := time.Now()
+
+        // 验证Schema
+        if err := schema.Validate(); err != nil </span><span class="cov1" title="1">{
+                return fmt.Errorf("schema validation failed: %w", err)
+        }</span>
+
+        // 转换数据为请求
+        <span class="cov3" title="2">requests := make([]*Request, len(data))
+        for i, item := range data </span><span class="cov5" title="3">{
+                request := NewRequestFromInterface(schema)
+                for key, value := range item </span><span class="cov7" title="5">{
+                        request.Set(key, value)
+                }</span>
+                <span class="cov5" title="3">requests[i] = request</span>
+        }
+
+        // 生成批量命令
+        <span class="cov3" title="2">driver := schema.GetDatabaseDriver()
+        command, err := driver.GenerateBatchCommand(schema, requests)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to generate batch command: %w", err)
+        }</span>
+
+        // 执行操作
+        <span class="cov3" title="2">execErr := c.simulateExecution(ctx, driver.GetName(), command)
+
+        // 报告监控指标（如果启用了监控）
+        if c.reporter != nil </span><span class="cov1" title="1">{
+                metrics := BatchMetrics{
+                        Driver:    driver.GetName(),
+                        Table:     schema.GetIdentifier(),
+                        BatchSize: len(data),
+                        Duration:  time.Since(startTime),
+                        Error:     execErr,
+                        StartTime: startTime,
+                }
+                c.reporter.ReportBatchExecution(ctx, metrics)
+        }</span>
+
+        <span class="cov3" title="2">return execErr</span>
+}
+
+// simulateExecution 模拟执行命令
+func (c *Client) simulateExecution(ctx context.Context, driverName string, command BatchCommand) error <span class="cov3" title="2">{
+        // 在实际实现中，这里会连接真实的数据库并执行命令
+        // 现在只是模拟执行过程
+        return nil
+}</span>
+
+// CreateSchema 创建Schema的便捷方法
+func (c *Client) CreateSchema(identifier string, strategy ConflictStrategy, driver DatabaseDriver, columns ...string) SchemaInterface <span class="cov1" title="1">{
+        return NewSchema(identifier, strategy, driver, columns...)
+}</span>
+
+// Close 关闭客户端
+func (c *Client) Close() error <span class="cov1" title="1">{
+        // 清理资源
+        return nil
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package drivers
+
+import (
+        "fmt"
+
+        "github.com/rushairer/batchsql"
+)
+
+// MongoCommand MongoDB 命令实现
+type MongoCommand struct {
+        commandType string
+        operations  []interface{} // MongoDB 批量操作
+        metadata    map[string]interface{}
+}
+
+func (c *MongoCommand) GetCommandType() string <span class="cov0" title="0">{
+        return c.commandType
+}</span>
+
+func (c *MongoCommand) GetCommand() interface{} <span class="cov0" title="0">{
+        return c.operations
+}</span>
+
+func (c *MongoCommand) GetParameters() []interface{} <span class="cov0" title="0">{
+        return nil // MongoDB 操作参数已包含在 operations 中
+}</span>
+
+func (c *MongoCommand) GetMetadata() map[string]interface{} <span class="cov0" title="0">{
+        return c.metadata
+}</span>
+
+// MongoOperation MongoDB 操作结构
+type MongoOperation struct {
+        Type       string                 `json:"type"`       // insert, update, replace
+        Filter     map[string]interface{} `json:"filter"`     // 查询条件
+        Document   map[string]interface{} `json:"document"`   // 文档数据
+        Update     map[string]interface{} `json:"update"`     // 更新操作
+        Upsert     bool                   `json:"upsert"`     // 是否 upsert
+        Collection string                 `json:"collection"` // 集合名
+}
+
+// MongoDBDriver MongoDB 驱动
+type MongoDBDriver struct {
+        name string
+}
+
+func NewMongoDBDriver() *MongoDBDriver <span class="cov0" title="0">{
+        return &amp;MongoDBDriver{name: "mongodb"}
+}</span>
+
+func (d *MongoDBDriver) GetName() string <span class="cov0" title="0">{
+        return d.name
+}</span>
+
+func (d *MongoDBDriver) GenerateBatchCommand(schema batchsql.SchemaInterface, requests []*batchsql.Request) (batchsql.BatchCommand, error) <span class="cov0" title="0">{
+        if len(requests) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("empty requests")
+        }</span>
+
+        <span class="cov0" title="0">columns := schema.GetColumns()
+        if len(columns) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no columns defined")
+        }</span>
+
+        <span class="cov0" title="0">collection := schema.GetIdentifier()
+        operations := make([]interface{}, 0, len(requests))
+
+        for _, request := range requests </span><span class="cov0" title="0">{
+                values := request.GetOrderedValues()
+                if len(values) != len(columns) </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("column count mismatch")
+                }</span>
+
+                // 构建文档
+                <span class="cov0" title="0">document := make(map[string]interface{})
+                for i, col := range columns </span><span class="cov0" title="0">{
+                        document[col] = values[i]
+                }</span>
+
+                // 假设第一列是主键 (_id 或唯一标识)
+                <span class="cov0" title="0">filter := map[string]interface{}{
+                        columns[0]: values[0],
+                }
+
+                var operation *MongoOperation
+
+                switch schema.GetConflictStrategy() </span>{
+                case batchsql.ConflictIgnore:<span class="cov0" title="0">
+                        // 只在文档不存在时插入
+                        operation = &amp;MongoOperation{
+                                Type:       "insert",
+                                Document:   document,
+                                Collection: collection,
+                        }</span>
+                case batchsql.ConflictReplace:<span class="cov0" title="0">
+                        // 替换整个文档
+                        operation = &amp;MongoOperation{
+                                Type:       "replace",
+                                Filter:     filter,
+                                Document:   document,
+                                Upsert:     true,
+                                Collection: collection,
+                        }</span>
+                case batchsql.ConflictUpdate:<span class="cov0" title="0">
+                        // 更新文档
+                        updateDoc := make(map[string]interface{})
+                        for i := 1; i &lt; len(columns); i++ </span><span class="cov0" title="0">{ // 跳过主键
+                                updateDoc[columns[i]] = values[i]
+                        }</span>
+                        <span class="cov0" title="0">operation = &amp;MongoOperation{
+                                Type:   "update",
+                                Filter: filter,
+                                Update: map[string]interface{}{
+                                        "$set": updateDoc,
+                                },
+                                Upsert:     true,
+                                Collection: collection,
+                        }</span>
+                default:<span class="cov0" title="0">
+                        // 默认插入
+                        operation = &amp;MongoOperation{
+                                Type:       "insert",
+                                Document:   document,
+                                Collection: collection,
+                        }</span>
+                }
+
+                <span class="cov0" title="0">operations = append(operations, operation)</span>
+        }
+
+        <span class="cov0" title="0">return &amp;MongoCommand{
+                commandType: "MONGODB",
+                operations:  operations,
+                metadata: map[string]interface{}{
+                        "collection": collection,
+                        "batch_size": len(requests),
+                        "driver":     d.name,
+                },
+        }, nil</span>
+}
+
+func (d *MongoDBDriver) SupportedConflictStrategies() []batchsql.ConflictStrategy <span class="cov0" title="0">{
+        return []batchsql.ConflictStrategy{
+                batchsql.ConflictIgnore,
+                batchsql.ConflictReplace,
+                batchsql.ConflictUpdate,
+        }
+}</span>
+
+func (d *MongoDBDriver) ValidateSchema(schema batchsql.SchemaInterface) error <span class="cov0" title="0">{
+        if schema.GetIdentifier() == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("collection name cannot be empty")
+        }</span>
+        <span class="cov0" title="0">columns := schema.GetColumns()
+        if len(columns) == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("columns cannot be empty")
+        }</span>
+
+        <span class="cov0" title="0">supported := d.SupportedConflictStrategies()
+        strategy := schema.GetConflictStrategy()
+        for _, s := range supported </span><span class="cov0" title="0">{
+                if s == strategy </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+        }
+        <span class="cov0" title="0">return fmt.Errorf("unsupported conflict strategy: %v", strategy)</span>
+}
+
+// MongoTimeSeriesDriver MongoDB 时间序列集合驱动
+type MongoTimeSeriesDriver struct {
+        MongoDBDriver
+        timeField   string
+        metaField   string
+        granularity string
+}
+
+func NewMongoTimeSeriesDriver(timeField, metaField, granularity string) *MongoTimeSeriesDriver <span class="cov0" title="0">{
+        return &amp;MongoTimeSeriesDriver{
+                MongoDBDriver: MongoDBDriver{name: "mongodb-timeseries"},
+                timeField:     timeField,
+                metaField:     metaField,
+                granularity:   granularity,
+        }
+}</span>
+
+func (d *MongoTimeSeriesDriver) GenerateBatchCommand(schema batchsql.SchemaInterface, requests []*batchsql.Request) (batchsql.BatchCommand, error) <span class="cov0" title="0">{
+        if len(requests) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("empty requests")
+        }</span>
+
+        <span class="cov0" title="0">columns := schema.GetColumns()
+        collection := schema.GetIdentifier()
+        operations := make([]interface{}, 0, len(requests))
+
+        for _, request := range requests </span><span class="cov0" title="0">{
+                values := request.GetOrderedValues()
+                if len(values) != len(columns) </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("column count mismatch")
+                }</span>
+
+                // 构建时间序列文档
+                <span class="cov0" title="0">document := make(map[string]interface{})
+                for i, col := range columns </span><span class="cov0" title="0">{
+                        document[col] = values[i]
+                }</span>
+
+                // 时间序列集合通常只支持插入
+                <span class="cov0" title="0">operation := &amp;MongoOperation{
+                        Type:       "insert",
+                        Document:   document,
+                        Collection: collection,
+                }
+
+                operations = append(operations, operation)</span>
+        }
+
+        <span class="cov0" title="0">return &amp;MongoCommand{
+                commandType: "MONGODB",
+                operations:  operations,
+                metadata: map[string]interface{}{
+                        "collection":    collection,
+                        "batch_size":    len(requests),
+                        "driver":        d.name,
+                        "time_field":    d.timeField,
+                        "meta_field":    d.metaField,
+                        "granularity":   d.granularity,
+                        "is_timeseries": true,
+                },
+        }, nil</span>
+}
+
+func (d *MongoTimeSeriesDriver) SupportedConflictStrategies() []batchsql.ConflictStrategy <span class="cov0" title="0">{
+        // 时间序列集合通常只支持插入
+        return []batchsql.ConflictStrategy{
+                batchsql.ConflictIgnore,
+        }
+}</span>
+
+func (d *MongoTimeSeriesDriver) ValidateSchema(schema batchsql.SchemaInterface) error <span class="cov0" title="0">{
+        if err := d.MongoDBDriver.ValidateSchema(schema); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">columns := schema.GetColumns()
+
+        // 验证时间字段是否存在
+        timeFieldExists := false
+        for _, col := range columns </span><span class="cov0" title="0">{
+                if col == d.timeField </span><span class="cov0" title="0">{
+                        timeFieldExists = true
+                        break</span>
+                }
+        }
+        <span class="cov0" title="0">if !timeFieldExists </span><span class="cov0" title="0">{
+                return fmt.Errorf("time field '%s' not found in columns", d.timeField)
+        }</span>
+
+        // 验证元数据字段是否存在（如果指定了）
+        <span class="cov0" title="0">if d.metaField != "" </span><span class="cov0" title="0">{
+                metaFieldExists := false
+                for _, col := range columns </span><span class="cov0" title="0">{
+                        if col == d.metaField </span><span class="cov0" title="0">{
+                                metaFieldExists = true
+                                break</span>
+                        }
+                }
+                <span class="cov0" title="0">if !metaFieldExists </span><span class="cov0" title="0">{
+                        return fmt.Errorf("meta field '%s' not found in columns", d.metaField)
+                }</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package drivers
+
+import (
+        "fmt"
+
+        "github.com/rushairer/batchsql"
+)
+
+// RedisCommand Redis 命令实现
+type RedisCommand struct {
+        commandType string
+        commands    [][]interface{} // Redis 支持管道操作
+        metadata    map[string]interface{}
+}
+
+func (c *RedisCommand) GetCommandType() string <span class="cov0" title="0">{
+        return c.commandType
+}</span>
+
+func (c *RedisCommand) GetCommand() interface{} <span class="cov0" title="0">{
+        return c.commands
+}</span>
+
+func (c *RedisCommand) GetParameters() []interface{} <span class="cov0" title="0">{
+        // Redis 命令参数已经包含在 commands 中
+        return nil
+}</span>
+
+func (c *RedisCommand) GetMetadata() map[string]interface{} <span class="cov0" title="0">{
+        return c.metadata
+}</span>
+
+// RedisDriver Redis 驱动
+type RedisDriver struct {
+        name string
+}
+
+func NewRedisDriver() *RedisDriver <span class="cov0" title="0">{
+        return &amp;RedisDriver{name: "redis"}
+}</span>
+
+func (d *RedisDriver) GetName() string <span class="cov0" title="0">{
+        return d.name
+}</span>
+
+func (d *RedisDriver) GenerateBatchCommand(schema batchsql.SchemaInterface, requests []*batchsql.Request) (batchsql.BatchCommand, error) <span class="cov0" title="0">{
+        if len(requests) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("empty requests")
+        }</span>
+
+        <span class="cov0" title="0">columns := schema.GetColumns()
+        if len(columns) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no columns defined")
+        }</span>
+
+        <span class="cov0" title="0">keyPrefix := schema.GetIdentifier() // Redis 中用作键前缀
+        commands := make([][]interface{}, 0, len(requests))
+
+        for _, request := range requests </span><span class="cov0" title="0">{
+                values := request.GetOrderedValues()
+                if len(values) != len(columns) </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("column count mismatch")
+                }</span>
+
+                // 构建 Redis 键，假设第一列是主键
+                <span class="cov0" title="0">key := fmt.Sprintf("%s:%v", keyPrefix, values[0])
+
+                switch schema.GetConflictStrategy() </span>{
+                case batchsql.ConflictIgnore:<span class="cov0" title="0">
+                        // 使用 HSETNX (只在字段不存在时设置)
+                        for i := 1; i &lt; len(columns); i++ </span><span class="cov0" title="0">{
+                                cmd := []interface{}{"HSETNX", key, columns[i], values[i]}
+                                commands = append(commands, cmd)
+                        }</span>
+                case batchsql.ConflictReplace, batchsql.ConflictUpdate:<span class="cov0" title="0">
+                        // 使用 HSET (覆盖或更新)
+                        if len(columns) &gt; 1 </span><span class="cov0" title="0">{
+                                cmd := []interface{}{"HSET", key}
+                                for i := 1; i &lt; len(columns); i++ </span><span class="cov0" title="0">{
+                                        cmd = append(cmd, columns[i], values[i])
+                                }</span>
+                                <span class="cov0" title="0">commands = append(commands, cmd)</span>
+                        }
+                default:<span class="cov0" title="0">
+                        // 默认使用 HSET
+                        if len(columns) &gt; 1 </span><span class="cov0" title="0">{
+                                cmd := []interface{}{"HSET", key}
+                                for i := 1; i &lt; len(columns); i++ </span><span class="cov0" title="0">{
+                                        cmd = append(cmd, columns[i], values[i])
+                                }</span>
+                                <span class="cov0" title="0">commands = append(commands, cmd)</span>
+                        }
+                }
+        }
+
+        <span class="cov0" title="0">return &amp;RedisCommand{
+                commandType: "REDIS",
+                commands:    commands,
+                metadata: map[string]interface{}{
+                        "key_prefix": keyPrefix,
+                        "batch_size": len(requests),
+                        "driver":     d.name,
+                },
+        }, nil</span>
+}
+
+func (d *RedisDriver) SupportedConflictStrategies() []batchsql.ConflictStrategy <span class="cov0" title="0">{
+        return []batchsql.ConflictStrategy{
+                batchsql.ConflictIgnore,
+                batchsql.ConflictReplace,
+                batchsql.ConflictUpdate,
+        }
+}</span>
+
+func (d *RedisDriver) ValidateSchema(schema batchsql.SchemaInterface) error <span class="cov0" title="0">{
+        if schema.GetIdentifier() == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("key prefix cannot be empty")
+        }</span>
+        <span class="cov0" title="0">columns := schema.GetColumns()
+        if len(columns) == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("columns cannot be empty")
+        }</span>
+        <span class="cov0" title="0">if len(columns) &lt; 2 </span><span class="cov0" title="0">{
+                return fmt.Errorf("redis driver requires at least 2 columns (key + fields)")
+        }</span>
+
+        <span class="cov0" title="0">supported := d.SupportedConflictStrategies()
+        strategy := schema.GetConflictStrategy()
+        for _, s := range supported </span><span class="cov0" title="0">{
+                if s == strategy </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+        }
+        <span class="cov0" title="0">return fmt.Errorf("unsupported conflict strategy: %v", strategy)</span>
+}
+
+// RedisHashDriver Redis Hash 专用驱动
+type RedisHashDriver struct {
+        RedisDriver
+}
+
+func NewRedisHashDriver() *RedisHashDriver <span class="cov0" title="0">{
+        return &amp;RedisHashDriver{
+                RedisDriver: RedisDriver{name: "redis-hash"},
+        }
+}</span>
+
+// RedisSetDriver Redis Set 专用驱动
+type RedisSetDriver struct {
+        RedisDriver
+}
+
+func NewRedisSetDriver() *RedisSetDriver <span class="cov0" title="0">{
+        return &amp;RedisSetDriver{
+                RedisDriver: RedisDriver{name: "redis-set"},
+        }
+}</span>
+
+func (d *RedisSetDriver) GenerateBatchCommand(schema batchsql.SchemaInterface, requests []*batchsql.Request) (batchsql.BatchCommand, error) <span class="cov0" title="0">{
+        if len(requests) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("empty requests")
+        }</span>
+
+        <span class="cov0" title="0">columns := schema.GetColumns()
+        if len(columns) != 2 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("redis set driver requires exactly 2 columns (set_key, member)")
+        }</span>
+
+        <span class="cov0" title="0">commands := make([][]interface{}, 0, len(requests))
+
+        for _, request := range requests </span><span class="cov0" title="0">{
+                values := request.GetOrderedValues()
+                if len(values) != 2 </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("column count mismatch")
+                }</span>
+
+                <span class="cov0" title="0">setKey := fmt.Sprintf("%s:%v", schema.GetIdentifier(), values[0])
+                member := values[1]
+
+                switch schema.GetConflictStrategy() </span>{
+                case batchsql.ConflictIgnore:<span class="cov0" title="0">
+                        // Redis Set 天然去重，SADD 就是 ignore 模式
+                        cmd := []interface{}{"SADD", setKey, member}
+                        commands = append(commands, cmd)</span>
+                case batchsql.ConflictReplace, batchsql.ConflictUpdate:<span class="cov0" title="0">
+                        // 对于 Set，replace 和 update 都等同于 add
+                        cmd := []interface{}{"SADD", setKey, member}
+                        commands = append(commands, cmd)</span>
+                default:<span class="cov0" title="0">
+                        cmd := []interface{}{"SADD", setKey, member}
+                        commands = append(commands, cmd)</span>
+                }
+        }
+
+        <span class="cov0" title="0">return &amp;RedisCommand{
+                commandType: "REDIS",
+                commands:    commands,
+                metadata: map[string]interface{}{
+                        "key_prefix": schema.GetIdentifier(),
+                        "batch_size": len(requests),
+                        "driver":     d.name,
+                        "data_type":  "set",
+                },
+        }, nil</span>
+}
+
+func (d *RedisSetDriver) ValidateSchema(schema batchsql.SchemaInterface) error <span class="cov0" title="0">{
+        if schema.GetIdentifier() == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("key prefix cannot be empty")
+        }</span>
+        <span class="cov0" title="0">columns := schema.GetColumns()
+        if len(columns) != 2 </span><span class="cov0" title="0">{
+                return fmt.Errorf("redis set driver requires exactly 2 columns (set_key, member)")
+        }</span>
+
+        <span class="cov0" title="0">supported := d.SupportedConflictStrategies()
+        strategy := schema.GetConflictStrategy()
+        for _, s := range supported </span><span class="cov0" title="0">{
+                if s == strategy </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+        }
+        <span class="cov0" title="0">return fmt.Errorf("unsupported conflict strategy: %v", strategy)</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package drivers
+
+import (
+        "fmt"
+        "strings"
+
+        "github.com/rushairer/batchsql"
+)
+
+// SQLDriver SQL 数据库驱动基类
+type SQLDriver struct {
+        name string
+}
+
+// SQLCommand SQL 命令实现
+type SQLCommand struct {
+        commandType string
+        sql         string
+        parameters  []interface{}
+        metadata    map[string]interface{}
+}
+
+func (c *SQLCommand) GetCommandType() string <span class="cov0" title="0">{
+        return c.commandType
+}</span>
+
+func (c *SQLCommand) GetCommand() interface{} <span class="cov0" title="0">{
+        return c.sql
+}</span>
+
+func (c *SQLCommand) GetParameters() []interface{} <span class="cov0" title="0">{
+        return c.parameters
+}</span>
+
+func (c *SQLCommand) GetMetadata() map[string]interface{} <span class="cov0" title="0">{
+        return c.metadata
+}</span>
+
+// MySQLDriver MySQL 驱动
+type MySQLDriver struct {
+        SQLDriver
+}
+
+func NewMySQLDriver() *MySQLDriver <span class="cov0" title="0">{
+        return &amp;MySQLDriver{
+                SQLDriver: SQLDriver{name: "mysql"},
+        }
+}</span>
+
+func (d *MySQLDriver) GetName() string <span class="cov0" title="0">{
+        return d.name
+}</span>
+
+func (d *MySQLDriver) GenerateBatchCommand(schema batchsql.SchemaInterface, requests []*batchsql.Request) (batchsql.BatchCommand, error) <span class="cov0" title="0">{
+        if len(requests) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("empty requests")
+        }</span>
+
+        <span class="cov0" title="0">columns := schema.GetColumns()
+        if len(columns) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no columns defined")
+        }</span>
+
+        // 生成 SQL
+        <span class="cov0" title="0">columnsStr := strings.Join(columns, ", ")
+        placeholders := d.generatePlaceholders(len(columns), len(requests))
+
+        var sql string
+        switch schema.GetConflictStrategy() </span>{
+        case batchsql.ConflictIgnore:<span class="cov0" title="0">
+                sql = fmt.Sprintf("INSERT IGNORE INTO %s (%s) VALUES %s", schema.GetIdentifier(), columnsStr, placeholders)</span>
+        case batchsql.ConflictReplace:<span class="cov0" title="0">
+                sql = fmt.Sprintf("REPLACE INTO %s (%s) VALUES %s", schema.GetIdentifier(), columnsStr, placeholders)</span>
+        case batchsql.ConflictUpdate:<span class="cov0" title="0">
+                baseSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", schema.GetIdentifier(), columnsStr, placeholders)
+                updatePairs := make([]string, len(columns))
+                for i, col := range columns </span><span class="cov0" title="0">{
+                        updatePairs[i] = fmt.Sprintf("%s = VALUES(%s)", col, col)
+                }</span>
+                <span class="cov0" title="0">sql = fmt.Sprintf("%s ON DUPLICATE KEY UPDATE %s", baseSQL, strings.Join(updatePairs, ", "))</span>
+        default:<span class="cov0" title="0">
+                sql = fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", schema.GetIdentifier(), columnsStr, placeholders)</span>
+        }
+
+        // 准备参数
+        <span class="cov0" title="0">parameters := make([]interface{}, 0, len(requests)*len(columns))
+        for _, request := range requests </span><span class="cov0" title="0">{
+                values := request.GetOrderedValues()
+                parameters = append(parameters, values...)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;SQLCommand{
+                commandType: "SQL",
+                sql:         sql,
+                parameters:  parameters,
+                metadata: map[string]interface{}{
+                        "table":      schema.GetIdentifier(),
+                        "batch_size": len(requests),
+                        "driver":     d.name,
+                },
+        }, nil</span>
+}
+
+func (d *MySQLDriver) SupportedConflictStrategies() []batchsql.ConflictStrategy <span class="cov0" title="0">{
+        return []batchsql.ConflictStrategy{
+                batchsql.ConflictIgnore,
+                batchsql.ConflictReplace,
+                batchsql.ConflictUpdate,
+        }
+}</span>
+
+func (d *MySQLDriver) ValidateSchema(schema batchsql.SchemaInterface) error <span class="cov0" title="0">{
+        if schema.GetIdentifier() == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("table name cannot be empty")
+        }</span>
+        <span class="cov0" title="0">if len(schema.GetColumns()) == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("columns cannot be empty")
+        }</span>
+
+        // 验证冲突策略是否支持
+        <span class="cov0" title="0">supported := d.SupportedConflictStrategies()
+        strategy := schema.GetConflictStrategy()
+        for _, s := range supported </span><span class="cov0" title="0">{
+                if s == strategy </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+        }
+        <span class="cov0" title="0">return fmt.Errorf("unsupported conflict strategy: %v", strategy)</span>
+}
+
+func (d *MySQLDriver) generatePlaceholders(columnCount, batchSize int) string <span class="cov0" title="0">{
+        singleRow := "(" + strings.Repeat("?, ", columnCount-1) + "?)"
+        rows := make([]string, batchSize)
+        for i := range rows </span><span class="cov0" title="0">{
+                rows[i] = singleRow
+        }</span>
+        <span class="cov0" title="0">return strings.Join(rows, ", ")</span>
+}
+
+// PostgreSQLDriver PostgreSQL 驱动
+type PostgreSQLDriver struct {
+        SQLDriver
+}
+
+func NewPostgreSQLDriver() *PostgreSQLDriver <span class="cov0" title="0">{
+        return &amp;PostgreSQLDriver{
+                SQLDriver: SQLDriver{name: "postgresql"},
+        }
+}</span>
+
+func (d *PostgreSQLDriver) GetName() string <span class="cov0" title="0">{
+        return d.name
+}</span>
+
+func (d *PostgreSQLDriver) GenerateBatchCommand(schema batchsql.SchemaInterface, requests []*batchsql.Request) (batchsql.BatchCommand, error) <span class="cov0" title="0">{
+        if len(requests) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("empty requests")
+        }</span>
+
+        <span class="cov0" title="0">columns := schema.GetColumns()
+        if len(columns) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("no columns defined")
+        }</span>
+
+        <span class="cov0" title="0">columnsStr := strings.Join(columns, ", ")
+        placeholders := d.generatePlaceholders(len(columns), len(requests))
+        baseSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", schema.GetIdentifier(), columnsStr, placeholders)
+
+        var sql string
+        switch schema.GetConflictStrategy() </span>{
+        case batchsql.ConflictIgnore:<span class="cov0" title="0">
+                sql = fmt.Sprintf("%s ON CONFLICT DO NOTHING", baseSQL)</span>
+        case batchsql.ConflictReplace, batchsql.ConflictUpdate:<span class="cov0" title="0">
+                updatePairs := make([]string, len(columns))
+                for i, col := range columns </span><span class="cov0" title="0">{
+                        updatePairs[i] = fmt.Sprintf("%s = EXCLUDED.%s", col, col)
+                }</span>
+                // 假设第一列是主键
+                <span class="cov0" title="0">sql = fmt.Sprintf("%s ON CONFLICT (%s) DO UPDATE SET %s", baseSQL, columns[0], strings.Join(updatePairs, ", "))</span>
+        default:<span class="cov0" title="0">
+                sql = baseSQL</span>
+        }
+
+        <span class="cov0" title="0">parameters := make([]interface{}, 0, len(requests)*len(columns))
+        for _, request := range requests </span><span class="cov0" title="0">{
+                values := request.GetOrderedValues()
+                parameters = append(parameters, values...)
+        }</span>
+
+        <span class="cov0" title="0">return &amp;SQLCommand{
+                commandType: "SQL",
+                sql:         sql,
+                parameters:  parameters,
+                metadata: map[string]interface{}{
+                        "table":      schema.GetIdentifier(),
+                        "batch_size": len(requests),
+                        "driver":     d.name,
+                },
+        }, nil</span>
+}
+
+func (d *PostgreSQLDriver) SupportedConflictStrategies() []batchsql.ConflictStrategy <span class="cov0" title="0">{
+        return []batchsql.ConflictStrategy{
+                batchsql.ConflictIgnore,
+                batchsql.ConflictUpdate,
+        }
+}</span>
+
+func (d *PostgreSQLDriver) ValidateSchema(schema batchsql.SchemaInterface) error <span class="cov0" title="0">{
+        if schema.GetIdentifier() == "" </span><span class="cov0" title="0">{
+                return fmt.Errorf("table name cannot be empty")
+        }</span>
+        <span class="cov0" title="0">if len(schema.GetColumns()) == 0 </span><span class="cov0" title="0">{
+                return fmt.Errorf("columns cannot be empty")
+        }</span>
+
+        <span class="cov0" title="0">supported := d.SupportedConflictStrategies()
+        strategy := schema.GetConflictStrategy()
+        for _, s := range supported </span><span class="cov0" title="0">{
+                if s == strategy </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+        }
+        <span class="cov0" title="0">return fmt.Errorf("unsupported conflict strategy: %v", strategy)</span>
+}
+
+func (d *PostgreSQLDriver) generatePlaceholders(columnCount, batchSize int) string <span class="cov0" title="0">{
+        singleRow := "(" + strings.Repeat("?, ", columnCount-1) + "?)"
+        rows := make([]string, batchSize)
+        for i := range rows </span><span class="cov0" title="0">{
+                rows[i] = singleRow
+        }</span>
+        <span class="cov0" title="0">return strings.Join(rows, ", ")</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">// Package main demonstrates Prometheus integration with BatchSQL
+// This is a separate example that requires prometheus dependencies
+// Run: go mod tidy &amp;&amp; go run examples/prometheus_example.go
+package main
+
+import (
+        "context"
+        "log"
+        "time"
+
+        // Note: These imports require adding prometheus dependencies to go.mod
+        // "github.com/prometheus/client_golang/prometheus"
+        // "github.com/prometheus/client_golang/prometheus/promauto"
+
+        "github.com/rushairer/batchsql"
+        "github.com/rushairer/batchsql/drivers"
+)
+
+// MockPrometheusHistogramVec 模拟Prometheus HistogramVec
+type MockPrometheusHistogramVec struct{}
+
+func (m *MockPrometheusHistogramVec) WithLabelValues(labels ...string) MockPrometheusHistogram <span class="cov0" title="0">{
+        return MockPrometheusHistogram{}
+}</span>
+
+type MockPrometheusHistogram struct{}
+
+func (m MockPrometheusHistogram) Observe(value float64) <span class="cov0" title="0">{
+        log.Printf("Prometheus Histogram - Labels: %v, Value: %f", "mock", value)
+}</span>
+
+// MockPrometheusCounterVec 模拟Prometheus CounterVec
+type MockPrometheusCounterVec struct{}
+
+func (m *MockPrometheusCounterVec) WithLabelValues(labels ...string) MockPrometheusCounter <span class="cov0" title="0">{
+        return MockPrometheusCounter{}
+}</span>
+
+type MockPrometheusCounter struct{}
+
+func (m MockPrometheusCounter) Inc() <span class="cov0" title="0">{
+        log.Printf("Prometheus Counter - Increment")
+}</span>
+
+// PrometheusReporter Prometheus监控报告器（使用模拟实现）
+type PrometheusReporter struct {
+        duration *MockPrometheusHistogramVec
+        total    *MockPrometheusCounterVec
+        errors   *MockPrometheusCounterVec
+}
+
+// NewPrometheusReporter 创建Prometheus监控报告器
+func NewPrometheusReporter() *PrometheusReporter <span class="cov0" title="0">{
+        log.Println("创建Prometheus监控报告器（模拟实现）")
+        return &amp;PrometheusReporter{
+                duration: &amp;MockPrometheusHistogramVec{},
+                total:    &amp;MockPrometheusCounterVec{},
+                errors:   &amp;MockPrometheusCounterVec{},
+        }
+}</span>
+
+// ReportBatchExecution 实现MetricsReporter接口
+func (p *PrometheusReporter) ReportBatchExecution(ctx context.Context, metrics batchsql.BatchMetrics) <span class="cov0" title="0">{
+        // 记录执行时长
+        p.duration.WithLabelValues(metrics.Driver, metrics.Table).Observe(metrics.Duration.Seconds())
+
+        // 记录执行状态
+        status := "success"
+        if metrics.Error != nil </span><span class="cov0" title="0">{
+                status = "error"
+                // 记录错误类型
+                errorType := "unknown"
+                if metrics.Error != nil </span><span class="cov0" title="0">{
+                        errorType = "execution_error"
+                }</span>
+                <span class="cov0" title="0">p.errors.WithLabelValues(metrics.Driver, metrics.Table, errorType).Inc()</span>
+        }
+
+        <span class="cov0" title="0">p.total.WithLabelValues(metrics.Driver, metrics.Table, status).Inc()</span>
+}
+
+func prometheusMain() <span class="cov0" title="0">{
+        log.Println("=== BatchSQL Prometheus集成示例 ===")
+
+        // 创建Prometheus监控报告器
+        prometheusReporter := NewPrometheusReporter()
+
+        // 创建带监控的BatchSQL客户端
+        client := batchsql.NewClient().WithMetricsReporter(prometheusReporter)
+
+        // 创建不同的数据库驱动和Schema
+        mysqlDriver := drivers.NewMySQLDriver()
+        redisDriver := drivers.NewRedisDriver()
+
+        userSchema := client.CreateSchema("users", batchsql.ConflictUpdate, mysqlDriver, "id", "name", "email")
+        sessionSchema := client.CreateSchema("sessions", batchsql.ConflictReplace, redisDriver, "user_id", "token")
+
+        ctx := context.Background()
+
+        // 执行多个批量操作
+        operations := []struct {
+                name   string
+                schema batchsql.SchemaInterface
+                data   []map[string]interface{}
+        }{
+                {
+                        name:   "用户数据",
+                        schema: userSchema,
+                        data: []map[string]interface{}{
+                                {"id": 1, "name": "Alice", "email": "alice@example.com"},
+                                {"id": 2, "name": "Bob", "email": "bob@example.com"},
+                        },
+                },
+                {
+                        name:   "会话数据",
+                        schema: sessionSchema,
+                        data: []map[string]interface{}{
+                                {"user_id": "user_1", "token": "token_abc123"},
+                                {"user_id": "user_2", "token": "token_def456"},
+                        },
+                },
+        }
+
+        for _, op := range operations </span><span class="cov0" title="0">{
+                log.Printf("\n执行 %s 批量操作...", op.name)
+
+                start := time.Now()
+                err := client.ExecuteWithSchema(ctx, op.schema, op.data)
+                duration := time.Since(start)
+
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("❌ %s 执行失败: %v", op.name, err)
+                }</span> else<span class="cov0" title="0"> {
+                        log.Printf("✅ %s 执行成功，耗时: %v", op.name, duration)
+                }</span>
+        }
+
+        <span class="cov0" title="0">log.Println("\n=== Prometheus指标已记录 ===")
+        log.Println("可以通过以下指标查看监控数据:")
+        log.Println("- batchsql_execution_duration_seconds: 执行时长")
+        log.Println("- batchsql_executions_total: 执行总数")
+        log.Println("- batchsql_errors_total: 错误总数")
+
+        log.Println("\n示例Prometheus查询:")
+        log.Println("- rate(batchsql_executions_total[5m]): 每秒执行率")
+        log.Println("- histogram_quantile(0.95, batchsql_execution_duration_seconds): 95%分位数延迟")
+        log.Println("- batchsql_errors_total / batchsql_executions_total: 错误率")</span>
+}
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package main
+
+import (
+        "context"
+        "log"
+        "time"
+
+        "github.com/rushairer/batchsql"
+        "github.com/rushairer/batchsql/drivers"
+)
+
+func main() <span class="cov0" title="0">{
+        log.Println("=== BatchSQL 简化演示 ===")
+
+        // 创建客户端
+        client := batchsql.NewClient()
+        defer client.Close()
+
+        ctx := context.Background()
+
+        // 演示核心功能
+        demonstrateCore(ctx, client)
+
+        // 演示多数据库支持
+        demonstrateMultiDatabase(ctx, client)
+
+        // 演示监控功能
+        demonstrateMonitoring(client)
+
+        log.Println("\n=== 演示完成 ===")
+        log.Println("✅ 统一架构基于接口设计")
+        log.Println("✅ 支持多种数据库类型")
+        log.Println("✅ 内置监控和健康检查")
+        log.Println("✅ 高度可扩展的设计")
+}</span>
+
+func demonstrateCore(ctx context.Context, client *batchsql.Client) <span class="cov0" title="0">{
+        log.Println("\n--- 核心功能演示 ---")
+
+        // 创建驱动
+        mysqlDriver := drivers.NewMySQLDriver()
+        log.Printf("MySQL驱动: %s", mysqlDriver.GetName())
+        log.Printf("  支持的冲突策略: %v", mysqlDriver.SupportedConflictStrategies())
+
+        // 创建Schema
+        userSchema := client.CreateSchema(
+                "users",
+                batchsql.ConflictUpdate,
+                mysqlDriver,
+                "id", "name", "email", "created_at",
+        )
+
+        // 验证Schema
+        if err := userSchema.Validate(); err != nil </span><span class="cov0" title="0">{
+                log.Printf("Schema验证失败: %v", err)
+        }</span> else<span class="cov0" title="0"> {
+                log.Printf("✅ Schema验证通过: %s", userSchema.GetIdentifier())
+        }</span>
+
+        // 准备数据
+        <span class="cov0" title="0">userData := []map[string]interface{}{
+                {
+                        "id":         1,
+                        "name":       "Alice",
+                        "email":      "alice@example.com",
+                        "created_at": time.Now(),
+                },
+                {
+                        "id":         2,
+                        "name":       "Bob",
+                        "email":      "bob@example.com",
+                        "created_at": time.Now(),
+                },
+        }
+
+        // 执行批量操作
+        if err := client.ExecuteWithSchema(ctx, userSchema, userData); err != nil </span><span class="cov0" title="0">{
+                log.Printf("执行失败: %v", err)
+        }</span> else<span class="cov0" title="0"> {
+                log.Printf("✅ 批量操作执行成功，处理了 %d 条记录", len(userData))
+        }</span>
+}
+
+func demonstrateMultiDatabase(ctx context.Context, client *batchsql.Client) <span class="cov0" title="0">{
+        log.Println("\n--- 多数据库支持演示 ---")
+
+        databases := []struct {
+                name       string
+                driver     batchsql.DatabaseDriver
+                identifier string
+                strategy   batchsql.ConflictStrategy
+                columns    []string
+        }{
+                {
+                        name:       "MySQL",
+                        driver:     drivers.NewMySQLDriver(),
+                        identifier: "users",
+                        strategy:   batchsql.ConflictUpdate,
+                        columns:    []string{"id", "name", "email"},
+                },
+                {
+                        name:       "PostgreSQL",
+                        driver:     drivers.NewPostgreSQLDriver(),
+                        identifier: "products",
+                        strategy:   batchsql.ConflictIgnore,
+                        columns:    []string{"id", "name", "price"},
+                },
+                {
+                        name:       "Redis",
+                        driver:     drivers.NewRedisDriver(),
+                        identifier: "sessions",
+                        strategy:   batchsql.ConflictReplace,
+                        columns:    []string{"user_id", "token"},
+                },
+                {
+                        name:       "MongoDB",
+                        driver:     drivers.NewMongoDBDriver(),
+                        identifier: "logs",
+                        strategy:   batchsql.ConflictUpdate,
+                        columns:    []string{"_id", "timestamp", "message"},
+                },
+        }
+
+        for _, db := range databases </span><span class="cov0" title="0">{
+                log.Printf("\n%s 数据库:", db.name)
+
+                // 创建Schema
+                schema := client.CreateSchema(db.identifier, db.strategy, db.driver, db.columns...)
+
+                // 验证Schema
+                if err := schema.Validate(); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("  ❌ Schema验证失败: %v", err)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">log.Printf("  ✅ Schema: %s", schema.GetIdentifier())
+                log.Printf("  ✅ 冲突策略: %v", schema.GetConflictStrategy())
+                log.Printf("  ✅ 列: %v", schema.GetColumns())
+
+                // 生成示例命令
+                request := batchsql.NewRequestFromInterface(schema)
+                for i, col := range db.columns </span><span class="cov0" title="0">{
+                        request.Set(col, "value_"+string(rune('A'+i)))
+                }</span>
+
+                <span class="cov0" title="0">command, err := db.driver.GenerateBatchCommand(schema, []*batchsql.Request{request})
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("  ❌ 命令生成失败: %v", err)
+                        continue</span>
+                }
+
+                <span class="cov0" title="0">log.Printf("  ✅ 命令类型: %s", command.GetCommandType())
+                log.Printf("  ✅ 参数数量: %d", len(command.GetParameters()))
+
+                // 执行操作
+                data := []map[string]interface{}{
+                        {
+                                db.columns[0]: "test_value",
+                        },
+                }
+
+                if err := client.ExecuteWithSchema(ctx, schema, data); err != nil </span><span class="cov0" title="0">{
+                        log.Printf("  ❌ 执行失败: %v", err)
+                }</span> else<span class="cov0" title="0"> {
+                        log.Printf("  ✅ 执行成功")
+                }</span>
+        }
+}
+
+func demonstrateMonitoring(client *batchsql.Client) <span class="cov0" title="0">{
+        log.Println("\n--- 监控功能演示 ---")
+
+        // 创建一个简单的监控报告器
+        reporter := &amp;SimpleMetricsReporter{}
+
+        // 设置监控报告器
+        clientWithMetrics := client.WithMetricsReporter(reporter)
+
+        // 执行一些操作来触发监控
+        mysqlDriver := drivers.NewMySQLDriver()
+        schema := clientWithMetrics.CreateSchema("test_table", batchsql.ConflictUpdate, mysqlDriver, "id", "name")
+
+        testData := []map[string]interface{}{
+                {"id": 1, "name": "Test User"},
+        }
+
+        ctx := context.Background()
+        err := clientWithMetrics.ExecuteWithSchema(ctx, schema, testData)
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("执行失败: %v", err)
+        }</span>
+
+        // 显示收集到的监控数据
+        <span class="cov0" title="0">log.Println("监控数据:")
+        for _, metric := range reporter.GetMetrics() </span><span class="cov0" title="0">{
+                log.Printf("  驱动: %s, 表: %s, 批量大小: %d, 耗时: %v",
+                        metric.Driver, metric.Table, metric.BatchSize, metric.Duration)
+        }</span>
+}
+
+// SimpleMetricsReporter 简单的监控报告器示例
+type SimpleMetricsReporter struct {
+        metrics []batchsql.BatchMetrics
+}
+
+func (r *SimpleMetricsReporter) ReportBatchExecution(ctx context.Context, metrics batchsql.BatchMetrics) <span class="cov0" title="0">{
+        r.metrics = append(r.metrics, metrics)
+}</span>
+
+func (r *SimpleMetricsReporter) GetMetrics() []batchsql.BatchMetrics <span class="cov0" title="0">{
+        return r.metrics
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package batchsql
+
+import (
+        "fmt"
+        "reflect"
+)
+
+// Request represents a single database operation request
+type Request struct {
+        schema SchemaInterface
+        data   map[string]interface{}
+}
+
+// NewRequest creates a new request with the given schema
+func NewRequest(schema SchemaInterface) *Request <span class="cov7" title="3">{
+        return &amp;Request{
+                schema: schema,
+                data:   make(map[string]interface{}),
+        }
+}</span>
+
+// NewRequestFromInterface creates a new request from a schema interface
+func NewRequestFromInterface(schema SchemaInterface) *Request <span class="cov7" title="3">{
+        return NewRequest(schema)
+}</span>
+
+// Set sets a value for the given key
+func (r *Request) Set(key string, value interface{}) <span class="cov10" title="5">{
+        r.data[key] = value
+}</span>
+
+// Get gets a value for the given key
+func (r *Request) Get(key string) (interface{}, bool) <span class="cov0" title="0">{
+        value, exists := r.data[key]
+        return value, exists
+}</span>
+
+// GetString gets a string value for the given key
+func (r *Request) GetString(key string) string <span class="cov0" title="0">{
+        if value, exists := r.data[key]; exists </span><span class="cov0" title="0">{
+                if str, ok := value.(string); ok </span><span class="cov0" title="0">{
+                        return str
+                }</span>
+                <span class="cov0" title="0">return fmt.Sprintf("%v", value)</span>
+        }
+        <span class="cov0" title="0">return ""</span>
+}
+
+// GetInt gets an int value for the given key
+func (r *Request) GetInt(key string) int <span class="cov0" title="0">{
+        if value, exists := r.data[key]; exists </span><span class="cov0" title="0">{
+                switch v := value.(type) </span>{
+                case int:<span class="cov0" title="0">
+                        return v</span>
+                case int64:<span class="cov0" title="0">
+                        return int(v)</span>
+                case float64:<span class="cov0" title="0">
+                        return int(v)</span>
+                }
+        }
+        <span class="cov0" title="0">return 0</span>
+}
+
+// GetInt64 gets an int64 value for the given key
+func (r *Request) GetInt64(key string) int64 <span class="cov0" title="0">{
+        if value, exists := r.data[key]; exists </span><span class="cov0" title="0">{
+                switch v := value.(type) </span>{
+                case int64:<span class="cov0" title="0">
+                        return v</span>
+                case int:<span class="cov0" title="0">
+                        return int64(v)</span>
+                case float64:<span class="cov0" title="0">
+                        return int64(v)</span>
+                }
+        }
+        <span class="cov0" title="0">return 0</span>
+}
+
+// GetFloat64 gets a float64 value for the given key
+func (r *Request) GetFloat64(key string) float64 <span class="cov0" title="0">{
+        if value, exists := r.data[key]; exists </span><span class="cov0" title="0">{
+                switch v := value.(type) </span>{
+                case float64:<span class="cov0" title="0">
+                        return v</span>
+                case float32:<span class="cov0" title="0">
+                        return float64(v)</span>
+                case int:<span class="cov0" title="0">
+                        return float64(v)</span>
+                case int64:<span class="cov0" title="0">
+                        return float64(v)</span>
+                }
+        }
+        <span class="cov0" title="0">return 0.0</span>
+}
+
+// GetBool gets a bool value for the given key
+func (r *Request) GetBool(key string) bool <span class="cov0" title="0">{
+        if value, exists := r.data[key]; exists </span><span class="cov0" title="0">{
+                if b, ok := value.(bool); ok </span><span class="cov0" title="0">{
+                        return b
+                }</span>
+        }
+        <span class="cov0" title="0">return false</span>
+}
+
+// GetData returns all data as a map
+func (r *Request) GetData() map[string]interface{} <span class="cov0" title="0">{
+        result := make(map[string]interface{})
+        for k, v := range r.data </span><span class="cov0" title="0">{
+                result[k] = v
+        }</span>
+        <span class="cov0" title="0">return result</span>
+}
+
+// GetOrderedValues returns values in the order of schema columns
+func (r *Request) GetOrderedValues() []interface{} <span class="cov0" title="0">{
+        columns := r.schema.GetColumns()
+        values := make([]interface{}, len(columns))
+
+        for i, column := range columns </span><span class="cov0" title="0">{
+                if value, exists := r.data[column]; exists </span><span class="cov0" title="0">{
+                        values[i] = value
+                }</span> else<span class="cov0" title="0"> {
+                        values[i] = nil
+                }</span>
+        }
+
+        <span class="cov0" title="0">return values</span>
+}
+
+// Schema returns the associated schema
+func (r *Request) Schema() SchemaInterface <span class="cov0" title="0">{
+        return r.schema
+}</span>
+
+// Validate validates the request against its schema
+func (r *Request) Validate() error <span class="cov0" title="0">{
+        if r.schema == nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("request has no associated schema")
+        }</span>
+
+        // Validate schema first
+        <span class="cov0" title="0">if err := r.schema.Validate(); err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("schema validation failed: %w", err)
+        }</span>
+
+        // Check required columns
+        <span class="cov0" title="0">columns := r.schema.GetColumns()
+        for _, column := range columns </span><span class="cov0" title="0">{
+                if _, exists := r.data[column]; !exists </span>{<span class="cov0" title="0">
+                        // For now, we don't enforce required fields
+                        // In a real implementation, you might have required field metadata
+                }</span>
+        }
+
+        <span class="cov0" title="0">return nil</span>
+}
+
+// Clone creates a copy of the request
+func (r *Request) Clone() *Request <span class="cov0" title="0">{
+        clone := &amp;Request{
+                schema: r.schema,
+                data:   make(map[string]interface{}),
+        }
+
+        for k, v := range r.data </span><span class="cov0" title="0">{
+                clone.data[k] = cloneValue(v)
+        }</span>
+
+        <span class="cov0" title="0">return clone</span>
+}
+
+// cloneValue creates a deep copy of a value
+func cloneValue(value interface{}) interface{} <span class="cov0" title="0">{
+        if value == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+
+        <span class="cov0" title="0">v := reflect.ValueOf(value)
+        switch v.Kind() </span>{
+        case reflect.Slice:<span class="cov0" title="0">
+                slice := make([]interface{}, v.Len())
+                for i := 0; i &lt; v.Len(); i++ </span><span class="cov0" title="0">{
+                        slice[i] = cloneValue(v.Index(i).Interface())
+                }</span>
+                <span class="cov0" title="0">return slice</span>
+        case reflect.Map:<span class="cov0" title="0">
+                m := make(map[string]interface{})
+                for _, key := range v.MapKeys() </span><span class="cov0" title="0">{
+                        m[key.String()] = cloneValue(v.MapIndex(key).Interface())
+                }</span>
+                <span class="cov0" title="0">return m</span>
+        default:<span class="cov0" title="0">
+                return value</span>
+        }
+}
+
+// String returns a string representation of the request
+func (r *Request) String() string <span class="cov0" title="0">{
+        return fmt.Sprintf("Request{schema: %s, data: %+v}", r.schema.GetIdentifier(), r.data)
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package batchsql
+
+import "fmt"
+
+// Schema 数据结构定义
+type Schema struct {
+        identifier       string
+        conflictStrategy ConflictStrategy
+        columns          []string
+        driver           DatabaseDriver
+        metadata         map[string]interface{}
+}
+
+// NewSchema 创建 Schema
+func NewSchema(
+        identifier string,
+        conflictStrategy ConflictStrategy,
+        driver DatabaseDriver,
+        columns ...string,
+) *Schema <span class="cov10" title="15">{
+        return &amp;Schema{
+                identifier:       identifier,
+                conflictStrategy: conflictStrategy,
+                columns:          columns,
+                driver:           driver,
+                metadata:         make(map[string]interface{}),
+        }
+}</span>
+
+// GetIdentifier 获取标识符（表名/集合名/键前缀等）
+func (s *Schema) GetIdentifier() string <span class="cov8" title="9">{
+        return s.identifier
+}</span>
+
+// GetConflictStrategy 获取冲突策略
+func (s *Schema) GetConflictStrategy() ConflictStrategy <span class="cov6" title="5">{
+        return s.conflictStrategy
+}</span>
+
+// GetColumns 获取列名
+func (s *Schema) GetColumns() []string <span class="cov6" title="5">{
+        return s.columns
+}</span>
+
+// GetDatabaseDriver 获取数据库驱动
+func (s *Schema) GetDatabaseDriver() DatabaseDriver <span class="cov6" title="5">{
+        return s.driver
+}</span>
+
+// SetMetadata 设置元数据
+func (s *Schema) SetMetadata(key string, value interface{}) <span class="cov5" title="4">{
+        s.metadata[key] = value
+}</span>
+
+// GetMetadata 获取元数据
+func (s *Schema) GetMetadata(key string) (interface{}, bool) <span class="cov6" title="5">{
+        value, exists := s.metadata[key]
+        return value, exists
+}</span>
+
+// GetAllMetadata 获取所有元数据
+func (s *Schema) GetAllMetadata() map[string]interface{} <span class="cov1" title="1">{
+        return s.metadata
+}</span>
+
+// Validate 验证 Schema
+func (s *Schema) Validate() error <span class="cov7" title="7">{
+        if s.identifier == "" </span><span class="cov1" title="1">{
+                return fmt.Errorf("identifier cannot be empty")
+        }</span>
+        <span class="cov6" title="6">if len(s.columns) == 0 </span><span class="cov1" title="1">{
+                return fmt.Errorf("columns cannot be empty")
+        }</span>
+        <span class="cov6" title="5">if s.driver == nil </span><span class="cov1" title="1">{
+                return fmt.Errorf("database driver cannot be nil")
+        }</span>
+
+        // 使用驱动验证
+        <span class="cov5" title="4">return s.driver.ValidateSchema(s)</span>
+}
+
+// Clone 克隆 Schema
+func (s *Schema) Clone() SchemaInterface <span class="cov1" title="1">{
+        newSchema := &amp;Schema{
+                identifier:       s.identifier,
+                conflictStrategy: s.conflictStrategy,
+                columns:          make([]string, len(s.columns)),
+                driver:           s.driver,
+                metadata:         make(map[string]interface{}),
+        }
+
+        copy(newSchema.columns, s.columns)
+        for k, v := range s.metadata </span><span class="cov1" title="1">{
+                newSchema.metadata[k] = v
+        }</span>
+
+        <span class="cov1" title="1">return newSchema</span>
+}
+
+// WithConflictStrategy 设置冲突策略（链式调用）
+func (s *Schema) WithConflictStrategy(strategy ConflictStrategy) *Schema <span class="cov1" title="1">{
+        s.conflictStrategy = strategy
+        return s
+}</span>
+
+// WithColumns 设置列名（链式调用）
+func (s *Schema) WithColumns(columns ...string) *Schema <span class="cov1" title="1">{
+        s.columns = columns
+        return s
+}</span>
+
+// WithMetadata 设置元数据（链式调用）
+func (s *Schema) WithMetadata(key string, value interface{}) *Schema <span class="cov1" title="1">{
+        s.SetMetadata(key, value)
+        return s
+}</span>
+
+// AddColumn 添加列
+func (s *Schema) AddColumn(column string) *Schema <span class="cov1" title="1">{
+        s.columns = append(s.columns, column)
+        return s
+}</span>
+
+// RemoveColumn 移除列
+func (s *Schema) RemoveColumn(column string) *Schema <span class="cov1" title="1">{
+        for i, col := range s.columns </span><span class="cov3" title="2">{
+                if col == column </span><span class="cov1" title="1">{
+                        s.columns = append(s.columns[:i], s.columns[i+1:]...)
+                        break</span>
+                }
+        }
+        <span class="cov1" title="1">return s</span>
+}
+
+// HasColumn 检查是否包含指定列
+func (s *Schema) HasColumn(column string) bool <span class="cov4" title="3">{
+        for _, col := range s.columns </span><span class="cov7" title="7">{
+                if col == column </span><span class="cov1" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov3" title="2">return false</span>
+}
+
+// GetColumnIndex 获取列的索引
+func (s *Schema) GetColumnIndex(column string) int <span class="cov3" title="2">{
+        for i, col := range s.columns </span><span class="cov5" title="4">{
+                if col == column </span><span class="cov1" title="1">{
+                        return i
+                }</span>
+        }
+        <span class="cov1" title="1">return -1</span>
+}
+
+// String 字符串表示
+func (s *Schema) String() string <span class="cov1" title="1">{
+        return fmt.Sprintf("Schema{driver=%s, identifier=%s, strategy=%v, columns=%v}",
+                s.driver.GetName(), s.identifier, s.conflictStrategy, s.columns)
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package main
+
+import (
+        "context"
+        "flag"
+        "fmt"
+        "log"
+        "runtime"
+        "sync"
+        "time"
+
+        "github.com/rushairer/batchsql"
+)
+
+// StressTestConfig 压力测试配置
+type StressTestConfig struct {
+        Batches     int
+        BatchSize   int
+        Concurrent  int
+        Duration    time.Duration
+        ShowMetrics bool
+}
+
+// TestMetricsReporter 测试用的监控报告器
+type TestMetricsReporter struct {
+        mu      sync.Mutex
+        metrics []batchsql.BatchMetrics
+}
+
+func (r *TestMetricsReporter) ReportBatchExecution(ctx context.Context, metrics batchsql.BatchMetrics) <span class="cov0" title="0">{
+        r.mu.Lock()
+        defer r.mu.Unlock()
+        r.metrics = append(r.metrics, metrics)
+}</span>
+
+func (r *TestMetricsReporter) GetMetrics() []batchsql.BatchMetrics <span class="cov0" title="0">{
+        r.mu.Lock()
+        defer r.mu.Unlock()
+        return append([]batchsql.BatchMetrics{}, r.metrics...)
+}</span>
+
+// MockStressDriver 压力测试用的模拟驱动
+type MockStressDriver struct {
+        name     string
+        delay    time.Duration
+        executed int64
+        mu       sync.Mutex
+}
+
+func NewMockStressDriver(name string, delay time.Duration) *MockStressDriver <span class="cov0" title="0">{
+        return &amp;MockStressDriver{
+                name:  name,
+                delay: delay,
+        }
+}</span>
+
+func (d *MockStressDriver) GetName() string <span class="cov0" title="0">{
+        return d.name
+}</span>
+
+func (d *MockStressDriver) GenerateBatchCommand(schema batchsql.SchemaInterface, requests []*batchsql.Request) (batchsql.BatchCommand, error) <span class="cov0" title="0">{
+        // 模拟处理延迟
+        if d.delay &gt; 0 </span><span class="cov0" title="0">{
+                time.Sleep(d.delay)
+        }</span>
+
+        <span class="cov0" title="0">d.mu.Lock()
+        d.executed += int64(len(requests))
+        d.mu.Unlock()
+
+        return &amp;MockBatchCommand{
+                commandType: "INSERT",
+                command:     fmt.Sprintf("INSERT INTO %s", schema.GetIdentifier()),
+                parameters:  make([]interface{}, len(requests)),
+        }, nil</span>
+}
+
+func (d *MockStressDriver) SupportedConflictStrategies() []batchsql.ConflictStrategy <span class="cov0" title="0">{
+        return []batchsql.ConflictStrategy{batchsql.ConflictIgnore, batchsql.ConflictReplace}
+}</span>
+
+func (d *MockStressDriver) ValidateSchema(schema batchsql.SchemaInterface) error <span class="cov0" title="0">{
+        return nil
+}</span>
+
+func (d *MockStressDriver) GetExecutedCount() int64 <span class="cov0" title="0">{
+        d.mu.Lock()
+        defer d.mu.Unlock()
+        return d.executed
+}</span>
+
+// MockBatchCommand 模拟批量命令
+type MockBatchCommand struct {
+        commandType string
+        command     interface{}
+        parameters  []interface{}
+}
+
+func (c *MockBatchCommand) GetCommandType() string <span class="cov0" title="0">{
+        return c.commandType
+}</span>
+
+func (c *MockBatchCommand) GetCommand() interface{} <span class="cov0" title="0">{
+        return c.command
+}</span>
+
+func (c *MockBatchCommand) GetParameters() []interface{} <span class="cov0" title="0">{
+        return c.parameters
+}</span>
+
+func (c *MockBatchCommand) GetMetadata() map[string]interface{} <span class="cov0" title="0">{
+        return map[string]interface{}{"test": true}
+}</span>
+
+func main() <span class="cov0" title="0">{
+        // 解析命令行参数
+        config := &amp;StressTestConfig{}
+        flag.IntVar(&amp;config.Batches, "batches", 50, "批次数量")
+        flag.IntVar(&amp;config.BatchSize, "batch-size", 100, "每批记录数")
+        flag.IntVar(&amp;config.Concurrent, "concurrent", 5, "并发数")
+        flag.DurationVar(&amp;config.Duration, "duration", 0, "测试持续时间 (0表示基于批次数)")
+        flag.BoolVar(&amp;config.ShowMetrics, "metrics", true, "显示详细监控指标")
+        flag.Parse()
+
+        fmt.Printf("🚀 BatchSQL 压力测试开始\n")
+        fmt.Printf("📊 配置: 批次=%d, 每批大小=%d, 并发=%d\n",
+                config.Batches, config.BatchSize, config.Concurrent)
+
+        // 创建监控报告器
+        reporter := &amp;TestMetricsReporter{}
+
+        // 创建模拟驱动 (添加小延迟模拟真实数据库操作)
+        driver := NewMockStressDriver("stress-test", time.Microsecond*100)
+
+        // 创建客户端
+        client := batchsql.NewClient().WithMetricsReporter(reporter)
+
+        // 创建Schema
+        schema := batchsql.NewSchema("stress_test_table", batchsql.ConflictIgnore, driver,
+                "id", "name", "email", "created_at")
+
+        // 记录开始时间和内存
+        startTime := time.Now()
+        var startMemStats, endMemStats runtime.MemStats
+        runtime.GC()
+        runtime.ReadMemStats(&amp;startMemStats)
+
+        // 运行压力测试
+        if config.Duration &gt; 0 </span><span class="cov0" title="0">{
+                runDurationBasedTest(client, schema, config)
+        }</span> else<span class="cov0" title="0"> {
+                runBatchBasedTest(client, schema, config)
+        }</span>
+
+        // 记录结束时间和内存
+        <span class="cov0" title="0">endTime := time.Now()
+        runtime.GC()
+        runtime.ReadMemStats(&amp;endMemStats)
+
+        // 获取监控指标
+        metrics := reporter.GetMetrics()
+        executedRecords := driver.GetExecutedCount()
+
+        // 计算统计信息
+        totalDuration := endTime.Sub(startTime)
+        totalBatches := len(metrics)
+
+        var totalErrors int
+        var totalDurationSum time.Duration
+        for _, m := range metrics </span><span class="cov0" title="0">{
+                if m.Error != nil </span><span class="cov0" title="0">{
+                        totalErrors++
+                }</span>
+                <span class="cov0" title="0">totalDurationSum += m.Duration</span>
+        }
+
+        // 输出结果
+        <span class="cov0" title="0">fmt.Printf("\n✅ 压力测试完成\n")
+        fmt.Printf("⏱️  总耗时: %v\n", totalDuration)
+        fmt.Printf("📦 执行批次: %d\n", totalBatches)
+        fmt.Printf("📝 处理记录: %d\n", executedRecords)
+        fmt.Printf("❌ 错误数量: %d\n", totalErrors)
+        fmt.Printf("📈 成功率: %.2f%%\n", float64(totalBatches-totalErrors)/float64(totalBatches)*100)
+
+        if totalBatches &gt; 0 </span><span class="cov0" title="0">{
+                fmt.Printf("⚡ 平均批次耗时: %v\n", totalDurationSum/time.Duration(totalBatches))
+                fmt.Printf("🚀 吞吐量: %.2f 记录/秒\n", float64(executedRecords)/totalDuration.Seconds())
+                fmt.Printf("📊 批次吞吐量: %.2f 批次/秒\n", float64(totalBatches)/totalDuration.Seconds())
+        }</span>
+
+        // 内存使用情况
+        <span class="cov0" title="0">memUsed := endMemStats.Alloc - startMemStats.Alloc
+        fmt.Printf("💾 内存使用: %d KB\n", memUsed/1024)
+        fmt.Printf("🗑️  GC 次数: %d\n", endMemStats.NumGC-startMemStats.NumGC)
+
+        // 显示详细监控指标
+        if config.ShowMetrics &amp;&amp; len(metrics) &gt; 0 </span><span class="cov0" title="0">{
+                fmt.Printf("\n📋 详细监控指标:\n")
+                fmt.Printf("%-10s %-15s %-10s %-12s %-8s\n", "批次", "表名", "大小", "耗时", "状态")
+                fmt.Printf("%-10s %-15s %-10s %-12s %-8s\n", "----", "----", "----", "----", "----")
+
+                for i, m := range metrics </span><span class="cov0" title="0">{
+                        status := "✅"
+                        if m.Error != nil </span><span class="cov0" title="0">{
+                                status = "❌"
+                        }</span>
+                        <span class="cov0" title="0">fmt.Printf("%-10d %-15s %-10d %-12v %-8s\n",
+                                i+1, m.Table, m.BatchSize, m.Duration, status)
+
+                        // 只显示前10个和后5个，中间的用...表示
+                        if i == 9 &amp;&amp; len(metrics) &gt; 15 </span><span class="cov0" title="0">{
+                                fmt.Printf("%-10s %-15s %-10s %-12s %-8s\n", "...", "...", "...", "...", "...")
+                                i = len(metrics) - 6
+                        }</span>
+                }
+        }
+
+        <span class="cov0" title="0">fmt.Printf("\n🎯 压力测试报告已生成\n")</span>
+}
+
+// runBatchBasedTest 基于批次数的测试
+func runBatchBasedTest(client *batchsql.Client, schema batchsql.SchemaInterface, config *StressTestConfig) <span class="cov0" title="0">{
+        var wg sync.WaitGroup
+        semaphore := make(chan struct{}, config.Concurrent)
+
+        for i := 0; i &lt; config.Batches; i++ </span><span class="cov0" title="0">{
+                wg.Add(1)
+                go func(batchNum int) </span><span class="cov0" title="0">{
+                        defer wg.Done()
+
+                        // 控制并发数
+                        semaphore &lt;- struct{}{}
+                        defer func() </span><span class="cov0" title="0">{ &lt;-semaphore }</span>()
+
+                        // 生成测试数据
+                        <span class="cov0" title="0">data := generateTestData(config.BatchSize, batchNum)
+
+                        // 执行批量操作
+                        ctx := context.Background()
+                        err := client.ExecuteWithSchema(ctx, schema, data)
+                        if err != nil </span><span class="cov0" title="0">{
+                                log.Printf("批次 %d 执行失败: %v", batchNum, err)
+                        }</span>
+                }(i)
+        }
+
+        <span class="cov0" title="0">wg.Wait()</span>
+}
+
+// runDurationBasedTest 基于持续时间的测试
+func runDurationBasedTest(client *batchsql.Client, schema batchsql.SchemaInterface, config *StressTestConfig) <span class="cov0" title="0">{
+        var wg sync.WaitGroup
+        semaphore := make(chan struct{}, config.Concurrent)
+        stopChan := make(chan struct{})
+
+        // 启动定时器
+        go func() </span><span class="cov0" title="0">{
+                time.Sleep(config.Duration)
+                close(stopChan)
+        }</span>()
+
+        <span class="cov0" title="0">batchNum := 0
+        for </span><span class="cov0" title="0">{
+                select </span>{
+                case &lt;-stopChan:<span class="cov0" title="0">
+                        wg.Wait()
+                        return</span>
+                default:<span class="cov0" title="0">
+                        wg.Add(1)
+                        go func(bn int) </span><span class="cov0" title="0">{
+                                defer wg.Done()
+
+                                // 控制并发数
+                                semaphore &lt;- struct{}{}
+                                defer func() </span><span class="cov0" title="0">{ &lt;-semaphore }</span>()
+
+                                // 生成测试数据
+                                <span class="cov0" title="0">data := generateTestData(config.BatchSize, bn)
+
+                                // 执行批量操作
+                                ctx := context.Background()
+                                err := client.ExecuteWithSchema(ctx, schema, data)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        log.Printf("批次 %d 执行失败: %v", bn, err)
+                                }</span>
+                        }(batchNum)
+                        <span class="cov0" title="0">batchNum++</span>
+                }
+        }
+}
+
+// generateTestData 生成测试数据
+func generateTestData(size int, batchNum int) []map[string]interface{} <span class="cov0" title="0">{
+        data := make([]map[string]interface{}, size)
+        for i := 0; i &lt; size; i++ </span><span class="cov0" title="0">{
+                data[i] = map[string]interface{}{
+                        "id":         batchNum*size + i + 1,
+                        "name":       fmt.Sprintf("user_%d_%d", batchNum, i),
+                        "email":      fmt.Sprintf("user_%d_%d@test.com", batchNum, i),
+                        "created_at": time.Now().Format("2006-01-02 15:04:05"),
+                }
+        }</span>
+        <span class="cov0" title="0">return data</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package batchsql
+
+// ConflictStrategy defines how to handle conflicts during batch operations
+type ConflictStrategy int
+
+const (
+        // ConflictIgnore ignores conflicts and continues
+        ConflictIgnore ConflictStrategy = iota
+        // ConflictReplace replaces existing records
+        ConflictReplace
+        // ConflictUpdate updates existing records
+        ConflictUpdate
+        // ConflictError returns an error on conflict
+        ConflictError
+)
+
+// String returns the string representation of ConflictStrategy
+func (cs ConflictStrategy) String() string <span class="cov8" title="1">{
+        switch cs </span>{
+        case ConflictIgnore:<span class="cov0" title="0">
+                return "IGNORE"</span>
+        case ConflictReplace:<span class="cov8" title="1">
+                return "REPLACE"</span>
+        case ConflictUpdate:<span class="cov0" title="0">
+                return "UPDATE"</span>
+        case ConflictError:<span class="cov0" title="0">
+                return "ERROR"</span>
+        default:<span class="cov0" title="0">
+                return "UNKNOWN"</span>
+        }
+}
+
+// DatabaseType represents the type of database
+type DatabaseType int
+
+const (
+        // DatabaseTypeMySQL represents MySQL database
+        DatabaseTypeMySQL DatabaseType = iota
+        // DatabaseTypePostgreSQL represents PostgreSQL database
+        DatabaseTypePostgreSQL
+        // DatabaseTypeSQLite represents SQLite database
+        DatabaseTypeSQLite
+        // DatabaseTypeRedis represents Redis database
+        DatabaseTypeRedis
+        // DatabaseTypeMongoDB represents MongoDB database
+        DatabaseTypeMongoDB
+)
+
+// String returns the string representation of DatabaseType
+func (dt DatabaseType) String() string <span class="cov0" title="0">{
+        switch dt </span>{
+        case DatabaseTypeMySQL:<span class="cov0" title="0">
+                return "MySQL"</span>
+        case DatabaseTypePostgreSQL:<span class="cov0" title="0">
+                return "PostgreSQL"</span>
+        case DatabaseTypeSQLite:<span class="cov0" title="0">
+                return "SQLite"</span>
+        case DatabaseTypeRedis:<span class="cov0" title="0">
+                return "Redis"</span>
+        case DatabaseTypeMongoDB:<span class="cov0" title="0">
+                return "MongoDB"</span>
+        default:<span class="cov0" title="0">
+                return "Unknown"</span>
+        }
+}
+
+// ExecutionResult represents the result of a batch execution
+type ExecutionResult struct {
+        Success      bool                   `json:"success"`
+        AffectedRows int64                  `json:"affected_rows"`
+        Duration     int64                  `json:"duration_ms"`
+        Error        string                 `json:"error,omitempty"`
+        Metadata     map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// ValidationError represents a validation error
+type ValidationError struct {
+        Field   string      `json:"field"`
+        Message string      `json:"message"`
+        Value   interface{} `json:"value,omitempty"`
+}
+
+// Error implements the error interface
+func (ve *ValidationError) Error() string <span class="cov0" title="0">{
+        return ve.Message
+}</span>
+
+// BatchError represents an error that occurred during batch processing
+type BatchError struct {
+        Message string             `json:"message"`
+        Errors  []*ValidationError `json:"errors,omitempty"`
+        Code    string             `json:"code,omitempty"`
+}
+
+// Error implements the error interface
+func (be *BatchError) Error() string <span class="cov0" title="0">{
+        return be.Message
+}</span>
+
+// AddError adds a validation error to the batch error
+func (be *BatchError) AddError(field, message string, value interface{}) <span class="cov0" title="0">{
+        be.Errors = append(be.Errors, &amp;ValidationError{
+                Field:   field,
+                Message: message,
+                Value:   value,
+        })
+}</span>
+
+// HasErrors returns true if there are any errors
+func (be *BatchError) HasErrors() bool <span class="cov0" title="0">{
+        return len(be.Errors) &gt; 0
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

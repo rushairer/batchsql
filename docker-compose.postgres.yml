@@ -1,0 +1,63 @@
+services:
+  # PostgreSQL 16 - 专用于PostgreSQL压力测试
+  postgres:
+    image: postgres:16-alpine
+    container_name: batchsql-postgres-integration
+    environment:
+      POSTGRES_DB: batchsql_test
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./test/sql/postgres:/docker-entrypoint-initdb.d
+    # 高性能配置 - 给PostgreSQL分配更多资源
+    command: >
+      postgres 
+      -c shared_buffers=1GB
+      -c max_connections=500
+      -c effective_cache_size=2GB
+      -c maintenance_work_mem=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d batchsql_test"]
+      timeout: 20s
+      retries: 10
+      interval: 5s
+    networks:
+      - batchsql-network
+
+  # PostgreSQL 压力测试运行器
+  postgres-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.integration
+    container_name: batchsql-postgres-test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - POSTGRES_DSN=postgres://testuser:testpass123@postgres:5432/batchsql_test?sslmode=disable
+      - TEST_DURATION=300s
+      - CONCURRENT_WORKERS=20
+      - RECORDS_PER_WORKER=5000
+      - BATCH_SIZE=500
+      - TEST_TYPE=postgres
+    volumes:
+      - ./test/reports:/app/reports
+      - ./test/data:/app/data
+    networks:
+      - batchsql-network
+    command: ["./run-single-db-test.sh"]
+
+volumes:
+  postgres_data:
+
+networks:
+  batchsql-network:
+    driver: bridge

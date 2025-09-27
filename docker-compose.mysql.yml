@@ -1,0 +1,63 @@
+services:
+  # MySQL 8.0 - 专用于MySQL压力测试
+  mysql:
+    image: mysql:8.0-oracle
+    container_name: batchsql-mysql-integration
+    environment:
+      MYSQL_ROOT_PASSWORD: testpass123
+      MYSQL_DATABASE: batchsql_test
+      MYSQL_USER: testuser
+      MYSQL_PASSWORD: testpass123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./test/sql/mysql:/docker-entrypoint-initdb.d
+    # 高性能配置 - 给MySQL分配更多资源
+    command: >
+      --default-authentication-plugin=mysql_native_password 
+      --innodb-buffer-pool-size=1G
+      --innodb-redo-log-capacity=512M
+      --max-connections=500
+      --innodb-flush-log-at-trx-commit=2
+      --sync-binlog=0
+      --innodb-doublewrite=0
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ptestpass123"]
+      timeout: 20s
+      retries: 10
+      interval: 5s
+    networks:
+      - batchsql-network
+
+  # MySQL 压力测试运行器
+  mysql-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.integration
+    container_name: batchsql-mysql-test
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - MYSQL_DSN=testuser:testpass123@tcp(mysql:3306)/batchsql_test?parseTime=true&multiStatements=true
+      - TEST_DURATION=1800s
+      - CONCURRENT_WORKERS=10
+      - RECORDS_PER_WORKER=2000
+      - BATCH_SIZE=200
+      - BUFFER_SIZE=5000
+      - FLUSH_INTERVAL=100ms
+      - TEST_TYPE=mysql
+    volumes:
+      - ./test/reports:/app/reports
+      - ./test/data:/app/data
+    networks:
+      - batchsql-network
+    command: ["./run-single-db-test.sh"]
+
+volumes:
+  mysql_data:
+
+networks:
+  batchsql-network:
+    driver: bridge

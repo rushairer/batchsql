@@ -100,16 +100,25 @@ go run main.go
 
 ## 相关文档和配置
 
-- `SQLITE_OPTIMIZATION.md` - SQLite 性能优化总结和解决方案
-- `PERFORMANCE_ANALYSIS.md` - SQLite 性能分析报告和问题诊断  
-- `TEST_REPORT_ANALYSIS.md` - 测试报告详细分析（包含测试参数）
-- `.env.sqlite.test` - SQLite 专用测试配置  
-- `.env.sqlite.conservative` - SQLite 保守配置（推荐）
-- `docker-compose.sqlite.yml` - SQLite Docker 配置
+### 文档
+- **[SQLITE_OPTIMIZATION.md](SQLITE_OPTIMIZATION.md)** - SQLite 性能优化总结和解决方案
+- **[PERFORMANCE_ANALYSIS.md](PERFORMANCE_ANALYSIS.md)** - SQLite 性能分析报告和问题诊断  
+- **[TEST_REPORT_ANALYSIS.md](TEST_REPORT_ANALYSIS.md)** - 测试报告详细分析（包含测试参数）
+- **[tools/README.md](tools/README.md)** - 测试工具集详细说明
+
+### 配置文件
+- **[../../.env.sqlite.test](../../.env.sqlite.test)** - SQLite 专用测试配置  
+- **[../../docker-compose.sqlite.yml](../../docker-compose.sqlite.yml)** - SQLite Docker 配置
+- **[../../CONFIG.md](../../CONFIG.md)** - 统一配置说明文档
+
+### 项目文档
+- **[../../README.md](../../README.md)** - 项目主文档
+- **[../../QUALITY_ASSESSMENT.md](../../QUALITY_ASSESSMENT.md)** - 项目质量评估报告
+- **[../../README-INTEGRATION-TESTS.md](../../README-INTEGRATION-TESTS.md)** - 集成测试文档
 
 ## 配置选择建议
 
-- **生产环境**: 使用 `.env.sqlite.conservative` 确保稳定性
-- **问题排查**: 参考 `TEST_REPORT_ANALYSIS.md` 查看详细测试分析
-- **性能优化**: 参考 `PERFORMANCE_ANALYSIS.md` 了解优化方案
-- **历史问题**: 参考 `SQLITE_OPTIMIZATION.md` 了解解决过程
+- **问题排查**: 参考 [TEST_REPORT_ANALYSIS.md](TEST_REPORT_ANALYSIS.md) 查看详细测试分析
+- **性能优化**: 参考 [PERFORMANCE_ANALYSIS.md](PERFORMANCE_ANALYSIS.md) 了解优化方案
+- **历史问题**: 参考 [SQLITE_OPTIMIZATION.md](SQLITE_OPTIMIZATION.md) 了解解决过程
+- **工具使用**: 参考 [tools/README.md](tools/README.md) 了解各工具详细用法

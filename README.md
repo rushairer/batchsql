@@ -336,19 +336,55 @@ batch := batchsql.NewMySQLBatchSQL(ctx, sqlxDB.DB, config)
 
 *详细分析报告：[QUALITY_ASSESSMENT.md](QUALITY_ASSESSMENT.md)*
 
-## 测试
+## 📋 测试
 
-运行测试：
-
+### 单元测试
 ```bash
+# 运行所有单元测试
 go test -v
+
+# 运行测试覆盖率分析
+go test -cover -coverprofile=coverage.out
+go tool cover -html=coverage.out
 ```
 
-测试覆盖：
-- 基本批量处理功能
-- Schema 分组逻辑
-- SQL 生成正确性
-- 不同数据库类型和冲突策略
+### 集成测试
+```bash
+# 运行所有数据库集成测试
+make docker-all-tests
+
+# 运行单个数据库测试
+make docker-mysql-test      # MySQL 测试
+make docker-postgres-test   # PostgreSQL 测试
+make docker-sqlite-test     # SQLite 测试
+```
+
+### SQLite 专用测试工具
+```bash
+# SQLite 性能基准测试
+cd test/sqlite/tools/benchmark && go run main.go
+
+# SQLite 配置分析
+cd test/sqlite/tools/config-analysis && go run main.go
+
+# SQLite 清理测试
+cd test/sqlite/tools/clear-test && go run main.go
+
+# 路径兼容性测试
+cd test/sqlite/tools/path-compatibility && go run main.go
+```
+
+### 测试覆盖范围
+- ✅ 基本批量处理功能
+- ✅ Schema 分组逻辑
+- ✅ SQL 生成正确性
+- ✅ 不同数据库类型和冲突策略
+- ✅ 错误处理和边界条件
+- ✅ 并发安全性测试
+- ✅ 大数据量压力测试
+- ✅ 数据库连接异常处理
+
+*详细测试文档：[README-INTEGRATION-TESTS.md](README-INTEGRATION-TESTS.md)*
 
 ## 🏗️ 文件结构
 
@@ -365,6 +401,15 @@ batchsql/
 ├── go.sum                   # 依赖校验文件
 ├── .golangci.yml            # Go代码检查配置
 ├── README.md                # 项目文档
+├── CONFIG.md                # 配置参数详细说明
+├── QUALITY_ASSESSMENT.md    # 项目质量评估报告
+├── README-INTEGRATION-TESTS.md # 集成测试文档
+├── RELEASE_CHECKLIST.md     # 发布检查清单
+├── Makefile                 # 构建和测试命令
+├── .env.test                # 统一测试配置
+├── .env.sqlite.test         # SQLite 专用测试配置
+├── docker-compose.*.yml     # Docker 测试配置文件
+├── Dockerfile.*             # Docker 构建文件
 ├── drivers/                 # 数据库驱动目录
 │   ├── interfaces.go        # 驱动接口定义
 │   ├── mock/                # 模拟驱动（用于测试）
@@ -380,7 +425,25 @@ batchsql/
 │       ├── driver.go        # SQLite SQL驱动实现
 │       └── executor.go      # SQLite批量执行器实现
 └── test/                    # 测试目录
-    └── integration/         # 集成测试
+    ├── integration/         # 集成测试
+    │   ├── main.go          # 集成测试主程序
+    │   └── run-single-db-test.sh # 单数据库测试脚本
+    ├── reports/             # 测试报告目录
+    ├── sql/                 # 数据库初始化脚本
+    │   ├── mysql/           # MySQL 初始化脚本
+    │   ├── postgres/        # PostgreSQL 初始化脚本
+    │   └── sqlite/          # SQLite 初始化脚本
+    └── sqlite/              # SQLite 专用测试工具
+        ├── README.md        # SQLite 测试工具说明
+        ├── SQLITE_OPTIMIZATION.md # SQLite 优化文档
+        ├── PERFORMANCE_ANALYSIS.md # 性能分析报告
+        ├── TEST_REPORT_ANALYSIS.md # 测试报告分析
+        └── tools/           # SQLite 测试工具集
+            ├── README.md    # 工具集说明
+            ├── benchmark/   # 性能基准测试
+            ├── clear-test/  # 清理方式测试
+            ├── config-analysis/ # 配置分析工具
+            └── path-compatibility/ # 路径兼容性测试
 ```
 
 ## 🔧 架构图
@@ -416,10 +479,32 @@ batchsql/
                        └──────────────────┘
 ```
 
-## 贡献
+## 📚 相关文档
+
+- **[CONFIG.md](CONFIG.md)** - 详细的配置参数说明和调优建议
+- **[README-INTEGRATION-TESTS.md](README-INTEGRATION-TESTS.md)** - 集成测试完整文档
+- **[QUALITY_ASSESSMENT.md](QUALITY_ASSESSMENT.md)** - 项目质量评估报告
+- **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** - 发布检查清单
+- **[test/sqlite/README.md](test/sqlite/README.md)** - SQLite 测试工具集说明
+- **[test/sqlite/SQLITE_OPTIMIZATION.md](test/sqlite/SQLITE_OPTIMIZATION.md)** - SQLite 优化文档
+- **[test/sqlite/PERFORMANCE_ANALYSIS.md](test/sqlite/PERFORMANCE_ANALYSIS.md)** - SQLite 性能分析
+
+## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
 
-## 许可证
+### 开发流程
+1. Fork 项目
+2. 创建功能分支
+3. 运行完整测试：`make ci`
+4. 提交 Pull Request
+
+### 测试要求
+- 所有单元测试必须通过
+- 集成测试通过率 ≥ 90%
+- 代码覆盖率 ≥ 60%
+- 通过 golangci-lint 检查
+
+## 📄 许可证
 
 MIT License

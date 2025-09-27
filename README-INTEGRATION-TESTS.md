@@ -195,9 +195,14 @@ open coverage.html
 
 ## 📚 相关文档
 
-- [主要 README](README.md) - 库的基本使用
-- [配置说明](CONFIG.md) - 详细的配置参数说明
-- [发布检查清单](RELEASE_CHECKLIST.md) - 发布前的检查项目
+- **[README.md](README.md)** - 项目主文档和基本使用
+- **[CONFIG.md](CONFIG.md)** - 详细的配置参数说明和调优建议
+- **[QUALITY_ASSESSMENT.md](QUALITY_ASSESSMENT.md)** - 项目质量评估报告
+- **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** - 发布前的检查项目
+- **[test/sqlite/README.md](test/sqlite/README.md)** - SQLite 测试工具集说明
+- **[test/sqlite/SQLITE_OPTIMIZATION.md](test/sqlite/SQLITE_OPTIMIZATION.md)** - SQLite 优化文档
+- **[test/sqlite/PERFORMANCE_ANALYSIS.md](test/sqlite/PERFORMANCE_ANALYSIS.md)** - SQLite 性能分析报告
+- **[test/sqlite/TEST_REPORT_ANALYSIS.md](test/sqlite/TEST_REPORT_ANALYSIS.md)** - 测试报告详细分析
 
 ## 🤝 贡献指南
 

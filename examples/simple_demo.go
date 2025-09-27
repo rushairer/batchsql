@@ -170,27 +170,43 @@ func demonstrateMultiDatabase(ctx context.Context, client *batchsql.Client) {
 func demonstrateMonitoring(client *batchsql.Client) {
 	log.Println("\n--- 监控功能演示 ---")
 
-	// 获取指标
-	metrics := client.GetMetrics()
+	// 创建一个简单的监控报告器
+	reporter := &SimpleMetricsReporter{}
 
-	log.Println("系统指标:")
-	if uptime, ok := metrics["uptime"].(time.Duration); ok {
-		log.Printf("  运行时间: %v", uptime)
+	// 设置监控报告器
+	clientWithMetrics := client.WithMetricsReporter(reporter)
+
+	// 执行一些操作来触发监控
+	mysqlDriver := drivers.NewMySQLDriver()
+	schema := clientWithMetrics.CreateSchema("test_table", batchsql.ConflictUpdate, mysqlDriver, "id", "name")
+
+	testData := []map[string]interface{}{
+		{"id": 1, "name": "Test User"},
 	}
 
-	if totalExecs, ok := metrics["total_executions"].(int64); ok {
-		log.Printf("  总执行次数: %d", totalExecs)
-	}
-
-	if successRate, ok := metrics["success_rate"].(float64); ok {
-		log.Printf("  成功率: %.2f%%", successRate)
-	}
-
-	// 健康检查
 	ctx := context.Background()
-	health := client.HealthCheck(ctx)
+	err := clientWithMetrics.ExecuteWithSchema(ctx, schema, testData)
+	if err != nil {
+		log.Printf("执行失败: %v", err)
+	}
 
-	log.Println("\n健康检查:")
-	log.Printf("  系统状态: %v", health["status"])
-	log.Printf("  检查时间: %v", health["timestamp"])
+	// 显示收集到的监控数据
+	log.Println("监控数据:")
+	for _, metric := range reporter.GetMetrics() {
+		log.Printf("  驱动: %s, 表: %s, 批量大小: %d, 耗时: %v",
+			metric.Driver, metric.Table, metric.BatchSize, metric.Duration)
+	}
+}
+
+// SimpleMetricsReporter 简单的监控报告器示例
+type SimpleMetricsReporter struct {
+	metrics []batchsql.BatchMetrics
+}
+
+func (r *SimpleMetricsReporter) ReportBatchExecution(ctx context.Context, metrics batchsql.BatchMetrics) {
+	r.metrics = append(r.metrics, metrics)
+}
+
+func (r *SimpleMetricsReporter) GetMetrics() []batchsql.BatchMetrics {
+	return r.metrics
 }

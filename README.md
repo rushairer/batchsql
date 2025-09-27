@@ -169,23 +169,40 @@ client.ExecuteWithSchema(ctx, productSchema, productData)
 
 ## 🔧 高级功能
 
-### 指标收集
+### 监控集成
+
+BatchSQL支持可选的监控功能，可以轻松集成Prometheus等监控系统：
 
 ```go
-// 获取执行指标
-metrics := client.GetMetrics()
-fmt.Printf("总执行次数: %v\n", metrics["total_executions"])
-fmt.Printf("成功率: %v\n", metrics["success_rate"])
-fmt.Printf("运行时间: %v\n", metrics["uptime"])
+// 实现监控报告器接口
+type PrometheusReporter struct {
+    duration *prometheus.HistogramVec
+    total    *prometheus.CounterVec
+}
+
+func (p *PrometheusReporter) ReportBatchExecution(ctx context.Context, metrics batchsql.BatchMetrics) {
+    status := "success"
+    if metrics.Error != nil {
+        status = "error"
+    }
+    
+    p.duration.WithLabelValues(metrics.Driver, metrics.Table).Observe(metrics.Duration.Seconds())
+    p.total.WithLabelValues(metrics.Driver, metrics.Table, status).Inc()
+}
+
+// 使用监控
+client := batchsql.NewClient().WithMetricsReporter(prometheusReporter)
 ```
 
-### 健康检查
+### 监控数据
 
-```go
-health := client.HealthCheck(ctx)
-fmt.Printf("系统状态: %v\n", health["status"])
-fmt.Printf("检查时间: %v\n", health["timestamp"])
-```
+`BatchMetrics` 包含以下监控数据：
+- `Driver`: 数据库驱动名称
+- `Table`: 表名/集合名
+- `BatchSize`: 批量大小
+- `Duration`: 执行时长
+- `Error`: 错误信息（如果有）
+- `StartTime`: 开始时间
 
 ## 🎨 扩展新数据库
 
@@ -270,6 +287,9 @@ batchsql/
 ```bash
 # 运行基础示例
 go run examples/simple_demo.go
+
+# 运行Prometheus集成示例
+go run examples/prometheus_example.go
 
 # 运行测试
 go test ./...

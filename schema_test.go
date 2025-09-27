@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// 这个文件包含Schema的白盒测试，测试内部实现
+// 公开API测试请参考 client_integration_test.go
+
 // TestNewSchema 测试Schema创建
 func TestNewSchema(t *testing.T) {
 	mockDriver := NewMockDriver("mysql")

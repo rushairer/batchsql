@@ -1,8 +1,17 @@
 # BatchSQL - 通用批量数据库操作框架
 
-[![Go Version](https://img.shields.io/badge/Go-1.19+-blue.svg)](https://golang.org)
-[![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](https://github.com/rushairer/batchsql/releases)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/rushairer/batchsql/workflows/CI/badge.svg)](https://github.com/rushairer/batchsql/actions/workflows/ci.yml)
+[![Integration Tests](https://github.com/rushairer/batchsql/workflows/Integration%20Tests/badge.svg)](https://github.com/rushairer/batchsql/actions/workflows/integration.yml)
+[![CodeQL](https://github.com/rushairer/batchsql/workflows/CodeQL/badge.svg)](https://github.com/rushairer/batchsql/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/rushairer/batchsql/branch/master/graph/badge.svg)](https://codecov.io/gh/rushairer/batchsql)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rushairer/batchsql)](https://goreportcard.com/report/github.com/rushairer/batchsql)
+[![GoDoc](https://godoc.org/github.com/rushairer/batchsql?status.svg)](https://godoc.org/github.com/rushairer/batchsql)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/rushairer/batchsql)](https://github.com/rushairer/batchsql)
+[![Release](https://img.shields.io/github/v/release/rushairer/batchsql)](https://github.com/rushairer/batchsql/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub issues](https://img.shields.io/github/issues/rushairer/batchsql)](https://github.com/rushairer/batchsql/issues)
+[![GitHub stars](https://img.shields.io/github/stars/rushairer/batchsql)](https://github.com/rushairer/batchsql/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/rushairer/batchsql)](https://github.com/rushairer/batchsql/network)
 
 ## 🚀 项目简介
 

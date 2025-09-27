@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// 这个文件包含白盒测试，用于测试内部实现细节
+// 公开API的测试请参考 client_integration_test.go
+
 // MockDriver 用于测试的模拟驱动
 type MockDriver struct {
 	name       string

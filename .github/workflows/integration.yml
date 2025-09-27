@@ -1,0 +1,116 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    # 每天凌晨2点运行集成测试
+    - cron: '0 2 * * *'
+
+jobs:
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: batchsql_test
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+          
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: batchsql_test
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U testuser -d batchsql_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+          
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+          
+      mongodb:
+        image: mongo:6
+        env:
+          MONGO_INITDB_ROOT_USERNAME: testuser
+          MONGO_INITDB_ROOT_PASSWORD: testpass
+          MONGO_INITDB_DATABASE: batchsql_test
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/batchsql_test --quiet"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Wait for services
+      run: |
+        echo "Waiting for services to be ready..."
+        sleep 30
+        
+    - name: Run integration tests
+      env:
+        MYSQL_DSN: testuser:testpass@tcp(localhost:3306)/batchsql_test
+        POSTGRES_DSN: postgres://testuser:testpass@localhost:5432/batchsql_test?sslmode=disable
+        REDIS_ADDR: localhost:6379
+        MONGODB_URI: mongodb://testuser:testpass@localhost:27017/batchsql_test
+      run: |
+        # 这里将来可以运行真实的集成测试
+        echo "Integration tests would run here"
+        # go test -v ./test/integration/...
+
+  stress-test:
+    name: Stress Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Run stress tests
+      run: |
+        chmod +x test/scripts/stress-test.sh
+        ./test/scripts/stress-test.sh
+        
+    - name: Upload stress test results
+      uses: actions/upload-artifact@v3
+      with:
+        name: stress-test-results
+        path: test/results/
+        retention-days: 30

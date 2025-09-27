@@ -1,6 +1,7 @@
 # BatchSQL - 通用批量数据库操作框架
 
 [![Go Version](https://img.shields.io/badge/Go-1.19+-blue.svg)](https://golang.org)
+[![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](https://github.com/rushairer/batchsql/releases)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## 🚀 项目简介

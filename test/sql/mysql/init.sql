@@ -21,30 +21,8 @@ CREATE TABLE IF NOT EXISTS integration_test (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 创建性能测试表
-CREATE TABLE IF NOT EXISTS performance_test (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    batch_id VARCHAR(50) NOT NULL,
-    worker_id INT NOT NULL,
-    record_data JSON,
-    large_text LONGTEXT,
-    numeric_value DECIMAL(15,4),
-    timestamp_field TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6),
-    INDEX idx_batch_id (batch_id),
-    INDEX idx_worker_id (worker_id),
-    INDEX idx_timestamp (timestamp_field)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 创建内存测试表（大量列）
-CREATE TABLE IF NOT EXISTS memory_test (
-    id BIGINT PRIMARY KEY,
-    col_1 VARCHAR(100), col_2 VARCHAR(100), col_3 VARCHAR(100), col_4 VARCHAR(100), col_5 VARCHAR(100),
-    col_6 VARCHAR(100), col_7 VARCHAR(100), col_8 VARCHAR(100), col_9 VARCHAR(100), col_10 VARCHAR(100),
-    col_11 TEXT, col_12 TEXT, col_13 TEXT, col_14 TEXT, col_15 TEXT,
-    num_1 DECIMAL(10,2), num_2 DECIMAL(10,2), num_3 DECIMAL(10,2), num_4 DECIMAL(10,2), num_5 DECIMAL(10,2),
-    bool_1 BOOLEAN, bool_2 BOOLEAN, bool_3 BOOLEAN, bool_4 BOOLEAN, bool_5 BOOLEAN,
-    date_1 TIMESTAMP, date_2 TIMESTAMP, date_3 TIMESTAMP, date_4 TIMESTAMP, date_5 TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- 注意：只创建实际使用的表
+-- 测试代码只使用 integration_test 表，避免创建无用的表
 
 -- 优化 MySQL 配置（通过变量设置）
 -- 注意：某些变量是只读的，只能在启动时设置

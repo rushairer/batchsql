@@ -16,33 +16,8 @@ CREATE INDEX IF NOT EXISTS idx_integration_test_name ON integration_test(name);
 CREATE INDEX IF NOT EXISTS idx_integration_test_email ON integration_test(email);
 CREATE INDEX IF NOT EXISTS idx_integration_test_created_at ON integration_test(created_at);
 
--- 创建性能测试表
-CREATE TABLE IF NOT EXISTS performance_test (
-    id BIGSERIAL PRIMARY KEY,
-    batch_id VARCHAR(50) NOT NULL,
-    worker_id INTEGER NOT NULL,
-    record_data JSONB,
-    large_text TEXT,
-    numeric_value DECIMAL(15,4),
-    timestamp_field TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP
-);
-
--- 创建性能测试表索引
-CREATE INDEX IF NOT EXISTS idx_performance_test_batch_id ON performance_test(batch_id);
-CREATE INDEX IF NOT EXISTS idx_performance_test_worker_id ON performance_test(worker_id);
-CREATE INDEX IF NOT EXISTS idx_performance_test_timestamp ON performance_test(timestamp_field);
-CREATE INDEX IF NOT EXISTS idx_performance_test_record_data ON performance_test USING GIN(record_data);
-
--- 创建内存测试表（大量列）
-CREATE TABLE IF NOT EXISTS memory_test (
-    id BIGINT PRIMARY KEY,
-    col_1 VARCHAR(100), col_2 VARCHAR(100), col_3 VARCHAR(100), col_4 VARCHAR(100), col_5 VARCHAR(100),
-    col_6 VARCHAR(100), col_7 VARCHAR(100), col_8 VARCHAR(100), col_9 VARCHAR(100), col_10 VARCHAR(100),
-    col_11 TEXT, col_12 TEXT, col_13 TEXT, col_14 TEXT, col_15 TEXT,
-    num_1 DECIMAL(10,2), num_2 DECIMAL(10,2), num_3 DECIMAL(10,2), num_4 DECIMAL(10,2), num_5 DECIMAL(10,2),
-    bool_1 BOOLEAN, bool_2 BOOLEAN, bool_3 BOOLEAN, bool_4 BOOLEAN, bool_5 BOOLEAN,
-    date_1 TIMESTAMP, date_2 TIMESTAMP, date_3 TIMESTAMP, date_4 TIMESTAMP, date_5 TIMESTAMP
-);
+-- 注意：只创建实际使用的表
+-- 测试代码只使用 integration_test 表，避免创建无用的表
 
 -- 优化 PostgreSQL 配置
 ALTER SYSTEM SET shared_buffers = '128MB';
@@ -80,10 +55,6 @@ SHOW max_connections;
 
 -- 清理现有测试数据
 TRUNCATE TABLE integration_test;
-TRUNCATE TABLE performance_test RESTART IDENTITY;
-TRUNCATE TABLE memory_test;
 
 -- 分析表以更新统计信息
 ANALYZE integration_test;
-ANALYZE performance_test;
-ANALYZE memory_test;

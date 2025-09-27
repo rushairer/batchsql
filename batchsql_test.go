@@ -21,9 +21,6 @@ func TestBatchSQL(t *testing.T) {
 		FlushInterval: time.Second,
 	}
 	batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 创建不同的 schema
 	mysqlSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email", "created_at")
@@ -90,7 +87,6 @@ func TestSchemaGrouping(t *testing.T) {
 		FlushInterval: 100 * time.Millisecond,
 	}
 	batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer batch.Close()
 
 	// 创建两个相同的 schema 实例
 	schema1 := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")

@@ -35,9 +35,20 @@ func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushIn
 
 		// 处理每个schema组
 		for schema, requests := range schemaGroups {
+			// 在开始耗时操作前快速检查
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+
 			// 转换为数据格式
 			data := make([]map[string]any, len(requests))
 			for i, request := range requests {
+				// 如果单个schema的数据量很大，可以定期检查
+				if len(requests) > 10000 && i%1000 == 0 {
+					if err := ctx.Err(); err != nil {
+						return err
+					}
+				}
 				rowData := make(map[string]any)
 				values := request.GetOrderedValues()
 				columns := schema.Columns
@@ -145,13 +156,6 @@ func (b *BatchSQL) Submit(ctx context.Context, request *Request) error {
 	case dataChan <- request:
 		return nil
 	case <-ctx.Done():
-		return ErrContextCanceled
+		return ctx.Err()
 	}
-}
-
-// Close 关闭批量处理管道
-func (b *BatchSQL) Close() error {
-	// gopipeline.StandardPipeline 可能没有 Close 方法
-	// 这里可以添加其他清理逻辑
-	return nil
 }

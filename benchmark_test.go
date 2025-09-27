@@ -16,7 +16,6 @@ func BenchmarkBatchSQL_Submit(b *testing.B) {
 		FlushInterval: time.Second,
 	}
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer batch.Close()
 
 	schema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
 
@@ -45,7 +44,6 @@ func BenchmarkBatchSQL_MultiSchema(b *testing.B) {
 		FlushInterval: time.Second,
 	}
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer batch.Close()
 
 	userSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
 	productSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")

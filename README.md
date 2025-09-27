@@ -79,7 +79,6 @@ func main() {
         FlushInterval: 5 * time.Second, // 刷新间隔
     }
     batch := batchsql.NewMySQLBatchSQL(ctx, db, config)
-    defer batch.Close()
 
     // 3. 定义 schema（不再需要指定数据库类型）
     userSchema := batchsql.NewSchema(
@@ -121,7 +120,6 @@ func TestBatchSQL(t *testing.T) {
         FlushInterval: time.Second,
     }
     batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
-    defer batch.Close()
     
     // 测试逻辑...
 }

@@ -41,9 +41,6 @@ func TestErrorHandling_ExecutionError(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, errorExecutor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 创建 schema 和请求
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
@@ -81,9 +78,6 @@ func TestErrorHandling_ContextTimeout(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, slowExecutor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 创建 schema 和请求
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
@@ -97,7 +91,7 @@ func TestErrorHandling_ContextTimeout(t *testing.T) {
 
 	// 监听错误通道，使用短超时
 	errorChan := batch.ErrorChan(10)
-	
+
 	// 等待错误或超时
 	select {
 	case err := <-errorChan:
@@ -121,9 +115,6 @@ func TestErrorHandling_ContextCancellation(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, slowExecutor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 创建 schema 和请求
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
@@ -137,7 +128,7 @@ func TestErrorHandling_ContextCancellation(t *testing.T) {
 
 	// 监听错误通道
 	errorChan := batch.ErrorChan(10)
-	
+
 	// 等待错误或超时
 	select {
 	case err := <-errorChan:
@@ -162,9 +153,6 @@ func TestErrorHandling_InvalidData(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 测试 nil 请求
 	err := batch.Submit(ctx, nil)
@@ -191,9 +179,6 @@ func TestErrorHandling_MultipleErrors(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 2, time.Second, errorExecutor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 创建多个不同的 schema
 	schema1 := batchsql.NewSchema("table1", batchsql.ConflictIgnore, "id")
@@ -201,13 +186,13 @@ func TestErrorHandling_MultipleErrors(t *testing.T) {
 	schema3 := batchsql.NewSchema("table3", batchsql.ConflictIgnore, "id")
 
 	// 提交多个表的数据
-	batch.Submit(ctx, batchsql.NewRequest(schema1).SetInt64("id", 1))
-	batch.Submit(ctx, batchsql.NewRequest(schema2).SetInt64("id", 2))
-	batch.Submit(ctx, batchsql.NewRequest(schema3).SetInt64("id", 3))
+	_ = batch.Submit(ctx, batchsql.NewRequest(schema1).SetInt64("id", 1))
+	_ = batch.Submit(ctx, batchsql.NewRequest(schema2).SetInt64("id", 2))
+	_ = batch.Submit(ctx, batchsql.NewRequest(schema3).SetInt64("id", 3))
 
 	// 监听错误通道
 	errorChan := batch.ErrorChan(10)
-	
+
 	// 等待错误
 	select {
 	case err := <-errorChan:
@@ -243,11 +228,5 @@ func TestErrorHandling_CloseWithPendingData(t *testing.T) {
 		if err != nil {
 			t.Errorf("Submit failed: %v", err)
 		}
-	}
-
-	// 关闭批处理器，应该处理待处理的数据
-	err := batch.Close()
-	if err != nil {
-		t.Errorf("Close should handle pending data gracefully: %v", err)
 	}
 }

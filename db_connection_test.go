@@ -100,9 +100,6 @@ func TestDBConnection_ConnectionFailure(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
@@ -143,9 +140,6 @@ func TestDBConnection_SlowConnection(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
@@ -186,9 +180,6 @@ func TestDBConnection_ConnectionRecovery(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 
@@ -256,9 +247,6 @@ func TestDBConnection_TransactionFailure(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 
@@ -312,9 +300,6 @@ func TestDBConnection_ContextCancellationDuringExecution(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
@@ -352,9 +337,6 @@ func TestDBConnection_MaxConnectionsExceeded(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 100, 10, time.Second, executor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 
@@ -409,9 +391,6 @@ func TestDBConnection_NetworkPartition(t *testing.T) {
 	}
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).

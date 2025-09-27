@@ -18,9 +18,6 @@ func TestBoundary_EmptyData(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 测试空字符串
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "name", "value")
@@ -43,9 +40,6 @@ func TestBoundary_NilValues(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 测试 nil 值
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "name", "value")
@@ -68,9 +62,6 @@ func TestBoundary_LargeStrings(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 创建大字符串 (1MB)
 	largeString := strings.Repeat("A", 1024*1024)
@@ -95,9 +86,6 @@ func TestBoundary_MaxInt64(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "max_val", "min_val")
 	request := batchsql.NewRequest(schema).
@@ -119,9 +107,6 @@ func TestBoundary_MaxFloat64(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "max_float", "min_float", "zero_float")
 	request := batchsql.NewRequest(schema).
@@ -144,14 +129,11 @@ func TestBoundary_SpecialFloats(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "special_float")
 
 	// 测试 NaN - 使用一个变量来避免编译时除零错误
-	var zero float64 = 0.0
+	zero := 0.0
 	nanValue := zero / zero
 	request1 := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
@@ -163,7 +145,7 @@ func TestBoundary_SpecialFloats(t *testing.T) {
 	}
 
 	// 测试正无穷
-	var one float64 = 1.0
+	one := 1.0
 	posInf := one / zero
 	request2 := batchsql.NewRequest(schema).
 		SetInt64("id", 2).
@@ -175,7 +157,7 @@ func TestBoundary_SpecialFloats(t *testing.T) {
 	}
 
 	// 测试负无穷
-	var negOne float64 = -1.0
+	negOne := -1.0
 	negInf := negOne / zero
 	request3 := batchsql.NewRequest(schema).
 		SetInt64("id", 3).
@@ -196,9 +178,6 @@ func TestBoundary_UnicodeStrings(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "unicode_text")
 
@@ -234,9 +213,6 @@ func TestBoundary_SpecialCharacters(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "special_text")
 
@@ -273,9 +249,6 @@ func TestBoundary_ZeroTime(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "zero_time", "unix_epoch")
 	request := batchsql.NewRequest(schema).
@@ -298,9 +271,6 @@ func TestBoundary_ManyColumns(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 创建有很多列的 schema
 	columns := make([]string, 100)
@@ -331,9 +301,6 @@ func TestBoundary_SingleColumn(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 只有一列的 schema
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "single_col")
@@ -354,9 +321,6 @@ func TestBoundary_BufferSizeOne(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
 	request := batchsql.NewRequest(schema).SetInt64("id", 1)
@@ -379,9 +343,6 @@ func TestBoundary_VeryShortFlushInterval(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
 

@@ -18,9 +18,6 @@ func TestConcurrency_MultipleGoroutinesSubmit(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "value")
 
@@ -61,9 +58,6 @@ func TestConcurrency_MultipleSchemas(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 创建多个不同的 schema
 	schemas := []*batchsql.Schema{
@@ -127,9 +121,6 @@ func TestConcurrency_HighFrequencySubmission(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("high_freq_table", batchsql.ConflictIgnore, "id", "timestamp", "data")
 
@@ -182,9 +173,6 @@ func TestConcurrency_ContextCancellation(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("cancel_test", batchsql.ConflictIgnore, "id", "data")
 
@@ -245,9 +233,6 @@ func TestConcurrency_MixedOperations(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("mixed_ops", batchsql.ConflictIgnore, "id", "operation", "timestamp")
 
@@ -314,9 +299,6 @@ func TestConcurrency_StressTest(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("stress_test", batchsql.ConflictIgnore, "id", "thread_id", "data", "timestamp")
 

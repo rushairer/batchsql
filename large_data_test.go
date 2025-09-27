@@ -24,9 +24,6 @@ func TestLargeData_MillionRecords(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("large_table", batchsql.ConflictIgnore, "id", "name", "email", "created_at")
 
@@ -94,9 +91,6 @@ func TestLargeData_WideTable(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	// 创建有很多列的表（500列）
 	const numColumns = 500
@@ -163,9 +157,6 @@ func TestLargeData_LargeStrings(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("large_strings_table", batchsql.ConflictIgnore, "id", "small_text", "medium_text", "large_text")
 
@@ -225,9 +216,6 @@ func TestLargeData_MemoryPressure(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("memory_pressure_table", batchsql.ConflictIgnore, "id", "data", "timestamp")
 
@@ -303,9 +291,6 @@ func TestLargeData_HighThroughput(t *testing.T) {
 	}
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
-	defer func() {
-		_ = batch.Close()
-	}()
 
 	schema := batchsql.NewSchema("high_throughput_table", batchsql.ConflictIgnore, "id", "value", "timestamp")
 
@@ -405,7 +390,6 @@ func TestLargeData_BatchSizeOptimization(t *testing.T) {
 			err := batch.Submit(ctx, request)
 			if err != nil {
 				t.Errorf("Failed to submit record %d with batch size %d: %v", i, batchSize, err)
-				batch.Close()
 				continue
 			}
 		}
@@ -416,15 +400,13 @@ func TestLargeData_BatchSizeOptimization(t *testing.T) {
 		duration := time.Since(startTime)
 		results[batchSize] = duration
 
-		batch.Close()
-
 		rate := float64(recordsPerTest) / duration.Seconds()
 		t.Logf("Batch size %d: %v duration, %.2f records/sec", batchSize, duration, rate)
 	}
 
 	// 找出最优批次大小
 	var bestBatchSize uint32
-	var bestDuration time.Duration = time.Hour // 初始化为很大的值
+	bestDuration := time.Hour // 初始化为很大的值
 
 	t.Log("\nBatch size optimization results:")
 	for batchSize, duration := range results {

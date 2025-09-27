@@ -64,10 +64,10 @@ type TestResult struct {
 
 // MemoryStats 内存统计
 type MemoryStats struct {
-	AllocMB      uint64 `json:"alloc_mb"`
-	TotalAllocMB uint64 `json:"total_alloc_mb"`
-	SysMB        uint64 `json:"sys_mb"`
-	NumGC        uint32 `json:"num_gc"`
+	AllocMB      float64 `json:"alloc_mb"`
+	TotalAllocMB float64 `json:"total_alloc_mb"`
+	SysMB        float64 `json:"sys_mb"`
+	NumGC        uint32  `json:"num_gc"`
 }
 
 // TestReport 测试报告
@@ -207,6 +207,13 @@ func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
 	}
 
 	for _, tc := range testCases {
+		// 每个测试前清理表数据，确保测试独立性
+		log.Printf("  🧹 Clearing table before %s...", tc.name)
+		if err := clearTestTable(db, dbType); err != nil {
+			log.Printf("❌ Failed to clear table before %s: %v", tc.name, err)
+			// 继续执行测试，但记录错误
+		}
+
 		log.Printf("  🔄 Running %s on %s...", tc.name, dbType)
 		result := tc.testFunc(db, dbType, config)
 		result.TestName = tc.name
@@ -282,6 +289,29 @@ func getActualRecordCount(db *sql.DB) (int64, error) {
 	var count int64
 	err := db.QueryRow("SELECT COUNT(*) FROM integration_test").Scan(&count)
 	return count, err
+}
+
+// 清理测试表数据 - 使用高性能的清理方式
+func clearTestTable(db *sql.DB, dbType string) error {
+	var clearSQL string
+
+	switch dbType {
+	case "mysql":
+		// MySQL 使用 TRUNCATE，性能最佳
+		clearSQL = "TRUNCATE TABLE integration_test"
+	case "postgres":
+		// PostgreSQL 使用 TRUNCATE，支持级联
+		clearSQL = "TRUNCATE TABLE integration_test RESTART IDENTITY"
+	case "sqlite3":
+		// SQLite 不支持 TRUNCATE，使用 DELETE + VACUUM 优化
+		clearSQL = "DELETE FROM integration_test; VACUUM;"
+	default:
+		// 兜底方案
+		clearSQL = "DELETE FROM integration_test"
+	}
+
+	_, err := db.Exec(clearSQL)
+	return err
 }
 
 func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestResult {
@@ -382,9 +412,9 @@ TestComplete:
 		RecordsPerSecond:  float64(recordCount) / duration.Seconds(),
 		ConcurrentWorkers: 1,
 		MemoryUsage: MemoryStats{
-			AllocMB:      (m2.Alloc - m1.Alloc) / 1024 / 1024,
-			TotalAllocMB: (m2.TotalAlloc - m1.TotalAlloc) / 1024 / 1024,
-			SysMB:        (m2.Sys - m1.Sys) / 1024 / 1024,
+			AllocMB:      float64(m2.Alloc-m1.Alloc) / 1024 / 1024,
+			TotalAllocMB: float64(m2.TotalAlloc-m1.TotalAlloc) / 1024 / 1024,
+			SysMB:        float64(m2.Sys-m1.Sys) / 1024 / 1024,
 			NumGC:        m2.NumGC - m1.NumGC,
 		},
 		Errors:  errors,
@@ -508,9 +538,9 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 		RecordsPerSecond:  float64(totalRecords) / duration.Seconds(),
 		ConcurrentWorkers: config.ConcurrentWorkers,
 		MemoryUsage: MemoryStats{
-			AllocMB:      (m2.Alloc - m1.Alloc) / 1024 / 1024,
-			TotalAllocMB: (m2.TotalAlloc - m1.TotalAlloc) / 1024 / 1024,
-			SysMB:        (m2.Sys - m1.Sys) / 1024 / 1024,
+			AllocMB:      float64(m2.Alloc-m1.Alloc) / 1024 / 1024,
+			TotalAllocMB: float64(m2.TotalAlloc-m1.TotalAlloc) / 1024 / 1024,
+			SysMB:        float64(m2.Sys-m1.Sys) / 1024 / 1024,
 			NumGC:        m2.NumGC - m1.NumGC,
 		},
 		Errors:  errors,
@@ -704,9 +734,9 @@ func generateHTMLReport(report *TestReport, timestamp string) {
             <tr><td>数据一致性</td><td>%s</td></tr>
             <tr><td>每秒记录数 (RPS)</td><td>%.2f</td></tr>
             <tr><td>并发工作者数</td><td>%d</td></tr>
-            <tr><td>内存分配 (MB)</td><td>%d</td></tr>
-            <tr><td>总内存分配 (MB)</td><td>%d</td></tr>
-            <tr><td>系统内存 (MB)</td><td>%d</td></tr>
+            <tr><td>内存分配 (MB)</td><td>%.2f</td></tr>
+            <tr><td>总内存分配 (MB)</td><td>%.2f</td></tr>
+            <tr><td>系统内存 (MB)</td><td>%.2f</td></tr>
             <tr><td>GC 运行次数</td><td>%d</td></tr>
             <tr><td>错误数量</td><td>%d</td></tr>
         </table>

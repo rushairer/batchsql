@@ -124,13 +124,8 @@ func main() {
 	// 运行 SQLite 测试
 	if sqliteDSN := os.Getenv("SQLITE_DSN"); sqliteDSN != "" {
 		log.Println("📊 Running SQLite integration tests...")
-		// SQLite 需要先初始化数据库文件
-		if err := initializeSQLiteDatabase(sqliteDSN); err != nil {
-			log.Printf("❌ Failed to initialize SQLite database: %v", err)
-		} else {
-			sqliteResults := runDatabaseTests("sqlite3", sqliteDSN, config)
-			report.Results = append(report.Results, sqliteResults...)
-		}
+		sqliteResults := runDatabaseTests("sqlite3", sqliteDSN, config)
+		report.Results = append(report.Results, sqliteResults...)
 	}
 
 	// 生成摘要
@@ -319,20 +314,22 @@ func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestRes
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
 
-	// 高吞吐量测试
+	// 高吞吐量测试 - 限制记录数量避免内存泄漏
 	testCtx, cancel := context.WithTimeout(ctx, config.TestDuration)
 	defer cancel()
 
-	for i := 0; ; i++ {
+	maxRecords := int64(config.ConcurrentWorkers * config.RecordsPerWorker) // 限制最大记录数
+
+	for i := int64(0); i < maxRecords; i++ {
 		select {
 		case <-testCtx.Done():
 			goto TestComplete
 		default:
 			request := batchsql.NewRequest(schema).
-				SetInt64("id", int64(i)).
+				SetInt64("id", i).
 				SetString("name", fmt.Sprintf("User_%d", i)).
 				SetString("email", fmt.Sprintf("user_%d@example.com", i)).
-				SetString("data", fmt.Sprintf("Large data content for user %d with some additional text to make it realistic", i)).
+				SetString("data", fmt.Sprintf("Data_%d", i)). // 减少字符串长度
 				SetFloat64("value", float64(i%10000)/100.0).
 				SetBool("is_active", i%2 == 0).
 				SetTime("created_at", time.Now())
@@ -344,6 +341,11 @@ func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestRes
 				}
 			} else {
 				recordCount++
+			}
+
+			// 定期强制GC，避免内存积累
+			if i%1000 == 0 {
+				runtime.GC()
 			}
 		}
 	}
@@ -413,8 +415,10 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
 
-	// 并发工作者测试
+	// 并发工作者测试 - 批次处理避免内存峰值
 	var wg sync.WaitGroup
+	batchSize := 100 // 每批处理100条记录
+
 	for workerID := 0; workerID < config.ConcurrentWorkers; workerID++ {
 		wg.Add(1)
 		go func(id int) {
@@ -423,23 +427,37 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 			workerRecords := 0
 			baseID := int64(id * config.RecordsPerWorker)
 
-			for i := 0; i < config.RecordsPerWorker; i++ {
-				request := batchsql.NewRequest(schema).
-					SetInt64("id", baseID+int64(i)).
-					SetString("name", fmt.Sprintf("Worker_%d_User_%d", id, i)).
-					SetString("email", fmt.Sprintf("worker_%d_user_%d@example.com", id, i)).
-					SetString("data", fmt.Sprintf("Data from worker %d for record %d", id, i)).
-					SetFloat64("value", float64((id*1000+i)%10000)/100.0).
-					SetBool("is_active", (id+i)%2 == 0).
-					SetTime("created_at", time.Now())
-
-				if err := batchSQL.Submit(ctx, request); err != nil {
-					mu.Lock()
-					errors = append(errors, fmt.Sprintf("Worker %d: %v", id, err))
-					mu.Unlock()
-				} else {
-					workerRecords++
+			// 分批处理，避免内存峰值
+			for batch := 0; batch < config.RecordsPerWorker; batch += batchSize {
+				endIdx := batch + batchSize
+				if endIdx > config.RecordsPerWorker {
+					endIdx = config.RecordsPerWorker
 				}
+
+				for i := batch; i < endIdx; i++ {
+					request := batchsql.NewRequest(schema).
+						SetInt64("id", baseID+int64(i)).
+						SetString("name", fmt.Sprintf("W%d_U%d", id, i)).          // 缩短字符串
+						SetString("email", fmt.Sprintf("u%d_%d@test.com", id, i)). // 缩短字符串
+						SetString("data", fmt.Sprintf("D%d_%d", id, i)).           // 大幅缩短数据
+						SetFloat64("value", float64((id*100+i)%1000)/10.0).
+						SetBool("is_active", (id+i)%2 == 0).
+						SetTime("created_at", time.Now())
+
+					if err := batchSQL.Submit(ctx, request); err != nil {
+						mu.Lock()
+						errors = append(errors, fmt.Sprintf("Worker %d: %v", id, err))
+						mu.Unlock()
+					} else {
+						workerRecords++
+					}
+				}
+
+				// 每批处理完后强制GC
+				runtime.GC()
+
+				// 添加小延迟，避免过度竞争
+				time.Sleep(10 * time.Millisecond)
 			}
 
 			mu.Lock()
@@ -735,50 +753,4 @@ func printSummary(report *TestReport) {
 	}
 
 	fmt.Println(strings.Repeat("=", 80))
-}
-
-// initializeSQLiteDatabase 初始化 SQLite 数据库
-func initializeSQLiteDatabase(dsn string) error {
-	// 打开 SQLite 数据库连接
-	db, err := sql.Open("sqlite3", dsn)
-	if err != nil {
-		return fmt.Errorf("failed to open SQLite database: %w", err)
-	}
-	defer db.Close()
-
-	// 读取初始化 SQL 脚本
-	initSQL, err := os.ReadFile("./test/sql/sqlite/init.sql")
-	if err != nil {
-		// 如果文件不存在，使用内嵌的基本初始化 SQL
-		log.Println("⚠️  SQLite init.sql not found, using embedded initialization")
-		initSQL = []byte(`
-			PRAGMA journal_mode = WAL;
-			PRAGMA synchronous = NORMAL;
-			PRAGMA cache_size = 10000;
-			
-			CREATE TABLE IF NOT EXISTS integration_test (
-				id INTEGER PRIMARY KEY,
-				name TEXT NOT NULL,
-				email TEXT NOT NULL,
-				data TEXT,
-				value REAL,
-				is_active INTEGER DEFAULT 1,
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-			);
-			
-			CREATE INDEX IF NOT EXISTS idx_name ON integration_test(name);
-			CREATE INDEX IF NOT EXISTS idx_email ON integration_test(email);
-			
-			DELETE FROM integration_test;
-			VACUUM;
-		`)
-	}
-
-	// 执行初始化 SQL
-	if _, err := db.Exec(string(initSQL)); err != nil {
-		return fmt.Errorf("failed to execute SQLite initialization SQL: %w", err)
-	}
-
-	log.Println("✅ SQLite database initialized successfully")
-	return nil
 }

@@ -611,11 +611,12 @@ func saveReport(report *TestReport) {
 func generateHTMLReport(report *TestReport, timestamp string) {
 	htmlContent := fmt.Sprintf(`
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-    <title>BatchSQL Integration Test Report</title>
+    <meta charset="UTF-8">
+    <title>BatchSQL 集成测试报告</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
+        body { font-family: "Microsoft YaHei", "SimHei", Arial, sans-serif; margin: 20px; }
         .header { background: #f4f4f4; padding: 20px; border-radius: 5px; }
         .summary { background: #e8f5e8; padding: 15px; margin: 20px 0; border-radius: 5px; }
         .failed { background: #ffe8e8; }
@@ -630,24 +631,24 @@ func generateHTMLReport(report *TestReport, timestamp string) {
 </head>
 <body>
     <div class="header">
-        <h1>🚀 BatchSQL Integration Test Report</h1>
-        <p><strong>Timestamp:</strong> %s</p>
-        <p><strong>Environment:</strong> %s</p>
-        <p><strong>Go Version:</strong> %s</p>
+        <h1>🚀 BatchSQL 集成测试报告</h1>
+        <p><strong>测试时间:</strong> %s</p>
+        <p><strong>测试环境:</strong> %s</p>
+        <p><strong>Go 版本:</strong> %s</p>
     </div>
 
     <div class="summary %s">
-        <h2>📊 Test Summary</h2>
-        <div class="metric"><strong>Total Tests:</strong> %d</div>
-        <div class="metric"><strong>Passed:</strong> %d</div>
-        <div class="metric"><strong>Failed:</strong> %d</div>
-        <div class="metric"><strong>Total Records:</strong> %d</div>
-        <div class="metric"><strong>Average RPS:</strong> %.2f</div>
-        <div class="metric"><strong>Max RPS:</strong> %.2f</div>
-        <div class="metric"><strong>Total Duration:</strong> %s</div>
+        <h2>📊 测试摘要</h2>
+        <div class="metric"><strong>总测试数:</strong> %d</div>
+        <div class="metric"><strong>通过:</strong> %d</div>
+        <div class="metric"><strong>失败:</strong> %d</div>
+        <div class="metric"><strong>总记录数:</strong> %d</div>
+        <div class="metric"><strong>平均 RPS:</strong> %.2f</div>
+        <div class="metric"><strong>最大 RPS:</strong> %.2f</div>
+        <div class="metric"><strong>总耗时:</strong> %s</div>
     </div>
 
-    <h2>📋 Test Results</h2>
+    <h2>📋 测试结果</h2>
 `,
 		report.Timestamp.Format("2006-01-02 15:04:05"),
 		report.Environment,
@@ -696,18 +697,18 @@ func generateHTMLReport(report *TestReport, timestamp string) {
     <div class="result %s">
         <h3>%s %s - %s</h3>
         <table>
-            <tr><th>Metric</th><th>Value</th></tr>
-            <tr><td>Duration</td><td>%s</td></tr>
+            <tr><th>指标</th><th>数值</th></tr>
+            <tr><td>测试耗时</td><td>%s</td></tr>
             <tr><td>提交记录数</td><td>%d</td></tr>
             <tr><td>数据库实际记录数</td><td>%s</td></tr>
             <tr><td>数据一致性</td><td>%s</td></tr>
-            <tr><td>Records/Second</td><td>%.2f</td></tr>
-            <tr><td>Concurrent Workers</td><td>%d</td></tr>
-            <tr><td>Memory Alloc (MB)</td><td>%d</td></tr>
-            <tr><td>Total Alloc (MB)</td><td>%d</td></tr>
-            <tr><td>System Memory (MB)</td><td>%d</td></tr>
-            <tr><td>GC Runs</td><td>%d</td></tr>
-            <tr><td>Errors</td><td>%d</td></tr>
+            <tr><td>每秒记录数 (RPS)</td><td>%.2f</td></tr>
+            <tr><td>并发工作者数</td><td>%d</td></tr>
+            <tr><td>内存分配 (MB)</td><td>%d</td></tr>
+            <tr><td>总内存分配 (MB)</td><td>%d</td></tr>
+            <tr><td>系统内存 (MB)</td><td>%d</td></tr>
+            <tr><td>GC 运行次数</td><td>%d</td></tr>
+            <tr><td>错误数量</td><td>%d</td></tr>
         </table>
 `,
 			status,
@@ -728,10 +729,10 @@ func generateHTMLReport(report *TestReport, timestamp string) {
 		)
 
 		if len(result.Errors) > 0 {
-			htmlContent += "<h4>Errors:</h4><ul>"
+			htmlContent += "<h4>错误信息:</h4><ul>"
 			for i, err := range result.Errors {
 				if i >= 10 { // 只显示前10个错误
-					htmlContent += fmt.Sprintf("<li>... and %d more errors</li>", len(result.Errors)-10)
+					htmlContent += fmt.Sprintf("<li>... 还有 %d 个错误</li>", len(result.Errors)-10)
 					break
 				}
 				htmlContent += fmt.Sprintf("<li>%s</li>", err)
@@ -757,23 +758,23 @@ func generateHTMLReport(report *TestReport, timestamp string) {
 
 func printSummary(report *TestReport) {
 	fmt.Println("\n" + strings.Repeat("=", 80))
-	fmt.Println("🚀 BATCHSQL INTEGRATION TEST SUMMARY")
+	fmt.Println("🚀 BATCHSQL 集成测试总结")
 	fmt.Println(strings.Repeat("=", 80))
 
-	fmt.Printf("📅 Timestamp: %s\n", report.Timestamp.Format("2006-01-02 15:04:05"))
-	fmt.Printf("🌍 Environment: %s\n", report.Environment)
-	fmt.Printf("🔧 Go Version: %s\n", report.GoVersion)
+	fmt.Printf("📅 测试时间: %s\n", report.Timestamp.Format("2006-01-02 15:04:05"))
+	fmt.Printf("🌍 测试环境: %s\n", report.Environment)
+	fmt.Printf("🔧 Go 版本: %s\n", report.GoVersion)
 
-	fmt.Println("\n📊 OVERALL RESULTS:")
-	fmt.Printf("   Total Tests: %d\n", report.Summary.TotalTests)
-	fmt.Printf("   ✅ Passed: %d\n", report.Summary.PassedTests)
-	fmt.Printf("   ❌ Failed: %d\n", report.Summary.FailedTests)
-	fmt.Printf("   📈 Total Records: %d\n", report.Summary.TotalRecords)
-	fmt.Printf("   ⚡ Average RPS: %.2f\n", report.Summary.AverageRPS)
-	fmt.Printf("   🚀 Max RPS: %.2f\n", report.Summary.MaxRPS)
-	fmt.Printf("   ⏱️  Total Duration: %s\n", report.Summary.TotalDuration)
+	fmt.Println("\n📊 总体结果:")
+	fmt.Printf("   总测试数: %d\n", report.Summary.TotalTests)
+	fmt.Printf("   ✅ 通过: %d\n", report.Summary.PassedTests)
+	fmt.Printf("   ❌ 失败: %d\n", report.Summary.FailedTests)
+	fmt.Printf("   📈 总记录数: %d\n", report.Summary.TotalRecords)
+	fmt.Printf("   ⚡ 平均 RPS: %.2f\n", report.Summary.AverageRPS)
+	fmt.Printf("   🚀 最大 RPS: %.2f\n", report.Summary.MaxRPS)
+	fmt.Printf("   ⏱️  总耗时: %s\n", report.Summary.TotalDuration)
 
-	fmt.Println("\n📋 DETAILED RESULTS:")
+	fmt.Println("\n📋 详细结果:")
 	for _, result := range report.Results {
 		status := "✅"
 		if !result.Success {
@@ -793,7 +794,7 @@ func printSummary(report *TestReport) {
 		}
 
 		fmt.Printf("   %s %s - %s\n", status, result.Database, result.TestName)
-		fmt.Printf("      Duration: %s | 提交: %d | RPS: %.2f | Workers: %d | Errors: %d%s\n",
+		fmt.Printf("      耗时: %s | 提交: %d | RPS: %.2f | 工作者: %d | 错误: %d%s\n",
 			result.Duration.String(),
 			result.TotalRecords,
 			result.RecordsPerSecond,
@@ -806,9 +807,9 @@ func printSummary(report *TestReport) {
 	fmt.Println("\n" + strings.Repeat("=", 80))
 
 	if report.Summary.FailedTests > 0 {
-		fmt.Println("❌ SOME TESTS FAILED - Check the detailed report for more information")
+		fmt.Println("❌ 部分测试失败 - 请查看详细报告获取更多信息")
 	} else {
-		fmt.Println("🎉 ALL TESTS PASSED - BatchSQL is performing excellently!")
+		fmt.Println("🎉 所有测试通过 - BatchSQL 运行状态优秀！")
 	}
 
 	fmt.Println(strings.Repeat("=", 80))

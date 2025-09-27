@@ -15,7 +15,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -36,7 +36,7 @@ jobs:
       matrix:
         go-version: ['1.20', '1.21', '1.22']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     
     - name: Set up Go ${{ matrix.go-version }}
       uses: actions/setup-go@v4
@@ -73,7 +73,7 @@ jobs:
     name: Benchmark
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -99,7 +99,7 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -121,7 +121,7 @@ jobs:
     name: Dependency Check
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -150,7 +150,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         go-version: ['1.20', '1.21', '1.22']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     
     - name: Set up Go ${{ matrix.go-version }}
       uses: actions/setup-go@v4

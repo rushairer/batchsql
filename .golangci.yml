@@ -1,4 +1,13 @@
 version: "2"
+
+run:
+  timeout: 5m
+  go: '1.20'
+  skip-dirs:
+    - test
+  skip-files:
+    - "test/.*\\.go$"
+
 linters:
   enable:
     - asciicheck

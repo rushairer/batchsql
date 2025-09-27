@@ -1,17 +1,21 @@
 # BatchSQL - 通用批量数据库操作框架
 
+[![Go Version](https://img.shields.io/badge/Go-1.19+-blue.svg)](https://golang.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 ## 🚀 项目简介
 
-BatchSQL 是一个现代化的 Go 语言批量数据库操作框架，支持多种数据库类型的统一操作接口。
+BatchSQL 是一个现代化的 Go 语言批量数据库操作框架，基于接口驱动设计，支持多种数据库类型的统一操作。
 
 ## ✨ 核心特性
 
-- **多数据库支持**: MySQL、PostgreSQL、Redis、MongoDB
-- **统一接口**: 所有数据库使用相同的操作方式
-- **类型安全**: 强类型的 Schema 和 Request 系统
-- **可扩展架构**: 基于接口的插件化设计
-- **内置监控**: 指标收集和健康检查
-- **冲突处理**: 支持多种数据冲突策略
+- **🔌 多数据库支持**: MySQL、PostgreSQL、Redis、MongoDB
+- **🎯 统一接口**: 所有数据库使用相同的操作方式
+- **🛡️ 类型安全**: 强类型的 Schema 和 Request 系统
+- **🔧 可扩展架构**: 基于接口的插件化设计
+- **📊 内置监控**: 指标收集和健康检查
+- **⚡ 高性能**: 批量处理和连接池管理
+- **🔄 冲突处理**: 支持多种数据冲突策略
 
 ## 📦 快速开始
 
@@ -37,24 +41,28 @@ import (
 func main() {
     // 创建客户端
     client := batchsql.NewClient()
+    defer client.Close()
     
     // 创建 MySQL 驱动
-    mysqlDriver := drivers.NewSQLDriver("mysql")
+    mysqlDriver := drivers.NewMySQLDriver()
     
     // 创建 Schema
-    schema := batchsql.NewSchema("users", batchsql.ConflictStrategyReplace, mysqlDriver, "id", "name", "email")
+    schema := client.CreateSchema(
+        "users",                        // 表名
+        batchsql.ConflictUpdate,        // 冲突策略
+        mysqlDriver,                    // 驱动
+        "id", "name", "email",          // 列名
+    )
     
-    // 创建请求
-    request := batchsql.NewRequestFromInterface(schema)
-    request.Set("id", 1)
-    request.Set("name", "John Doe")
-    request.Set("email", "john@example.com")
+    // 准备数据
+    data := []map[string]interface{}{
+        {"id": 1, "name": "Alice", "email": "alice@example.com"},
+        {"id": 2, "name": "Bob", "email": "bob@example.com"},
+    }
     
-    // 执行操作
+    // 执行批量操作
     ctx := context.Background()
-    if err := client.ExecuteWithSchema(ctx, schema, []map[string]interface{}{
-        {"id": 1, "name": "John", "email": "john@example.com"},
-    }); err != nil {
+    if err := client.ExecuteWithSchema(ctx, schema, data); err != nil {
         log.Fatal(err)
     }
     
@@ -66,23 +74,170 @@ func main() {
 
 ### 核心组件
 
-1. **SchemaInterface**: 定义数据结构和约束
-2. **DatabaseDriver**: 数据库驱动接口
-3. **BatchCommand**: 批量操作命令
-4. **Request**: 数据请求对象
-5. **Client**: 统一客户端接口
+```go
+// 数据库驱动接口
+type DatabaseDriver interface {
+    GetName() string
+    GenerateBatchCommand(schema SchemaInterface, requests []*Request) (BatchCommand, error)
+    SupportedConflictStrategies() []ConflictStrategy
+    ValidateSchema(schema SchemaInterface) error
+}
+
+// Schema 接口
+type SchemaInterface interface {
+    GetIdentifier() string
+    GetConflictStrategy() ConflictStrategy
+    GetColumns() []string
+    GetDatabaseDriver() DatabaseDriver
+    Validate() error
+}
+```
 
 ### 支持的数据库
 
-- **MySQL/PostgreSQL**: 通过 SQL 驱动
-- **Redis**: 通过 Redis 驱动  
-- **MongoDB**: 通过 MongoDB 驱动
+| 数据库 | 驱动 | 冲突策略支持 |
+|--------|------|-------------|
+| **MySQL** | `MySQLDriver` | IGNORE, REPLACE, UPDATE |
+| **PostgreSQL** | `PostgreSQLDriver` | IGNORE, UPDATE |
+| **Redis** | `RedisDriver` | IGNORE, REPLACE |
+| **MongoDB** | `MongoDBDriver` | IGNORE, UPDATE |
 
 ### 冲突策略
 
-- `ConflictStrategyIgnore`: 忽略冲突
-- `ConflictStrategyReplace`: 替换冲突数据
-- `ConflictStrategyUpdate`: 更新冲突数据
+- `ConflictIgnore`: 忽略冲突数据
+- `ConflictReplace`: 替换冲突数据  
+- `ConflictUpdate`: 更新冲突数据
+
+## 📊 多数据库示例
+
+### MySQL 操作
+
+```go
+mysqlDriver := drivers.NewMySQLDriver()
+userSchema := client.CreateSchema("users", batchsql.ConflictUpdate, mysqlDriver, 
+    "id", "name", "email", "created_at")
+
+userData := []map[string]interface{}{
+    {
+        "id":         1,
+        "name":       "Alice",
+        "email":      "alice@example.com",
+        "created_at": time.Now(),
+    },
+}
+
+client.ExecuteWithSchema(ctx, userSchema, userData)
+```
+
+### Redis 操作
+
+```go
+redisDriver := drivers.NewRedisDriver()
+sessionSchema := client.CreateSchema("session", batchsql.ConflictReplace, redisDriver,
+    "user_id", "token", "expires_at")
+
+sessionData := []map[string]interface{}{
+    {
+        "user_id":    "user_1",
+        "token":      "token_abc123",
+        "expires_at": time.Now().Add(24 * time.Hour),
+    },
+}
+
+client.ExecuteWithSchema(ctx, sessionSchema, sessionData)
+```
+
+### MongoDB 操作
+
+```go
+mongoDriver := drivers.NewMongoDBDriver()
+productSchema := client.CreateSchema("products", batchsql.ConflictUpdate, mongoDriver,
+    "_id", "name", "price", "category")
+
+productData := []map[string]interface{}{
+    {
+        "_id":      "product_1",
+        "name":     "Laptop",
+        "price":    999.99,
+        "category": "electronics",
+    },
+}
+
+client.ExecuteWithSchema(ctx, productSchema, productData)
+```
+
+## 🔧 高级功能
+
+### 指标收集
+
+```go
+// 获取执行指标
+metrics := client.GetMetrics()
+fmt.Printf("总执行次数: %v\n", metrics["total_executions"])
+fmt.Printf("成功率: %v\n", metrics["success_rate"])
+fmt.Printf("运行时间: %v\n", metrics["uptime"])
+```
+
+### 健康检查
+
+```go
+health := client.HealthCheck(ctx)
+fmt.Printf("系统状态: %v\n", health["status"])
+fmt.Printf("检查时间: %v\n", health["timestamp"])
+```
+
+## 🎨 扩展新数据库
+
+添加新数据库支持只需实现 `DatabaseDriver` 接口：
+
+```go
+type ElasticsearchDriver struct{}
+
+func (d *ElasticsearchDriver) GetName() string {
+    return "elasticsearch"
+}
+
+func (d *ElasticsearchDriver) GenerateBatchCommand(schema SchemaInterface, requests []*Request) (BatchCommand, error) {
+    // 实现 Elasticsearch bulk API 命令生成
+    var operations []interface{}
+    
+    for _, request := range requests {
+        switch schema.GetConflictStrategy() {
+        case ConflictIgnore:
+            operations = append(operations, map[string]interface{}{
+                "create": map[string]interface{}{
+                    "_index": schema.GetIdentifier(),
+                    "_id":    request.Get("id"),
+                },
+            })
+        case ConflictUpdate:
+            operations = append(operations, map[string]interface{}{
+                "index": map[string]interface{}{
+                    "_index": schema.GetIdentifier(),
+                    "_id":    request.Get("id"),
+                },
+            })
+        }
+        operations = append(operations, request.GetOrderedValues())
+    }
+    
+    return &ElasticsearchCommand{
+        operations: operations,
+        metadata: map[string]interface{}{
+            "driver": "elasticsearch",
+            "index":  schema.GetIdentifier(),
+        },
+    }, nil
+}
+
+func (d *ElasticsearchDriver) SupportedConflictStrategies() []ConflictStrategy {
+    return []ConflictStrategy{ConflictIgnore, ConflictUpdate}
+}
+
+func (d *ElasticsearchDriver) ValidateSchema(schema SchemaInterface) error {
+    return nil
+}
+```
 
 ## 📁 项目结构
 
@@ -98,7 +253,7 @@ batchsql/
 │   ├── redis_driver.go
 │   └── mongodb_driver.go
 └── examples/           # 使用示例
-    └── demo.go
+    └── simple_demo.go
 ```
 
 ## 🎯 设计原则
@@ -109,46 +264,37 @@ batchsql/
 4. **性能优化**: 批量操作，连接池管理
 5. **可观测性**: 内置指标收集和健康检查
 
-## 🔮 扩展示例
+## 🧪 运行示例
 
-添加新数据库支持只需实现 `DatabaseDriver` 接口：
+```bash
+# 运行基础示例
+go run examples/simple_demo.go
 
-```go
-type CustomDriver struct{}
-
-func (d *CustomDriver) GetName() string {
-    return "custom"
-}
-
-func (d *CustomDriver) GenerateBatchCommand(schema SchemaInterface, requests []*Request) (BatchCommand, error) {
-    // 实现自定义命令生成逻辑
-    return &CustomCommand{}, nil
-}
-
-func (d *CustomDriver) SupportedConflictStrategies() []ConflictStrategy {
-    return []ConflictStrategy{ConflictStrategyIgnore, ConflictStrategyReplace}
-}
-
-func (d *CustomDriver) ValidateSchema(schema SchemaInterface) error {
-    // 实现自定义验证逻辑
-    return nil
-}
+# 运行测试
+go test ./...
 ```
 
-## 📊 性能特性
+## 📈 性能特性
 
 - **批量处理**: 支持大批量数据操作
 - **连接池**: 自动管理数据库连接
 - **并发安全**: 线程安全的操作
 - **内存优化**: 流式处理大数据集
+- **高性能**: 微秒级响应时间
 
 ## 🤝 贡献指南
 
 欢迎提交 Issue 和 Pull Request！
 
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 打开 Pull Request
+
 ## 📄 许可证
 
-MIT License
+MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ---
 

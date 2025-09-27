@@ -12,7 +12,7 @@ Thank you for your interest in contributing to BatchSQL! This document provides 
 ### Development Setup
 1. **Fork and Clone**
    ```bash
-   git clone https://github.com/your-username/batchsql.git
+   git clone https://github.com/rushairer/batchsql.git
    cd batchsql
    ```
 

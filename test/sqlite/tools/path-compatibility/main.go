@@ -29,7 +29,7 @@ func main() {
 	fmt.Printf("📁 检测到的报告目录: %s\n", reportsDir)
 
 	// 测试创建目录
-	if err := os.MkdirAll(reportsDir, 0755); err != nil {
+	if err := os.MkdirAll(reportsDir, 0o755); err != nil {
 		fmt.Printf("❌ 无法创建目录 %s: %v\n", reportsDir, err)
 	} else {
 		fmt.Printf("✅ 成功创建目录: %s\n", reportsDir)

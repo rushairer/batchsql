@@ -766,7 +766,7 @@ func generateSummary(results []TestResult, totalDuration time.Duration) TestSumm
 func saveReport(report *TestReport) {
 	// 智能检测报告目录 - 兼容本地和Docker环境
 	reportsDir := getReportsDirectory()
-	if err := os.MkdirAll(reportsDir, 0755); err != nil {
+	if err := os.MkdirAll(reportsDir, 0o755); err != nil {
 		log.Printf("❌ Failed to create reports directory: %v", err)
 		return
 	}
@@ -782,7 +782,7 @@ func saveReport(report *TestReport) {
 		return
 	}
 
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	if err := os.WriteFile(filename, data, 0o644); err != nil {
 		log.Printf("❌ Failed to save report: %v", err)
 		return
 	}
@@ -941,7 +941,7 @@ func generateHTMLReport(report *TestReport, timestamp string, reportsDir string)
 </html>`
 
 	htmlFilename := fmt.Sprintf("%s/integration_test_report_%s.html", reportsDir, timestamp)
-	if err := os.WriteFile(htmlFilename, []byte(htmlContent), 0644); err != nil {
+	if err := os.WriteFile(htmlFilename, []byte(htmlContent), 0o644); err != nil {
 		log.Printf("❌ Failed to save HTML report: %v", err)
 		return
 	}

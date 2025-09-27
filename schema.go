@@ -144,3 +144,85 @@ func (s *Schema) generateSQLiteInsert(columnsStr, placeholders string) string {
 		return baseSQL
 	}
 }
+
+// 实现 SchemaInterface 接口
+func (s *Schema) GetIdentifier() string {
+	return s.tableName
+}
+
+func (s *Schema) GetConflictStrategy() ConflictStrategy {
+	return s.conflictStrategy
+}
+
+func (s *Schema) GetColumns() []string {
+	return s.columns
+}
+
+func (s *Schema) GetDatabaseDriver() DatabaseDriver {
+	// 根据数据库类型返回对应的驱动
+	switch s.databaseType {
+	case MySQL:
+		return &MySQLDriverCompat{}
+	case PostgreSQL:
+		return &PostgreSQLDriverCompat{}
+	case SQLite:
+		return &SQLiteDriverCompat{}
+	default:
+		return &MySQLDriverCompat{} // 默认
+	}
+}
+
+func (s *Schema) Validate() error {
+	if s.tableName == "" {
+		return fmt.Errorf("table name cannot be empty")
+	}
+	if len(s.columns) == 0 {
+		return fmt.Errorf("columns cannot be empty")
+	}
+	return nil
+}
+
+func (s *Schema) Clone() SchemaInterface {
+	newSchema := &Schema{
+		tableName:        s.tableName,
+		conflictStrategy: s.conflictStrategy,
+		databaseType:     s.databaseType,
+		columns:          make([]string, len(s.columns)),
+	}
+	copy(newSchema.columns, s.columns)
+	return newSchema
+}
+
+// 兼容性驱动实现
+type MySQLDriverCompat struct{}
+
+func (d *MySQLDriverCompat) GetName() string { return "mysql" }
+func (d *MySQLDriverCompat) SupportedConflictStrategies() []ConflictStrategy {
+	return []ConflictStrategy{ConflictIgnore, ConflictReplace, ConflictUpdate}
+}
+func (d *MySQLDriverCompat) ValidateSchema(schema SchemaInterface) error { return nil }
+func (d *MySQLDriverCompat) GenerateBatchCommand(schema SchemaInterface, requests []*Request) (BatchCommand, error) {
+	return nil, fmt.Errorf("not implemented in compatibility mode")
+}
+
+type PostgreSQLDriverCompat struct{}
+
+func (d *PostgreSQLDriverCompat) GetName() string { return "postgresql" }
+func (d *PostgreSQLDriverCompat) SupportedConflictStrategies() []ConflictStrategy {
+	return []ConflictStrategy{ConflictIgnore, ConflictUpdate}
+}
+func (d *PostgreSQLDriverCompat) ValidateSchema(schema SchemaInterface) error { return nil }
+func (d *PostgreSQLDriverCompat) GenerateBatchCommand(schema SchemaInterface, requests []*Request) (BatchCommand, error) {
+	return nil, fmt.Errorf("not implemented in compatibility mode")
+}
+
+type SQLiteDriverCompat struct{}
+
+func (d *SQLiteDriverCompat) GetName() string { return "sqlite" }
+func (d *SQLiteDriverCompat) SupportedConflictStrategies() []ConflictStrategy {
+	return []ConflictStrategy{ConflictIgnore, ConflictReplace, ConflictUpdate}
+}
+func (d *SQLiteDriverCompat) ValidateSchema(schema SchemaInterface) error { return nil }
+func (d *SQLiteDriverCompat) GenerateBatchCommand(schema SchemaInterface, requests []*Request) (BatchCommand, error) {
+	return nil, fmt.Errorf("not implemented in compatibility mode")
+}

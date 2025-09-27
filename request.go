@@ -17,6 +17,41 @@ func NewRequest(schema *Schema) *Request {
 	}
 }
 
+// NewRequestFromInterface 从接口创建请求（用于新架构）
+func NewRequestFromInterface(schema SchemaInterface) *Request {
+	// 如果是旧的 Schema 类型，直接使用
+	if oldSchema, ok := schema.(*Schema); ok {
+		return &Request{
+			schema:  oldSchema,
+			columns: make(map[string]any),
+		}
+	}
+	
+	// 如果是新的 UniversalSchema，创建兼容的 Schema
+	if universalSchema, ok := schema.(*UniversalSchema); ok {
+		compatSchema := &Schema{
+			tableName:        universalSchema.GetIdentifier(),
+			conflictStrategy: universalSchema.GetConflictStrategy(),
+			columns:          universalSchema.GetColumns(),
+		}
+		return &Request{
+			schema:  compatSchema,
+			columns: make(map[string]any),
+		}
+	}
+	
+	// 默认情况，创建空的兼容 Schema
+	compatSchema := &Schema{
+		tableName:        schema.GetIdentifier(),
+		conflictStrategy: schema.GetConflictStrategy(),
+		columns:          schema.GetColumns(),
+	}
+	return &Request{
+		schema:  compatSchema,
+		columns: make(map[string]any),
+	}
+}
+
 // Schema 获取请求的 schema
 func (r *Request) Schema() *Schema {
 	return r.schema

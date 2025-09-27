@@ -68,7 +68,7 @@ type ConnectionManager interface {
 	ReleaseConnection(driverName string, conn interface{}) error
 
 	// AddConnection 添加连接配置
-	AddConnection(driverName string, config *ConnectionConfig) error
+	AddConnection(driverName string, config interface{}) error
 
 	// Close 关闭所有连接
 	Close() error

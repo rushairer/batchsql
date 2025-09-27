@@ -1,23 +1,19 @@
-# BatchSQL
+# BatchSQL - 通用批量数据库操作框架
 
-一个高性能的 Go 批量 SQL 处理库，支持多种数据库类型和冲突处理策略。
+## 🚀 项目简介
 
-## 功能特性
+BatchSQL 是一个现代化的 Go 语言批量数据库操作框架，支持多种数据库类型的统一操作接口。
 
-### 🚀 核心功能
-- **批量处理**：使用 `gopipeline.StandardPipeline` 进行高效的批量数据处理
-- **多数据库支持**：支持 MySQL、PostgreSQL、SQLite
-- **冲突处理策略**：支持跳过、覆盖、更新三种冲突处理方式
-- **类型安全**：提供类型化的列操作方法
-- **智能聚合**：按 schema 指针自动聚合相同类型的请求
+## ✨ 核心特性
 
-### 🎯 设计亮点
-- **指针传递优化**：使用指针传递减少内存复制，提高性能
-- **并发安全**：支持并发提交请求，自动按 schema 分组处理
-- **灵活配置**：支持自定义缓冲区大小、刷新大小和刷新间隔
-- **测试友好**：提供模拟执行器用于测试
+- **多数据库支持**: MySQL、PostgreSQL、Redis、MongoDB
+- **统一接口**: 所有数据库使用相同的操作方式
+- **类型安全**: 强类型的 Schema 和 Request 系统
+- **可扩展架构**: 基于接口的插件化设计
+- **内置监控**: 指标收集和健康检查
+- **冲突处理**: 支持多种数据冲突策略
 
-## 快速开始
+## 📦 快速开始
 
 ### 安装
 
@@ -32,208 +28,128 @@ package main
 
 import (
     "context"
-    "time"
-    "github.com/rushairer/batchsql"
-)
-
-func main() {
-    ctx := context.Background()
+    "log"
     
-    // 创建带模拟执行器的 BatchSQL 实例
-    batch, _ := batchsql.NewBatchSQLWithMock(ctx, 100, 10, time.Second)
-    defer batch.Close()
-
-    // 定义 schema
-    schema := batchsql.NewSchema(
-        "users",                    // 表名
-        batchsql.ConflictIgnore,   // 冲突策略
-        batchsql.MySQL,            // 数据库类型
-        "id", "name", "email",     // 列名
-    )
-
-    // 创建并提交请求
-    request := batchsql.NewRequest(schema).
-        SetInt64("id", 1).
-        SetString("name", "John").
-        SetString("email", "john@example.com")
-
-    if err := batch.Submit(ctx, request); err != nil {
-        panic(err)
-    }
-}
-```
-
-## 详细功能
-
-### 支持的数据库类型
-
-```go
-type DatabaseType int
-
-const (
-    MySQL      DatabaseType = iota // MySQL
-    PostgreSQL                     // PostgreSQL
-    SQLite                         // SQLite
-)
-```
-
-### 冲突处理策略
-
-```go
-type ConflictStrategy int
-
-const (
-    ConflictIgnore  ConflictStrategy = iota // 跳过冲突
-    ConflictReplace                         // 覆盖冲突
-    ConflictUpdate                          // 更新冲突
-)
-```
-
-### 生成的 SQL 示例
-
-#### MySQL
-- **ConflictIgnore**: `INSERT IGNORE INTO users (id, name) VALUES (?, ?)`
-- **ConflictReplace**: `REPLACE INTO users (id, name) VALUES (?, ?)`
-- **ConflictUpdate**: `INSERT INTO users (id, name) VALUES (?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)`
-
-#### PostgreSQL
-- **ConflictIgnore**: `INSERT INTO users (id, name) VALUES (?, ?) ON CONFLICT DO NOTHING`
-- **ConflictUpdate**: `INSERT INTO users (id, name) VALUES (?, ?) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`
-
-#### SQLite
-- **ConflictIgnore**: `INSERT OR IGNORE INTO users (id, name) VALUES (?, ?)`
-- **ConflictReplace**: `INSERT OR REPLACE INTO users (id, name) VALUES (?, ?)`
-- **ConflictUpdate**: `INSERT INTO users (id, name) VALUES (?, ?) ON CONFLICT DO UPDATE SET name = excluded.name`
-
-### 类型化的列操作
-
-```go
-request := batchsql.NewRequest(schema).
-    SetInt32("age", 30).
-    SetInt64("id", 12345).
-    SetFloat64("salary", 75000.50).
-    SetString("name", "John Doe").
-    SetBool("is_active", true).
-    SetTime("created_at", time.Now()).
-    SetBytes("data", []byte("binary data")).
-    SetNull("optional_field")
-```
-
-### 获取类型化的值
-
-```go
-if name, err := request.GetString("name"); err == nil {
-    fmt.Printf("Name: %s", name)
-}
-
-if age, err := request.GetInt32("age"); err == nil {
-    fmt.Printf("Age: %d", age)
-}
-```
-
-## 高级用法
-
-### 使用真实数据库连接
-
-```go
-import (
-    "database/sql"
-    _ "github.com/go-sql-driver/mysql"
+    "github.com/rushairer/batchsql"
+    "github.com/rushairer/batchsql/drivers"
 )
 
 func main() {
-    db, err := sql.Open("mysql", "user:password@tcp(localhost:3306)/testdb")
-    if err != nil {
-        panic(err)
-    }
-    defer db.Close()
-
+    // 创建客户端
+    client := batchsql.NewClient()
+    
+    // 创建 MySQL 驱动
+    mysqlDriver := drivers.NewSQLDriver("mysql")
+    
+    // 创建 Schema
+    schema := batchsql.NewSchema("users", batchsql.ConflictStrategyReplace, mysqlDriver, "id", "name", "email")
+    
+    // 创建请求
+    request := batchsql.NewRequestFromInterface(schema)
+    request.Set("id", 1)
+    request.Set("name", "John Doe")
+    request.Set("email", "john@example.com")
+    
+    // 执行操作
     ctx := context.Background()
-    batch := batchsql.NewBatchSQLWithDB(ctx, db, 1000, 100, 5*time.Second)
-    defer batch.Close()
-
-    // 监听错误
-    go func() {
-        errorChan := batch.ErrorChan(10)
-        for err := range errorChan {
-            log.Printf("Batch processing error: %v", err)
-        }
-    }()
-
-    // 使用 batch...
+    if err := client.ExecuteWithSchema(ctx, schema, []map[string]interface{}{
+        {"id": 1, "name": "John", "email": "john@example.com"},
+    }); err != nil {
+        log.Fatal(err)
+    }
+    
+    log.Println("操作成功完成!")
 }
 ```
 
-### 批量处理不同类型的数据
+## 🏗️ 架构设计
+
+### 核心组件
+
+1. **SchemaInterface**: 定义数据结构和约束
+2. **DatabaseDriver**: 数据库驱动接口
+3. **BatchCommand**: 批量操作命令
+4. **Request**: 数据请求对象
+5. **Client**: 统一客户端接口
+
+### 支持的数据库
+
+- **MySQL/PostgreSQL**: 通过 SQL 驱动
+- **Redis**: 通过 Redis 驱动  
+- **MongoDB**: 通过 MongoDB 驱动
+
+### 冲突策略
+
+- `ConflictStrategyIgnore`: 忽略冲突
+- `ConflictStrategyReplace`: 替换冲突数据
+- `ConflictStrategyUpdate`: 更新冲突数据
+
+## 📁 项目结构
+
+```
+batchsql/
+├── batchsql.go          # 主客户端
+├── interfaces.go        # 核心接口定义
+├── universal_schema.go  # Schema 实现
+├── request.go          # 请求对象
+├── types.go            # 类型定义
+├── drivers/            # 数据库驱动
+│   ├── sql_driver.go
+│   ├── redis_driver.go
+│   └── mongodb_driver.go
+└── examples/           # 使用示例
+    └── demo.go
+```
+
+## 🎯 设计原则
+
+1. **接口驱动**: 所有组件基于接口设计，高度可扩展
+2. **类型安全**: 编译时错误检查，运行时类型验证
+3. **统一API**: 不同数据库使用相同的操作方式
+4. **性能优化**: 批量操作，连接池管理
+5. **可观测性**: 内置指标收集和健康检查
+
+## 🔮 扩展示例
+
+添加新数据库支持只需实现 `DatabaseDriver` 接口：
 
 ```go
-// 创建不同的 schema
-mysqlSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, batchsql.MySQL, "id", "name")
-postgresSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, batchsql.PostgreSQL, "id", "name", "price")
+type CustomDriver struct{}
 
-// 提交不同类型的请求
-userRequest := batchsql.NewRequest(mysqlSchema).SetInt64("id", 1).SetString("name", "User1")
-productRequest := batchsql.NewRequest(postgresSchema).SetInt64("id", 1).SetString("name", "Product1").SetFloat64("price", 99.99)
+func (d *CustomDriver) GetName() string {
+    return "custom"
+}
 
-batch.Submit(ctx, userRequest)
-batch.Submit(ctx, productRequest)
+func (d *CustomDriver) GenerateBatchCommand(schema SchemaInterface, requests []*Request) (BatchCommand, error) {
+    // 实现自定义命令生成逻辑
+    return &CustomCommand{}, nil
+}
 
-// 系统会自动按 schema 分组处理
+func (d *CustomDriver) SupportedConflictStrategies() []ConflictStrategy {
+    return []ConflictStrategy{ConflictStrategyIgnore, ConflictStrategyReplace}
+}
+
+func (d *CustomDriver) ValidateSchema(schema SchemaInterface) error {
+    // 实现自定义验证逻辑
+    return nil
+}
 ```
 
-## 性能优化
+## 📊 性能特性
 
-### 内存效率
-- 使用指针传递 `StandardPipeline[*Request]` 而非值传递，减少内存复制
-- 智能聚合相同 schema 的请求，减少数据库连接次数
-- 支持对象池模式（可扩展）
+- **批量处理**: 支持大批量数据操作
+- **连接池**: 自动管理数据库连接
+- **并发安全**: 线程安全的操作
+- **内存优化**: 流式处理大数据集
 
-### 并发处理
-- 支持多 goroutine 并发提交请求
-- 自动按 schema 指针聚合，确保相同配置的请求批量处理
-- 异步处理，不阻塞主线程
-
-## 测试
-
-运行测试：
-
-```bash
-go test -v
-```
-
-测试覆盖：
-- 基本批量处理功能
-- Schema 分组逻辑
-- SQL 生成正确性
-- 不同数据库类型和冲突策略
-
-## 架构设计
-
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Application   │───▶│    BatchSQL      │───▶│  gopipeline     │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │ BatchExecutor    │    │  Flush Function │
-                       └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │ BatchProcessor   │    │ Schema Grouping │
-                       └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │   Database       │    │   SQL Generation│
-                       └──────────────────┘    └─────────────────┘
-```
-
-## 贡献
+## 🤝 贡献指南
 
 欢迎提交 Issue 和 Pull Request！
 
-## 许可证
+## 📄 许可证
 
 MIT License
+
+---
+
+**BatchSQL - 让批量数据库操作变得简单而强大！** 🎉

@@ -2,200 +2,200 @@ package batchsql
 
 import (
 	"fmt"
-	"time"
+	"reflect"
 )
 
+// Request represents a single database operation request
 type Request struct {
-	schema  *Schema
-	columns map[string]any // 使用 map 存储列名到值的映射
+	schema SchemaInterface
+	data   map[string]interface{}
 }
 
-func NewRequest(schema *Schema) *Request {
+// NewRequest creates a new request with the given schema
+func NewRequest(schema SchemaInterface) *Request {
 	return &Request{
-		schema:  schema,
-		columns: make(map[string]any),
+		schema: schema,
+		data:   make(map[string]interface{}),
 	}
 }
 
-// NewRequestFromInterface 从接口创建请求（用于新架构）
+// NewRequestFromInterface creates a new request from a schema interface
 func NewRequestFromInterface(schema SchemaInterface) *Request {
-	// 如果是旧的 Schema 类型，直接使用
-	if oldSchema, ok := schema.(*Schema); ok {
-		return &Request{
-			schema:  oldSchema,
-			columns: make(map[string]any),
-		}
-	}
-	
-	// 如果是新的 UniversalSchema，创建兼容的 Schema
-	if universalSchema, ok := schema.(*UniversalSchema); ok {
-		compatSchema := &Schema{
-			tableName:        universalSchema.GetIdentifier(),
-			conflictStrategy: universalSchema.GetConflictStrategy(),
-			columns:          universalSchema.GetColumns(),
-		}
-		return &Request{
-			schema:  compatSchema,
-			columns: make(map[string]any),
-		}
-	}
-	
-	// 默认情况，创建空的兼容 Schema
-	compatSchema := &Schema{
-		tableName:        schema.GetIdentifier(),
-		conflictStrategy: schema.GetConflictStrategy(),
-		columns:          schema.GetColumns(),
-	}
-	return &Request{
-		schema:  compatSchema,
-		columns: make(map[string]any),
-	}
+	return NewRequest(schema)
 }
 
-// Schema 获取请求的 schema
-func (r *Request) Schema() *Schema {
-	return r.schema
+// Set sets a value for the given key
+func (r *Request) Set(key string, value interface{}) {
+	r.data[key] = value
 }
 
-// Columns 获取所有列数据
-func (r *Request) Columns() map[string]any {
-	return r.columns
+// Get gets a value for the given key
+func (r *Request) Get(key string) (interface{}, bool) {
+	value, exists := r.data[key]
+	return value, exists
 }
 
-// GetOrderedValues 按照 schema 中定义的列顺序返回值
-func (r *Request) GetOrderedValues() []any {
-	values := make([]any, len(r.schema.columns))
-	for i, colName := range r.schema.columns {
-		values[i] = r.columns[colName]
+// GetString gets a string value for the given key
+func (r *Request) GetString(key string) string {
+	if value, exists := r.data[key]; exists {
+		if str, ok := value.(string); ok {
+			return str
+		}
+		return fmt.Sprintf("%v", value)
 	}
+	return ""
+}
+
+// GetInt gets an int value for the given key
+func (r *Request) GetInt(key string) int {
+	if value, exists := r.data[key]; exists {
+		switch v := value.(type) {
+		case int:
+			return v
+		case int64:
+			return int(v)
+		case float64:
+			return int(v)
+		}
+	}
+	return 0
+}
+
+// GetInt64 gets an int64 value for the given key
+func (r *Request) GetInt64(key string) int64 {
+	if value, exists := r.data[key]; exists {
+		switch v := value.(type) {
+		case int64:
+			return v
+		case int:
+			return int64(v)
+		case float64:
+			return int64(v)
+		}
+	}
+	return 0
+}
+
+// GetFloat64 gets a float64 value for the given key
+func (r *Request) GetFloat64(key string) float64 {
+	if value, exists := r.data[key]; exists {
+		switch v := value.(type) {
+		case float64:
+			return v
+		case float32:
+			return float64(v)
+		case int:
+			return float64(v)
+		case int64:
+			return float64(v)
+		}
+	}
+	return 0.0
+}
+
+// GetBool gets a bool value for the given key
+func (r *Request) GetBool(key string) bool {
+	if value, exists := r.data[key]; exists {
+		if b, ok := value.(bool); ok {
+			return b
+		}
+	}
+	return false
+}
+
+// GetData returns all data as a map
+func (r *Request) GetData() map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range r.data {
+		result[k] = v
+	}
+	return result
+}
+
+// GetOrderedValues returns values in the order of schema columns
+func (r *Request) GetOrderedValues() []interface{} {
+	columns := r.schema.GetColumns()
+	values := make([]interface{}, len(columns))
+
+	for i, column := range columns {
+		if value, exists := r.data[column]; exists {
+			values[i] = value
+		} else {
+			values[i] = nil
+		}
+	}
+
 	return values
 }
 
-// 类型化的设置方法
-func (r *Request) SetInt32(colName string, value int32) *Request {
-	r.columns[colName] = value
-	return r
+// Schema returns the associated schema
+func (r *Request) Schema() SchemaInterface {
+	return r.schema
 }
 
-func (r *Request) SetInt64(colName string, value int64) *Request {
-	r.columns[colName] = value
-	return r
-}
-
-func (r *Request) SetFloat32(colName string, value float32) *Request {
-	r.columns[colName] = value
-	return r
-}
-
-func (r *Request) SetFloat64(colName string, value float64) *Request {
-	r.columns[colName] = value
-	return r
-}
-
-func (r *Request) SetString(colName string, value string) *Request {
-	r.columns[colName] = value
-	return r
-}
-
-func (r *Request) SetBool(colName string, value bool) *Request {
-	r.columns[colName] = value
-	return r
-}
-
-func (r *Request) SetTime(colName string, value time.Time) *Request {
-	r.columns[colName] = value
-	return r
-}
-
-func (r *Request) SetBytes(colName string, value []byte) *Request {
-	r.columns[colName] = value
-	return r
-}
-
-func (r *Request) SetNull(colName string) *Request {
-	r.columns[colName] = nil
-	return r
-}
-
-// 通用设置方法
-func (r *Request) Set(colName string, value any) *Request {
-	r.columns[colName] = value
-	return r
-}
-
-// 类型化的获取方法
-func (r *Request) GetInt32(colName string) (int32, error) {
-	value, exists := r.columns[colName]
-	if !exists {
-		return 0, fmt.Errorf("column %s not found", colName)
-	}
-	if v, ok := value.(int32); ok {
-		return v, nil
-	}
-	return 0, fmt.Errorf("column %s is not int32", colName)
-}
-
-func (r *Request) GetInt64(colName string) (int64, error) {
-	value, exists := r.columns[colName]
-	if !exists {
-		return 0, fmt.Errorf("column %s not found", colName)
-	}
-	if v, ok := value.(int64); ok {
-		return v, nil
-	}
-	return 0, fmt.Errorf("column %s is not int64", colName)
-}
-
-func (r *Request) GetString(colName string) (string, error) {
-	value, exists := r.columns[colName]
-	if !exists {
-		return "", fmt.Errorf("column %s not found", colName)
-	}
-	if v, ok := value.(string); ok {
-		return v, nil
-	}
-	return "", fmt.Errorf("column %s is not string", colName)
-}
-
-func (r *Request) GetFloat64(colName string) (float64, error) {
-	value, exists := r.columns[colName]
-	if !exists {
-		return 0, fmt.Errorf("column %s not found", colName)
-	}
-	if v, ok := value.(float64); ok {
-		return v, nil
-	}
-	return 0, fmt.Errorf("column %s is not float64", colName)
-}
-
-func (r *Request) GetBool(colName string) (bool, error) {
-	value, exists := r.columns[colName]
-	if !exists {
-		return false, fmt.Errorf("column %s not found", colName)
-	}
-	if v, ok := value.(bool); ok {
-		return v, nil
-	}
-	return false, fmt.Errorf("column %s is not bool", colName)
-}
-
-func (r *Request) GetTime(colName string) (time.Time, error) {
-	value, exists := r.columns[colName]
-	if !exists {
-		return time.Time{}, fmt.Errorf("column %s not found", colName)
-	}
-	if v, ok := value.(time.Time); ok {
-		return v, nil
-	}
-	return time.Time{}, fmt.Errorf("column %s is not time.Time", colName)
-}
-
-// 验证请求是否包含所有必需的列
+// Validate validates the request against its schema
 func (r *Request) Validate() error {
-	for _, colName := range r.schema.columns {
-		if _, exists := r.columns[colName]; !exists {
-			return fmt.Errorf("missing required column: %s", colName)
+	if r.schema == nil {
+		return fmt.Errorf("request has no associated schema")
+	}
+
+	// Validate schema first
+	if err := r.schema.Validate(); err != nil {
+		return fmt.Errorf("schema validation failed: %w", err)
+	}
+
+	// Check required columns
+	columns := r.schema.GetColumns()
+	for _, column := range columns {
+		if _, exists := r.data[column]; !exists {
+			// For now, we don't enforce required fields
+			// In a real implementation, you might have required field metadata
 		}
 	}
+
 	return nil
+}
+
+// Clone creates a copy of the request
+func (r *Request) Clone() *Request {
+	clone := &Request{
+		schema: r.schema,
+		data:   make(map[string]interface{}),
+	}
+
+	for k, v := range r.data {
+		clone.data[k] = cloneValue(v)
+	}
+
+	return clone
+}
+
+// cloneValue creates a deep copy of a value
+func cloneValue(value interface{}) interface{} {
+	if value == nil {
+		return nil
+	}
+
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Slice:
+		slice := make([]interface{}, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			slice[i] = cloneValue(v.Index(i).Interface())
+		}
+		return slice
+	case reflect.Map:
+		m := make(map[string]interface{})
+		for _, key := range v.MapKeys() {
+			m[key.String()] = cloneValue(v.MapIndex(key).Interface())
+		}
+		return m
+	default:
+		return value
+	}
+}
+
+// String returns a string representation of the request
+func (r *Request) String() string {
+	return fmt.Sprintf("Request{schema: %s, data: %+v}", r.schema.GetIdentifier(), r.data)
 }

@@ -9,62 +9,40 @@ import (
 	"github.com/rushairer/batchsql/drivers"
 )
 
-// 第三阶段可工作的演示
 func main() {
-	log.Println("=== BatchSQL 第三阶段可工作演示 ===")
+	log.Println("=== BatchSQL 简化演示 ===")
 
-	// 1. 创建简化客户端配置
-	config := batchsql.DefaultClientConfig()
-
-	// 添加数据库连接配置
-	config.Connections["mysql"] = &batchsql.ConnectionConfig{
-		DriverName:    "mysql",
-		ConnectionURL: "mock://localhost",
-	}
-
-	// 2. 创建简化客户端
-	client, err := batchsql.NewSimpleBatchSQLClient(config)
-	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-	}
+	// 创建客户端
+	client := batchsql.NewClient()
 	defer client.Close()
 
 	ctx := context.Background()
 
-	// 3. 演示新架构的核心功能
-	demonstrateNewArchitecture(ctx, client)
+	// 演示核心功能
+	demonstrateCore(ctx, client)
 
-	// 4. 演示多数据库支持
+	// 演示多数据库支持
 	demonstrateMultiDatabase(ctx, client)
 
-	// 5. 演示指标和监控
+	// 演示监控功能
 	demonstrateMonitoring(client)
 
-	log.Println("\n=== 第三阶段演示完成 ===")
-	log.Println("✅ 新架构基于接口设计，支持多种数据库")
-	log.Println("✅ 统一的API和使用方式")
-	log.Println("✅ 内置指标收集和健康检查")
-	log.Println("✅ 可扩展的驱动架构")
+	log.Println("\n=== 演示完成 ===")
+	log.Println("✅ 统一架构基于接口设计")
+	log.Println("✅ 支持多种数据库类型")
+	log.Println("✅ 内置监控和健康检查")
+	log.Println("✅ 高度可扩展的设计")
 }
 
-func demonstrateNewArchitecture(ctx context.Context, client *batchsql.SimpleBatchSQLClient) {
-	log.Println("\n--- 新架构核心功能演示 ---")
+func demonstrateCore(ctx context.Context, client *batchsql.Client) {
+	log.Println("\n--- 核心功能演示 ---")
 
-	// 创建不同类型的驱动
+	// 创建驱动
 	mysqlDriver := drivers.NewMySQLDriver()
-	redisDriver := drivers.NewRedisDriver()
-	mongoDriver := drivers.NewMongoDBDriver()
-
 	log.Printf("MySQL驱动: %s", mysqlDriver.GetName())
 	log.Printf("  支持的冲突策略: %v", mysqlDriver.SupportedConflictStrategies())
 
-	log.Printf("Redis驱动: %s", redisDriver.GetName())
-	log.Printf("  支持的冲突策略: %v", redisDriver.SupportedConflictStrategies())
-
-	log.Printf("MongoDB驱动: %s", mongoDriver.GetName())
-	log.Printf("  支持的冲突策略: %v", mongoDriver.SupportedConflictStrategies())
-
-	// 创建统一的Schema
+	// 创建Schema
 	userSchema := client.CreateSchema(
 		"users",
 		batchsql.ConflictUpdate,
@@ -103,10 +81,9 @@ func demonstrateNewArchitecture(ctx context.Context, client *batchsql.SimpleBatc
 	}
 }
 
-func demonstrateMultiDatabase(ctx context.Context, client *batchsql.SimpleBatchSQLClient) {
+func demonstrateMultiDatabase(ctx context.Context, client *batchsql.Client) {
 	log.Println("\n--- 多数据库支持演示 ---")
 
-	// 演示不同数据库的Schema创建
 	databases := []struct {
 		name       string
 		driver     batchsql.DatabaseDriver
@@ -177,7 +154,7 @@ func demonstrateMultiDatabase(ctx context.Context, client *batchsql.SimpleBatchS
 
 		// 执行操作
 		data := []map[string]interface{}{
-			map[string]interface{}{
+			{
 				db.columns[0]: "test_value",
 			},
 		}
@@ -190,8 +167,8 @@ func demonstrateMultiDatabase(ctx context.Context, client *batchsql.SimpleBatchS
 	}
 }
 
-func demonstrateMonitoring(client *batchsql.SimpleBatchSQLClient) {
-	log.Println("\n--- 指标和监控演示 ---")
+func demonstrateMonitoring(client *batchsql.Client) {
+	log.Println("\n--- 监控功能演示 ---")
 
 	// 获取指标
 	metrics := client.GetMetrics()
@@ -216,46 +193,4 @@ func demonstrateMonitoring(client *batchsql.SimpleBatchSQLClient) {
 	log.Println("\n健康检查:")
 	log.Printf("  系统状态: %v", health["status"])
 	log.Printf("  检查时间: %v", health["timestamp"])
-
-	if connections, ok := health["connections"].(map[string]interface{}); ok {
-		log.Println("  连接状态:")
-		for name, status := range connections {
-			log.Printf("    %s: %+v", name, status)
-		}
-	}
-}
-
-// 演示扩展性
-func demonstrateExtensibility() {
-	log.Println("\n--- 扩展性演示 ---")
-
-	log.Println("添加新数据库支持只需要:")
-	log.Println("1. 实现 DatabaseDriver 接口")
-	log.Println("2. 实现 BatchCommand 接口")
-	log.Println("3. 注册到连接管理器")
-
-	log.Println("\n示例代码:")
-	log.Println(`
-type CustomDriver struct{}
-
-func (d *CustomDriver) GetName() string {
-    return "custom"
-}
-
-func (d *CustomDriver) GenerateBatchCommand(schema SchemaInterface, requests []*Request) (BatchCommand, error) {
-    // 自定义命令生成逻辑
-    return &CustomCommand{...}, nil
-}
-
-func (d *CustomDriver) SupportedConflictStrategies() []ConflictStrategy {
-    return []ConflictStrategy{ConflictIgnore, ConflictUpdate}
-}
-
-func (d *CustomDriver) ValidateSchema(schema SchemaInterface) error {
-    // 自定义验证逻辑
-    return nil
-}
-`)
-
-	log.Println("然后就可以像使用其他数据库一样使用自定义数据库！")
 }

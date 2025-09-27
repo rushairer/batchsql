@@ -157,3 +157,8 @@ func (s *UniversalSchema) String() string {
 	return fmt.Sprintf("Schema{driver=%s, identifier=%s, strategy=%v, columns=%v}",
 		s.driver.GetName(), s.identifier, s.conflictStrategy, s.columns)
 }
+
+// NewSchema 创建Schema的便捷函数
+func NewSchema(identifier string, strategy ConflictStrategy, driver DatabaseDriver, columns ...string) SchemaInterface {
+	return NewUniversalSchema(identifier, strategy, driver, columns...)
+}

@@ -39,14 +39,10 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    env_file:
+      - .env.test
     environment:
       - MYSQL_DSN=testuser:testpass123@tcp(mysql:3306)/batchsql_test?parseTime=true&multiStatements=true
-      - TEST_DURATION=1800s
-      - CONCURRENT_WORKERS=10
-      - RECORDS_PER_WORKER=2000
-      - BATCH_SIZE=200
-      - BUFFER_SIZE=5000
-      - FLUSH_INTERVAL=100ms
       - TEST_TYPE=mysql
     volumes:
       - ./test/reports:/app/reports

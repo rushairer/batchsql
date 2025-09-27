@@ -53,7 +53,8 @@ type TestResult struct {
 	Database          string        `json:"database"`
 	TestName          string        `json:"test_name"`
 	Duration          time.Duration `json:"duration"`
-	TotalRecords      int64         `json:"total_records"`
+	TotalRecords      int64         `json:"total_records"`  // 成功提交的记录数
+	ActualRecords     int64         `json:"actual_records"` // 数据库中实际的记录数
 	RecordsPerSecond  float64       `json:"records_per_second"`
 	ConcurrentWorkers int           `json:"concurrent_workers"`
 	MemoryUsage       MemoryStats   `json:"memory_usage"`
@@ -225,7 +226,8 @@ func createTestTables(db *sql.DB, dbType string) error {
 	switch dbType {
 	case "mysql":
 		createSQL = `
-		CREATE TABLE IF NOT EXISTS integration_test (
+		DROP TABLE IF EXISTS integration_test;
+		CREATE TABLE integration_test (
 			id BIGINT PRIMARY KEY,
 			name VARCHAR(255) NOT NULL,
 			email VARCHAR(255) NOT NULL,
@@ -236,8 +238,6 @@ func createTestTables(db *sql.DB, dbType string) error {
 			INDEX idx_name (name),
 			INDEX idx_email (email)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-		
-		TRUNCATE TABLE integration_test;
 		`
 	case "postgres":
 		createSQL = `
@@ -275,6 +275,13 @@ func createTestTables(db *sql.DB, dbType string) error {
 
 	_, err := db.Exec(createSQL)
 	return err
+}
+
+// 验证数据库中的实际记录数
+func getActualRecordCount(db *sql.DB) (int64, error) {
+	var count int64
+	err := db.QueryRow("SELECT COUNT(*) FROM integration_test").Scan(&count)
+	return count, err
 }
 
 func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestResult {
@@ -361,9 +368,17 @@ TestComplete:
 	runtime.GC()
 	runtime.ReadMemStats(&m2)
 
+	// 查询数据库中的实际记录数
+	actualRecords, countErr := getActualRecordCount(db)
+	if countErr != nil {
+		errors = append(errors, fmt.Sprintf("Failed to count actual records: %v", countErr))
+		actualRecords = -1 // 标记为无法获取
+	}
+
 	return TestResult{
 		Duration:          duration,
 		TotalRecords:      recordCount,
+		ActualRecords:     actualRecords,
 		RecordsPerSecond:  float64(recordCount) / duration.Seconds(),
 		ConcurrentWorkers: 1,
 		MemoryUsage: MemoryStats{
@@ -477,9 +492,19 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 	runtime.GC()
 	runtime.ReadMemStats(&m2)
 
+	// 查询数据库中的实际记录数
+	actualRecords, countErr := getActualRecordCount(db)
+	if countErr != nil {
+		mu.Lock()
+		errors = append(errors, fmt.Sprintf("Failed to count actual records: %v", countErr))
+		mu.Unlock()
+		actualRecords = -1 // 标记为无法获取
+	}
+
 	return TestResult{
 		Duration:          duration,
 		TotalRecords:      totalRecords,
+		ActualRecords:     actualRecords,
 		RecordsPerSecond:  float64(totalRecords) / duration.Seconds(),
 		ConcurrentWorkers: config.ConcurrentWorkers,
 		MemoryUsage: MemoryStats{
@@ -650,13 +675,32 @@ func generateHTMLReport(report *TestReport, timestamp string) {
 			statusIcon = "❌"
 		}
 
+		// 计算数据一致性状态
+		consistencyStatus := ""
+		if result.ActualRecords >= 0 {
+			if result.ActualRecords == result.TotalRecords {
+				consistencyStatus = "✅ 一致"
+			} else {
+				consistencyStatus = fmt.Sprintf("⚠️ 不一致 (差异: %d)", result.ActualRecords-result.TotalRecords)
+			}
+		} else {
+			consistencyStatus = "❓ 无法验证"
+		}
+
+		actualRecordsDisplay := "N/A"
+		if result.ActualRecords >= 0 {
+			actualRecordsDisplay = fmt.Sprintf("%d", result.ActualRecords)
+		}
+
 		htmlContent += fmt.Sprintf(`
     <div class="result %s">
         <h3>%s %s - %s</h3>
         <table>
             <tr><th>Metric</th><th>Value</th></tr>
             <tr><td>Duration</td><td>%s</td></tr>
-            <tr><td>Total Records</td><td>%d</td></tr>
+            <tr><td>提交记录数</td><td>%d</td></tr>
+            <tr><td>数据库实际记录数</td><td>%s</td></tr>
+            <tr><td>数据一致性</td><td>%s</td></tr>
             <tr><td>Records/Second</td><td>%.2f</td></tr>
             <tr><td>Concurrent Workers</td><td>%d</td></tr>
             <tr><td>Memory Alloc (MB)</td><td>%d</td></tr>
@@ -672,6 +716,8 @@ func generateHTMLReport(report *TestReport, timestamp string) {
 			result.TestName,
 			result.Duration.String(),
 			result.TotalRecords,
+			actualRecordsDisplay,
+			consistencyStatus,
 			result.RecordsPerSecond,
 			result.ConcurrentWorkers,
 			result.MemoryUsage.AllocMB,
@@ -734,13 +780,26 @@ func printSummary(report *TestReport) {
 			status = "❌"
 		}
 
+		// 计算数据一致性状态
+		consistencyInfo := ""
+		if result.ActualRecords >= 0 {
+			if result.ActualRecords == result.TotalRecords {
+				consistencyInfo = " | 数据一致 ✅"
+			} else {
+				consistencyInfo = fmt.Sprintf(" | 数据不一致 ⚠️ (实际:%d vs 提交:%d)", result.ActualRecords, result.TotalRecords)
+			}
+		} else {
+			consistencyInfo = " | 数据验证失败 ❓"
+		}
+
 		fmt.Printf("   %s %s - %s\n", status, result.Database, result.TestName)
-		fmt.Printf("      Duration: %s | Records: %d | RPS: %.2f | Workers: %d | Errors: %d\n",
+		fmt.Printf("      Duration: %s | 提交: %d | RPS: %.2f | Workers: %d | Errors: %d%s\n",
 			result.Duration.String(),
 			result.TotalRecords,
 			result.RecordsPerSecond,
 			result.ConcurrentWorkers,
 			len(result.Errors),
+			consistencyInfo,
 		)
 	}
 

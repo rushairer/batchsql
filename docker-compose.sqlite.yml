@@ -5,14 +5,10 @@ services:
       context: .
       dockerfile: Dockerfile.integration
     container_name: batchsql-sqlite-test
+    env_file:
+      - .env.test
     environment:
       - SQLITE_DSN=/app/data/test.db
-      - TEST_DURATION=1800s
-      - CONCURRENT_WORKERS=10
-      - RECORDS_PER_WORKER=2000
-      - BATCH_SIZE=200
-      - BUFFER_SIZE=5000
-      - FLUSH_INTERVAL=100ms
       - TEST_TYPE=sqlite
     volumes:
       - ./test/reports:/app/reports

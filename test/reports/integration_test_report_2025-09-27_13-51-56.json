@@ -1,0 +1,104 @@
+{
+  "timestamp": "2025-09-27T13:51:56.317486918Z",
+  "environment": "Docker Integration",
+  "go_version": "go1.20.14",
+  "test_config": {
+    "test_duration": 1800000000000,
+    "concurrent_workers": 10,
+    "records_per_worker": 2000,
+    "batch_size": 200,
+    "buffer_size": 5000,
+    "flush_interval": 100000000
+  },
+  "results": [
+    {
+      "database": "mysql",
+      "test_name": "High Throughput Test",
+      "duration": 148784958,
+      "total_records": 20000,
+      "records_per_second": 134422.19071634917,
+      "concurrent_workers": 1,
+      "memory_usage": {
+        "alloc_mb": 0,
+        "total_alloc_mb": 50,
+        "sys_mb": 30,
+        "num_gc": 22
+      },
+      "errors": null,
+      "success": true
+    },
+    {
+      "database": "mysql",
+      "test_name": "Concurrent Workers Test",
+      "duration": 275057917,
+      "total_records": 20000,
+      "records_per_second": 72711.95905988048,
+      "concurrent_workers": 10,
+      "memory_usage": {
+        "alloc_mb": 17592186044415,
+        "total_alloc_mb": 47,
+        "sys_mb": 0,
+        "num_gc": 85
+      },
+      "errors": null,
+      "success": true
+    },
+    {
+      "database": "mysql",
+      "test_name": "Large Batch Test",
+      "duration": 70364583,
+      "total_records": 20000,
+      "records_per_second": 284233.90216069354,
+      "concurrent_workers": 1,
+      "memory_usage": {
+        "alloc_mb": 17592186044415,
+        "total_alloc_mb": 51,
+        "sys_mb": 8,
+        "num_gc": 22
+      },
+      "errors": null,
+      "success": true
+    },
+    {
+      "database": "mysql",
+      "test_name": "Memory Pressure Test",
+      "duration": 7356298503,
+      "total_records": 500000,
+      "records_per_second": 67968.96561444497,
+      "concurrent_workers": 10,
+      "memory_usage": {
+        "alloc_mb": 0,
+        "total_alloc_mb": 1164,
+        "sys_mb": 0,
+        "num_gc": 1858
+      },
+      "errors": null,
+      "success": true
+    },
+    {
+      "database": "mysql",
+      "test_name": "Long Duration Test",
+      "duration": 89742000,
+      "total_records": 20000,
+      "records_per_second": 222861.0906821778,
+      "concurrent_workers": 1,
+      "memory_usage": {
+        "alloc_mb": 0,
+        "total_alloc_mb": 50,
+        "sys_mb": 0,
+        "num_gc": 25
+      },
+      "errors": null,
+      "success": true
+    }
+  ],
+  "summary": {
+    "total_tests": 5,
+    "passed_tests": 5,
+    "failed_tests": 0,
+    "total_records": 580000,
+    "average_rps": 156439.6216467092,
+    "max_rps": 284233.90216069354,
+    "total_duration": "58.011565526s"
+  }
+}

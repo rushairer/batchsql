@@ -270,17 +270,44 @@ func (d *ElasticsearchDriver) ValidateSchema(schema SchemaInterface) error {
 
 ```
 batchsql/
-├── batchsql.go          # 主客户端
-├── interfaces.go        # 核心接口定义
-├── universal_schema.go  # Schema 实现
-├── request.go          # 请求对象
-├── types.go            # 类型定义
-├── drivers/            # 数据库驱动
-│   ├── sql_driver.go
-│   ├── redis_driver.go
-│   └── mongodb_driver.go
-└── examples/           # 使用示例
-    └── simple_demo.go
+├── 📄 核心文件
+│   ├── batchsql.go              # 主客户端实现
+│   ├── interfaces.go            # 核心接口定义
+│   ├── schema.go                # Schema 实现
+│   ├── request.go               # 请求对象
+│   └── types.go                 # 类型定义
+├── 🔌 数据库驱动
+│   └── drivers/
+│       ├── sql_driver.go        # MySQL/PostgreSQL 驱动
+│       ├── redis_driver.go      # Redis 驱动
+│       └── mongodb_driver.go    # MongoDB 驱动
+├── 📚 示例代码
+│   └── examples/
+│       ├── simple_demo.go       # 基础使用示例
+│       ├── prometheus_example.go # Prometheus集成示例
+│       └── prometheus_integration.md # 监控集成文档
+├── 🧪 测试套件
+│   ├── *_test.go                # 单元测试文件
+│   ├── client_integration_test.go # 集成测试
+│   ├── docker-compose.test.yml  # 测试环境配置
+│   └── test/
+│       ├── cmd/stress/          # 压力测试工具
+│       ├── config/              # 测试配置
+│       ├── results/             # 测试结果
+│       └── scripts/             # 测试脚本
+├── 🚀 CI/CD 和工具
+│   ├── .github/
+│   │   ├── workflows/           # GitHub Actions
+│   │   ├── ISSUE_TEMPLATE/      # Issue 模板
+│   │   ├── CONTRIBUTING.md      # 贡献指南
+│   │   └── SECURITY.md          # 安全政策
+│   ├── .golangci.yml           # 代码质量配置
+│   └── Makefile                # 构建和测试命令
+└── 📖 文档
+    ├── README.md               # 项目文档
+    ├── README_TESTING.md       # 测试指南
+    ├── CHANGELOG.md            # 变更日志
+    └── RELEASE_CHECKLIST.md    # 发布检查清单
 ```
 
 ## 🎯 设计原则

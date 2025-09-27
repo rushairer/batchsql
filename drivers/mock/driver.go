@@ -24,7 +24,7 @@ func NewDriverWithType(dbType string) *Driver {
 }
 
 // GenerateInsertSQL 生成模拟SQL（默认MySQL语法）
-func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]interface{}) (string, []interface{}, error) {
+func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
 	if len(data) == 0 {
 		return "", nil, nil
 	}
@@ -38,7 +38,7 @@ func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]int
 	placeholders := d.generatePlaceholders(len(columns), len(data))
 
 	// 构建参数数组
-	args := make([]interface{}, 0, len(data)*len(columns))
+	args := make([]any, 0, len(data)*len(columns))
 	for _, row := range data {
 		for _, col := range columns {
 			args = append(args, row[col])
@@ -60,7 +60,7 @@ func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]int
 	}
 }
 
-func (d *Driver) generateMySQLSQL(schema *drivers.Schema, baseSQL, columnsStr, placeholders string, args []interface{}) (string, []interface{}, error) {
+func (d *Driver) generateMySQLSQL(schema *drivers.Schema, baseSQL, columnsStr, placeholders string, args []any) (string, []any, error) {
 	switch schema.ConflictStrategy {
 	case drivers.ConflictIgnore:
 		sql := fmt.Sprintf("INSERT IGNORE INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
@@ -80,7 +80,7 @@ func (d *Driver) generateMySQLSQL(schema *drivers.Schema, baseSQL, columnsStr, p
 	}
 }
 
-func (d *Driver) generatePostgreSQLSQL(schema *drivers.Schema, baseSQL, _, _ string, args []interface{}) (string, []interface{}, error) {
+func (d *Driver) generatePostgreSQLSQL(schema *drivers.Schema, baseSQL, _, _ string, args []any) (string, []any, error) {
 	switch schema.ConflictStrategy {
 	case drivers.ConflictIgnore:
 		sql := baseSQL + " ON CONFLICT DO NOTHING"
@@ -97,7 +97,7 @@ func (d *Driver) generatePostgreSQLSQL(schema *drivers.Schema, baseSQL, _, _ str
 	}
 }
 
-func (d *Driver) generateSQLiteSQL(schema *drivers.Schema, baseSQL, columnsStr, placeholders string, args []interface{}) (string, []interface{}, error) {
+func (d *Driver) generateSQLiteSQL(schema *drivers.Schema, baseSQL, columnsStr, placeholders string, args []any) (string, []any, error) {
 	switch schema.ConflictStrategy {
 	case drivers.ConflictIgnore:
 		sql := fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)

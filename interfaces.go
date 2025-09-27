@@ -8,10 +8,12 @@ import (
 )
 
 // 重新导出drivers包的类型，保持向后兼容
-type ConflictStrategy = drivers.ConflictStrategy
-type Schema = drivers.Schema
-type SQLDriver = drivers.SQLDriver
-type BatchExecutor = drivers.BatchExecutor
+type (
+	ConflictStrategy = drivers.ConflictStrategy
+	Schema           = drivers.Schema
+	SQLDriver        = drivers.SQLDriver
+	BatchExecutor    = drivers.BatchExecutor
+)
 
 // 重新导出常量
 const (
@@ -23,7 +25,7 @@ const (
 // TransactionExecutor 支持事务的批量执行器接口（可选扩展）
 type TransactionExecutor interface {
 	BatchExecutor
-	ExecuteBatchWithTx(ctx context.Context, tx *sql.Tx, schema *Schema, data []map[string]interface{}) error
+	ExecuteBatchWithTx(ctx context.Context, tx *sql.Tx, schema *Schema, data []map[string]any) error
 }
 
 // MetricsReporter 性能监控报告器接口（未来扩展）

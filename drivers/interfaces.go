@@ -20,10 +20,10 @@ type Schema struct {
 
 // SQLDriver 数据库特定的SQL生成器接口
 type SQLDriver interface {
-	GenerateInsertSQL(schema *Schema, data []map[string]interface{}) (string, []interface{}, error)
+	GenerateInsertSQL(schema *Schema, data []map[string]any) (string, []any, error)
 }
 
 // BatchExecutor 批量执行器接口
 type BatchExecutor interface {
-	ExecuteBatch(ctx context.Context, schema *Schema, data []map[string]interface{}) error
+	ExecuteBatch(ctx context.Context, schema *Schema, data []map[string]any) error
 }

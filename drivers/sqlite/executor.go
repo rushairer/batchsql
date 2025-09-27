@@ -22,7 +22,7 @@ func NewBatchProcessor(db *sql.DB, sqlDriver drivers.SQLDriver) *BatchProcessor 
 }
 
 // ExecuteBatch 执行批量操作
-func (bp *BatchProcessor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]interface{}) error {
+func (bp *BatchProcessor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
 	if len(data) == 0 {
 		return nil
 	}
@@ -58,6 +58,6 @@ func NewBatchExecutorWithDriver(db *sql.DB, driver drivers.SQLDriver) *Executor 
 }
 
 // ExecuteBatch 执行批量操作
-func (e *Executor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]interface{}) error {
+func (e *Executor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
 	return e.processor.ExecuteBatch(ctx, schema, data)
 }

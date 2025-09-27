@@ -17,7 +17,7 @@ func NewDriver() *Driver {
 }
 
 // GenerateInsertSQL 生成MySQL批量插入SQL
-func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]interface{}) (string, []interface{}, error) {
+func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
 	if len(data) == 0 {
 		return "", nil, nil
 	}
@@ -31,7 +31,7 @@ func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]int
 	placeholders := d.generatePlaceholders(len(columns), len(data))
 
 	// 构建参数数组
-	args := make([]interface{}, 0, len(data)*len(columns))
+	args := make([]any, 0, len(data)*len(columns))
 	for _, row := range data {
 		for _, col := range columns {
 			args = append(args, row[col])

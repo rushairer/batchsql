@@ -36,9 +36,9 @@ func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushIn
 		// 处理每个schema组
 		for schema, requests := range schemaGroups {
 			// 转换为数据格式
-			data := make([]map[string]interface{}, len(requests))
+			data := make([]map[string]any, len(requests))
 			for i, request := range requests {
-				rowData := make(map[string]interface{})
+				rowData := make(map[string]any)
 				values := request.GetOrderedValues()
 				columns := schema.Columns
 

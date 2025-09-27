@@ -95,11 +95,11 @@ func (bp *BatchProcessor) processSchemaGroup(ctx context.Context, schema *Schema
 }
 
 // convertRequestsToData 将请求转换为数据格式
-func (bp *BatchProcessor) convertRequestsToData(schema *Schema, requests []*Request) []map[string]interface{} {
-	data := make([]map[string]interface{}, len(requests))
+func (bp *BatchProcessor) convertRequestsToData(schema *Schema, requests []*Request) []map[string]any {
+	data := make([]map[string]any, len(requests))
 
 	for i, request := range requests {
-		rowData := make(map[string]interface{})
+		rowData := make(map[string]any)
 		values := request.GetOrderedValues()
 		columns := schema.Columns
 

@@ -152,7 +152,7 @@ func TestSQLGeneration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			driver := drivers[tt.name]
-			sql, args, err := driver.GenerateInsertSQL(tt.schema, []map[string]interface{}{
+			sql, args, err := driver.GenerateInsertSQL(tt.schema, []map[string]any{
 				{"id": 1, "name": "test1"},
 				{"id": 2, "name": "test2"},
 			})

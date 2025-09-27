@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 services:
   # MySQL 数据库
@@ -92,4 +92,4 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    command: ["go", "test", "-v", "./test/integration/..."]
+    command: ["/tmp/integration-test"]

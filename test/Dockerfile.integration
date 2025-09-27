@@ -1,3 +1,4 @@
+# Dockerfile for integration testing
 FROM golang:1.21-alpine
 
 # 安装必要的工具
@@ -19,4 +20,4 @@ COPY . .
 RUN go build -o /tmp/integration-test ./test/cmd/integration/
 
 # 运行测试
-CMD ["go", "test", "-v", "./test/integration/..."]
+CMD ["/tmp/integration-test"]

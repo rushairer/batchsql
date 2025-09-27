@@ -33,7 +33,7 @@ func (bp *BatchProcessor) ProcessBatch(ctx context.Context, batchData []*Request
 	// 处理每个 schema 组
 	for schema, requests := range schemaGroups {
 		if err := bp.processSchemaGroup(ctx, schema, requests); err != nil {
-			log.Printf("Failed to process schema group for table %s: %v", schema.TableName(), err)
+			log.Printf("Failed to process schema group for table %s: %v", schema.TableName, err)
 			return err
 		}
 	}
@@ -66,40 +66,50 @@ func (bp *BatchProcessor) processSchemaGroup(ctx context.Context, schema *Schema
 		}
 	}
 
+	// 转换请求为数据格式
+	data := bp.convertRequestsToData(schema, requests)
+
 	// 使用SQLDriver生成批量插入SQL
-	sql := bp.sqlDriver.GenerateInsertSQL(schema, len(requests))
+	sql, args, err := bp.sqlDriver.GenerateInsertSQL(schema, data)
+	if err != nil {
+		return fmt.Errorf("failed to generate SQL for schema %s: %w", schema.TableName, err)
+	}
 	if sql == "" {
-		return fmt.Errorf("failed to generate SQL for schema %s", schema.TableName())
+		return fmt.Errorf("failed to generate SQL for schema %s", schema.TableName)
 	}
 
-	log.Printf("Generated SQL for table %s: %s", schema.TableName(), sql)
-
-	// 准备参数
-	args := bp.prepareArgs(schema, requests)
+	log.Printf("Generated SQL for table %s: %s", schema.TableName, sql)
 
 	// 执行 SQL
 	result, err := bp.db.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return fmt.Errorf("failed to execute batch insert for table %s: %w", schema.TableName(), err)
+		return fmt.Errorf("failed to execute batch insert for table %s: %w", schema.TableName, err)
 	}
 
 	// 记录执行结果
 	rowsAffected, _ := result.RowsAffected()
 	log.Printf("Batch insert completed for table %s: %d rows affected, %d requests processed",
-		schema.TableName(), rowsAffected, len(requests))
+		schema.TableName, rowsAffected, len(requests))
 
 	return nil
 }
 
-// prepareArgs 准备 SQL 参数
-func (bp *BatchProcessor) prepareArgs(schema *Schema, requests []*Request) []any {
-	columnCount := len(schema.Columns())
-	args := make([]any, 0, len(requests)*columnCount)
+// convertRequestsToData 将请求转换为数据格式
+func (bp *BatchProcessor) convertRequestsToData(schema *Schema, requests []*Request) []map[string]interface{} {
+	data := make([]map[string]interface{}, len(requests))
 
-	for _, request := range requests {
+	for i, request := range requests {
+		rowData := make(map[string]interface{})
 		values := request.GetOrderedValues()
-		args = append(args, values...)
+		columns := schema.Columns
+
+		for j, col := range columns {
+			if j < len(values) {
+				rowData[col] = values[j]
+			}
+		}
+		data[i] = rowData
 	}
 
-	return args
+	return data
 }

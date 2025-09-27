@@ -30,8 +30,8 @@ func (r *Request) Columns() map[string]any {
 
 // GetOrderedValues 按照 schema 中定义的列顺序返回值
 func (r *Request) GetOrderedValues() []any {
-	values := make([]any, len(r.schema.columns))
-	for i, colName := range r.schema.columns {
+	values := make([]any, len(r.schema.Columns))
+	for i, colName := range r.schema.Columns {
 		values[i] = r.columns[colName]
 	}
 	return values
@@ -158,7 +158,7 @@ func (r *Request) GetTime(colName string) (time.Time, error) {
 
 // 验证请求是否包含所有必需的列
 func (r *Request) Validate() error {
-	for _, colName := range r.schema.columns {
+	for _, colName := range r.schema.Columns {
 		if _, exists := r.columns[colName]; !exists {
 			return fmt.Errorf("missing required column: %s", colName)
 		}

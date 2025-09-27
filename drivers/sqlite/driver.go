@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 )
 
 // Driver SQLite数据库SQL生成器
@@ -16,12 +16,12 @@ func NewDriver() *Driver {
 }
 
 // GenerateInsertSQL 生成SQLite批量插入SQL
-func (d *Driver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]interface{}) (string, []interface{}, error) {
+func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]interface{}) (string, []interface{}, error) {
 	if len(data) == 0 {
 		return "", nil, nil
 	}
 
-	columns := schema.Columns()
+	columns := schema.Columns
 	if len(columns) == 0 {
 		return "", nil, fmt.Errorf("no columns defined in schema")
 	}
@@ -37,16 +37,16 @@ func (d *Driver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]in
 		}
 	}
 
-	baseSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", schema.TableName(), columnsStr, placeholders)
+	baseSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
 
-	switch schema.ConflictStrategy() {
-	case batchsql.ConflictIgnore:
-		sql := fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) VALUES %s", schema.TableName(), columnsStr, placeholders)
+	switch schema.ConflictStrategy {
+	case drivers.ConflictIgnore:
+		sql := fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
 		return sql, args, nil
-	case batchsql.ConflictReplace:
-		sql := fmt.Sprintf("INSERT OR REPLACE INTO %s (%s) VALUES %s", schema.TableName(), columnsStr, placeholders)
+	case drivers.ConflictReplace:
+		sql := fmt.Sprintf("INSERT OR REPLACE INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
 		return sql, args, nil
-	case batchsql.ConflictUpdate:
+	case drivers.ConflictUpdate:
 		updatePairs := make([]string, len(columns))
 		for i, col := range columns {
 			updatePairs[i] = fmt.Sprintf("%s = excluded.%s", col, col)

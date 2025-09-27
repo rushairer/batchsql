@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 )
 
 // Driver 模拟SQL生成器（默认使用MySQL语法）
@@ -23,12 +23,12 @@ func NewDriverWithType(dbType string) *Driver {
 }
 
 // GenerateInsertSQL 生成模拟SQL（默认MySQL语法）
-func (d *Driver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]interface{}) (string, []interface{}, error) {
+func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]interface{}) (string, []interface{}, error) {
 	if len(data) == 0 {
 		return "", nil, nil
 	}
 
-	columns := schema.Columns()
+	columns := schema.Columns
 	if len(columns) == 0 {
 		return "", nil, fmt.Errorf("no columns defined in schema")
 	}
@@ -44,7 +44,7 @@ func (d *Driver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]in
 		}
 	}
 
-	baseSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", schema.TableName(), columnsStr, placeholders)
+	baseSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
 
 	// 根据数据库类型生成不同的SQL
 	switch d.databaseType {
@@ -59,17 +59,17 @@ func (d *Driver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]in
 	}
 }
 
-func (d *Driver) generateMySQLSQL(schema *batchsql.Schema, baseSQL, columnsStr, placeholders string, args []interface{}) (string, []interface{}, error) {
-	switch schema.ConflictStrategy() {
-	case batchsql.ConflictIgnore:
-		sql := fmt.Sprintf("INSERT IGNORE INTO %s (%s) VALUES %s", schema.TableName(), columnsStr, placeholders)
+func (d *Driver) generateMySQLSQL(schema *drivers.Schema, baseSQL, columnsStr, placeholders string, args []interface{}) (string, []interface{}, error) {
+	switch schema.ConflictStrategy {
+	case drivers.ConflictIgnore:
+		sql := fmt.Sprintf("INSERT IGNORE INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
 		return sql, args, nil
-	case batchsql.ConflictReplace:
-		sql := fmt.Sprintf("REPLACE INTO %s (%s) VALUES %s", schema.TableName(), columnsStr, placeholders)
+	case drivers.ConflictReplace:
+		sql := fmt.Sprintf("REPLACE INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
 		return sql, args, nil
-	case batchsql.ConflictUpdate:
-		updatePairs := make([]string, len(schema.Columns()))
-		for i, col := range schema.Columns() {
+	case drivers.ConflictUpdate:
+		updatePairs := make([]string, len(schema.Columns))
+		for i, col := range schema.Columns {
 			updatePairs[i] = fmt.Sprintf("%s = VALUES(%s)", col, col)
 		}
 		sql := fmt.Sprintf("%s ON DUPLICATE KEY UPDATE %s", baseSQL, strings.Join(updatePairs, ", "))
@@ -79,34 +79,34 @@ func (d *Driver) generateMySQLSQL(schema *batchsql.Schema, baseSQL, columnsStr, 
 	}
 }
 
-func (d *Driver) generatePostgreSQLSQL(schema *batchsql.Schema, baseSQL, columnsStr, placeholders string, args []interface{}) (string, []interface{}, error) {
-	switch schema.ConflictStrategy() {
-	case batchsql.ConflictIgnore:
+func (d *Driver) generatePostgreSQLSQL(schema *drivers.Schema, baseSQL, columnsStr, placeholders string, args []interface{}) (string, []interface{}, error) {
+	switch schema.ConflictStrategy {
+	case drivers.ConflictIgnore:
 		sql := fmt.Sprintf("%s ON CONFLICT DO NOTHING", baseSQL)
 		return sql, args, nil
-	case batchsql.ConflictReplace, batchsql.ConflictUpdate:
-		updatePairs := make([]string, len(schema.Columns()))
-		for i, col := range schema.Columns() {
+	case drivers.ConflictReplace, drivers.ConflictUpdate:
+		updatePairs := make([]string, len(schema.Columns))
+		for i, col := range schema.Columns {
 			updatePairs[i] = fmt.Sprintf("%s = EXCLUDED.%s", col, col)
 		}
-		sql := fmt.Sprintf("%s ON CONFLICT (%s) DO UPDATE SET %s", baseSQL, schema.Columns()[0], strings.Join(updatePairs, ", "))
+		sql := fmt.Sprintf("%s ON CONFLICT (%s) DO UPDATE SET %s", baseSQL, schema.Columns[0], strings.Join(updatePairs, ", "))
 		return sql, args, nil
 	default:
 		return baseSQL, args, nil
 	}
 }
 
-func (d *Driver) generateSQLiteSQL(schema *batchsql.Schema, baseSQL, columnsStr, placeholders string, args []interface{}) (string, []interface{}, error) {
-	switch schema.ConflictStrategy() {
-	case batchsql.ConflictIgnore:
-		sql := fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) VALUES %s", schema.TableName(), columnsStr, placeholders)
+func (d *Driver) generateSQLiteSQL(schema *drivers.Schema, baseSQL, columnsStr, placeholders string, args []interface{}) (string, []interface{}, error) {
+	switch schema.ConflictStrategy {
+	case drivers.ConflictIgnore:
+		sql := fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
 		return sql, args, nil
-	case batchsql.ConflictReplace:
-		sql := fmt.Sprintf("INSERT OR REPLACE INTO %s (%s) VALUES %s", schema.TableName(), columnsStr, placeholders)
+	case drivers.ConflictReplace:
+		sql := fmt.Sprintf("INSERT OR REPLACE INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
 		return sql, args, nil
-	case batchsql.ConflictUpdate:
-		updatePairs := make([]string, len(schema.Columns()))
-		for i, col := range schema.Columns() {
+	case drivers.ConflictUpdate:
+		updatePairs := make([]string, len(schema.Columns))
+		for i, col := range schema.Columns {
 			updatePairs[i] = fmt.Sprintf("%s = excluded.%s", col, col)
 		}
 		sql := fmt.Sprintf("%s ON CONFLICT DO UPDATE SET %s", baseSQL, strings.Join(updatePairs, ", "))

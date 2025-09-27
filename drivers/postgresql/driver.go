@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 )
 
 // Driver PostgreSQL数据库SQL生成器
@@ -16,12 +16,12 @@ func NewDriver() *Driver {
 }
 
 // GenerateInsertSQL 生成PostgreSQL批量插入SQL
-func (d *Driver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]interface{}) (string, []interface{}, error) {
+func (d *Driver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]interface{}) (string, []interface{}, error) {
 	if len(data) == 0 {
 		return "", nil, nil
 	}
 
-	columns := schema.Columns()
+	columns := schema.Columns
 	if len(columns) == 0 {
 		return "", nil, fmt.Errorf("no columns defined in schema")
 	}
@@ -37,13 +37,13 @@ func (d *Driver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]in
 		}
 	}
 
-	baseSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", schema.TableName(), columnsStr, placeholders)
+	baseSQL := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s", schema.TableName, columnsStr, placeholders)
 
-	switch schema.ConflictStrategy() {
-	case batchsql.ConflictIgnore:
+	switch schema.ConflictStrategy {
+	case drivers.ConflictIgnore:
 		sql := fmt.Sprintf("%s ON CONFLICT DO NOTHING", baseSQL)
 		return sql, args, nil
-	case batchsql.ConflictReplace, batchsql.ConflictUpdate:
+	case drivers.ConflictReplace, drivers.ConflictUpdate:
 		updatePairs := make([]string, len(columns))
 		for i, col := range columns {
 			updatePairs[i] = fmt.Sprintf("%s = EXCLUDED.%s", col, col)

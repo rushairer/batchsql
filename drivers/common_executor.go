@@ -17,19 +17,21 @@ import (
 type CommonExecutor struct {
 	processor       BatchProcessor  // 具体的批量处理逻辑
 	metricsReporter MetricsReporter // 性能指标报告器
+	databaseType    string          // 数据库类型（mysql, postgres, sqlite3等）
 }
 
 // NewExecutor 创建通用执行器（使用自定义BatchProcessor）
-func NewExecutor(processor BatchProcessor) *CommonExecutor {
+func NewExecutor(processor BatchProcessor, databaseType string) *CommonExecutor {
 	return &CommonExecutor{
-		processor: processor,
+		processor:    processor,
+		databaseType: databaseType,
 	}
 }
 
 // NewSQLExecutor 创建SQL数据库执行器（推荐方式）
 // 内部使用 SQLBatchProcessor + SQLDriver 组合
-func NewSQLExecutor(db *sql.DB, driver SQLDriver) *CommonExecutor {
-	return NewExecutor(NewSQLBatchProcessor(db, driver))
+func NewSQLExecutor(db *sql.DB, driver SQLDriver, databaseType string) *CommonExecutor {
+	return NewExecutor(NewSQLBatchProcessor(db, driver), databaseType)
 }
 
 // ExecuteBatch 执行批量操作
@@ -43,7 +45,7 @@ func (e *CommonExecutor) ExecuteBatch(ctx context.Context, schema *Schema, data 
 	}
 	if e.metricsReporter != nil {
 		e.metricsReporter.RecordBatchExecution(
-			"postgresql",
+			e.databaseType,
 			schema.TableName,
 			len(data),
 			time.Since(startTime).Milliseconds(),

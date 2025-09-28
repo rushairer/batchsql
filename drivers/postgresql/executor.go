@@ -8,10 +8,10 @@ import (
 
 // NewBatchExecutor 创建PostgreSQL批量执行器（使用默认Driver）
 func NewBatchExecutor(db *sql.DB) *drivers.CommonExecutor {
-	return drivers.NewSQLExecutor(db, DefaultDriver)
+	return drivers.NewSQLExecutor(db, DefaultDriver, "postgres")
 }
 
 // NewBatchExecutorWithDriver 创建PostgreSQL批量执行器（使用自定义Driver）
 func NewBatchExecutorWithDriver(db *sql.DB, driver drivers.SQLDriver) *drivers.CommonExecutor {
-	return drivers.NewSQLExecutor(db, driver)
+	return drivers.NewSQLExecutor(db, driver, "postgres")
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 )
 
 func TestConcurrency_MultipleGoroutinesSubmit(t *testing.T) {
@@ -19,7 +20,7 @@ func TestConcurrency_MultipleGoroutinesSubmit(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "value")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "value")
 
 	// 启动多个 goroutine 并发提交数据
 	const numGoroutines = 10
@@ -60,10 +61,10 @@ func TestConcurrency_MultipleSchemas(t *testing.T) {
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
 	// 创建多个不同的 schema
-	schemas := []*batchsql.Schema{
-		batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email"),
-		batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price"),
-		batchsql.NewSchema("orders", batchsql.ConflictReplace, "id", "user_id", "product_id", "quantity"),
+	schemas := []*drivers.Schema{
+		batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email"),
+		batchsql.NewSchema("products", drivers.ConflictUpdate, "id", "name", "price"),
+		batchsql.NewSchema("orders", drivers.ConflictReplace, "id", "user_id", "product_id", "quantity"),
 	}
 
 	const numGoroutines = 6
@@ -122,7 +123,7 @@ func TestConcurrency_HighFrequencySubmission(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("high_freq_table", batchsql.ConflictIgnore, "id", "timestamp", "data")
+	schema := batchsql.NewSchema("high_freq_table", drivers.ConflictIgnore, "id", "timestamp", "data")
 
 	const numGoroutines = 20
 	const requestsPerGoroutine = 200
@@ -174,7 +175,7 @@ func TestConcurrency_ContextCancellation(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("cancel_test", batchsql.ConflictIgnore, "id", "data")
+	schema := batchsql.NewSchema("cancel_test", drivers.ConflictIgnore, "id", "data")
 
 	const numGoroutines = 5
 	var wg sync.WaitGroup
@@ -234,7 +235,7 @@ func TestConcurrency_MixedOperations(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("mixed_ops", batchsql.ConflictIgnore, "id", "operation", "timestamp")
+	schema := batchsql.NewSchema("mixed_ops", drivers.ConflictIgnore, "id", "operation", "timestamp")
 
 	var wg sync.WaitGroup
 	const numOperations = 1000
@@ -300,7 +301,7 @@ func TestConcurrency_StressTest(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("stress_test", batchsql.ConflictIgnore, "id", "thread_id", "data", "timestamp")
+	schema := batchsql.NewSchema("stress_test", drivers.ConflictIgnore, "id", "thread_id", "data", "timestamp")
 
 	const numGoroutines = 50
 	const requestsPerGoroutine = 1000

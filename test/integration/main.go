@@ -17,6 +17,7 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 )
 
 // 环境变量解析辅助函数
@@ -422,7 +423,7 @@ func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestRes
 		})
 	}
 
-	schema := batchsql.NewSchema("integration_test", batchsql.ConflictIgnore,
+	schema := batchsql.NewSchema("integration_test", drivers.ConflictIgnore,
 		"id", "name", "email", "data", "value", "is_active", "created_at")
 
 	startTime := time.Now()
@@ -550,7 +551,7 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 		})
 	}
 
-	schema := batchsql.NewSchema("integration_test", batchsql.ConflictIgnore,
+	schema := batchsql.NewSchema("integration_test", drivers.ConflictIgnore,
 		"id", "name", "email", "data", "value", "is_active", "created_at")
 
 	startTime := time.Now()

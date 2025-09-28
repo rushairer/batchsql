@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 	"github.com/rushairer/batchsql/drivers/mysql"
 	"github.com/rushairer/batchsql/drivers/postgresql"
 	"github.com/rushairer/batchsql/drivers/sqlite"
@@ -24,9 +25,9 @@ func TestBatchSQL(t *testing.T) {
 	postgreSQLBatch, postgreSQLMockExecutor := batchsql.NewBatchSQLWithMockDriver(ctx, config, postgresql.DefaultDriver)
 	sqliteBatch, sqliteMockExecutor := batchsql.NewBatchSQLWithMockDriver(ctx, config, sqlite.DefaultDriver)
 	// 创建不同的 schema
-	mysqlSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email", "created_at")
-	postgresSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")
-	sqliteSchema := batchsql.NewSchema("logs", batchsql.ConflictReplace, "id", "message", "timestamp")
+	mysqlSchema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email", "created_at")
+	postgresSchema := batchsql.NewSchema("products", drivers.ConflictUpdate, "id", "name", "price")
+	sqliteSchema := batchsql.NewSchema("logs", drivers.ConflictReplace, "id", "message", "timestamp")
 
 	// 提交不同类型的请求
 	for i := 0; i < 50; i++ {
@@ -108,8 +109,8 @@ func TestSchemaGrouping(t *testing.T) {
 	batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
 
 	// 创建两个相同的 schema 实例
-	schema1 := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
-	schema2 := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
+	schema1 := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
+	schema2 := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
 
 	// 提交使用不同 schema 实例的请求
 	for i := 0; i < 3; i++ {
@@ -138,27 +139,27 @@ func TestSchemaGrouping(t *testing.T) {
 func TestSQLGeneration(t *testing.T) {
 	tests := []struct {
 		name     string
-		schema   *batchsql.Schema
+		schema   *drivers.Schema
 		expected string
 	}{
 		{
 			name:     "MySQL INSERT IGNORE",
-			schema:   batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name"),
+			schema:   batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name"),
 			expected: "INSERT IGNORE INTO users (id, name) VALUES (?, ?), (?, ?)",
 		},
 		{
 			name:     "PostgreSQL ON CONFLICT DO NOTHING",
-			schema:   batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name"),
+			schema:   batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name"),
 			expected: "INSERT INTO users (id, name) VALUES (?, ?), (?, ?) ON CONFLICT DO NOTHING",
 		},
 		{
 			name:     "SQLite INSERT OR IGNORE",
-			schema:   batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name"),
+			schema:   batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name"),
 			expected: "INSERT OR IGNORE INTO users (id, name) VALUES (?, ?), (?, ?)",
 		},
 	}
 
-	drivers := map[string]batchsql.SQLDriver{
+	drivers := map[string]drivers.SQLDriver{
 		"MySQL INSERT IGNORE":               mysql.DefaultDriver,
 		"PostgreSQL ON CONFLICT DO NOTHING": postgresql.DefaultDriver,
 		"SQLite INSERT OR IGNORE":           sqlite.DefaultDriver,

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 )
 
 // MockErrorExecutor 模拟错误的执行器
@@ -16,7 +17,7 @@ type MockErrorExecutor struct {
 	delay          time.Duration
 }
 
-func (m *MockErrorExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.Schema, data []map[string]any) error {
+func (m *MockErrorExecutor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
 	if m.delay > 0 {
 		select {
 		case <-time.After(m.delay):
@@ -28,6 +29,10 @@ func (m *MockErrorExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.S
 	if m.shouldFailExec {
 		return errors.New(m.errorMessage)
 	}
+	return nil
+}
+
+func (m *MockErrorExecutor) WithMetricsReporter(metricsReporter drivers.MetricsReporter) drivers.BatchExecutor {
 	return nil
 }
 
@@ -43,7 +48,7 @@ func TestErrorHandling_ExecutionError(t *testing.T) {
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, errorExecutor)
 
 	// 创建 schema 和请求
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id")
 	request := batchsql.NewRequest(schema).SetInt64("id", 1)
 
 	// 提交数据
@@ -80,7 +85,7 @@ func TestErrorHandling_ContextTimeout(t *testing.T) {
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, slowExecutor)
 
 	// 创建 schema 和请求
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id")
 	request := batchsql.NewRequest(schema).SetInt64("id", 1)
 
 	// 提交数据
@@ -117,7 +122,7 @@ func TestErrorHandling_ContextCancellation(t *testing.T) {
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, slowExecutor)
 
 	// 创建 schema 和请求
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id")
 	request := batchsql.NewRequest(schema).SetInt64("id", 1)
 
 	// 提交数据
@@ -161,7 +166,7 @@ func TestErrorHandling_InvalidData(t *testing.T) {
 	}
 
 	// 测试空 schema
-	emptySchema := batchsql.NewSchema("", batchsql.ConflictIgnore)
+	emptySchema := batchsql.NewSchema("", drivers.ConflictIgnore)
 	emptyRequest := batchsql.NewRequest(emptySchema)
 	err = batch.Submit(ctx, emptyRequest)
 	if err == nil {
@@ -181,9 +186,9 @@ func TestErrorHandling_MultipleErrors(t *testing.T) {
 	batch := batchsql.NewBatchSQL(ctx, 10, 2, time.Second, errorExecutor)
 
 	// 创建多个不同的 schema
-	schema1 := batchsql.NewSchema("table1", batchsql.ConflictIgnore, "id")
-	schema2 := batchsql.NewSchema("table2", batchsql.ConflictIgnore, "id")
-	schema3 := batchsql.NewSchema("table3", batchsql.ConflictIgnore, "id")
+	schema1 := batchsql.NewSchema("table1", drivers.ConflictIgnore, "id")
+	schema2 := batchsql.NewSchema("table2", drivers.ConflictIgnore, "id")
+	schema3 := batchsql.NewSchema("table3", drivers.ConflictIgnore, "id")
 
 	// 提交多个表的数据
 	_ = batch.Submit(ctx, batchsql.NewRequest(schema1).SetInt64("id", 1))
@@ -219,7 +224,7 @@ func TestErrorHandling_CloseWithPendingData(t *testing.T) {
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
 	// 创建 schema 和请求
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id")
 
 	// 提交一些数据但不刷新
 	for i := 0; i < 10; i++ {

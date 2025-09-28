@@ -1,11 +1,20 @@
 # BatchSQL 集成测试配置说明
 
+*最后更新：2025年1月28日 | 版本：v2.0.0*
+
 ## 🎯 统一配置原则
 
 **统一配置源**: `.env.test` 文件 + 各数据库的 docker-compose 文件
 
 - **`.env.test`**: 统一的测试参数配置，所有数据库共享
 - **`docker-compose.{database}.yml`**: 仅包含数据库特定的连接参数
+
+## 🏗️ 架构配置说明
+
+### BatchExecutor 实现方式
+- **SQL数据库** (MySQL/PostgreSQL/SQLite): 使用 `CommonExecutor` + `BatchProcessor` + `SQLDriver`
+- **NoSQL数据库** (Redis): 直接实现 `BatchExecutor` 接口
+- **测试环境**: 使用 `MockExecutor` 直接实现 `BatchExecutor` 接口
 
 ## 📋 配置文件结构
 

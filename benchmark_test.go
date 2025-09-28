@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 )
 
 func BenchmarkBatchSQL_Submit(b *testing.B) {
@@ -17,7 +18,7 @@ func BenchmarkBatchSQL_Submit(b *testing.B) {
 	}
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
+	schema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email")
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -45,8 +46,8 @@ func BenchmarkBatchSQL_MultiSchema(b *testing.B) {
 	}
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	userSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
-	productSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")
+	userSchema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email")
+	productSchema := batchsql.NewSchema("products", drivers.ConflictUpdate, "id", "name", "price")
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -75,7 +76,7 @@ func BenchmarkBatchSQL_MultiSchema(b *testing.B) {
 }
 
 func BenchmarkRequest_Creation(b *testing.B) {
-	schema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email", "age", "created_at")
+	schema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email", "age", "created_at")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -94,7 +95,7 @@ func BenchmarkRequest_Creation(b *testing.B) {
 }
 
 func BenchmarkSQLGeneration(b *testing.B) {
-	schema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
+	schema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email")
 	data := make([]map[string]any, 100)
 	for i := 0; i < 100; i++ {
 		data[i] = map[string]any{
@@ -105,7 +106,7 @@ func BenchmarkSQLGeneration(b *testing.B) {
 	}
 
 	// 测试不同数据库驱动的SQL生成性能
-	drivers := map[string]batchsql.SQLDriver{
+	drivers := map[string]drivers.SQLDriver{
 		"MySQL":      &mysqlDriver{},
 		"PostgreSQL": &postgresDriver{},
 		"SQLite":     &sqliteDriver{},
@@ -126,19 +127,19 @@ func BenchmarkSQLGeneration(b *testing.B) {
 // 简化的驱动实现用于基准测试
 type mysqlDriver struct{}
 
-func (d *mysqlDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
+func (d *mysqlDriver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
 	// 简化实现
 	return "INSERT IGNORE INTO users (id, name, email) VALUES (?, ?, ?)", []any{1, "test", "test@example.com"}, nil
 }
 
 type postgresDriver struct{}
 
-func (d *postgresDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
+func (d *postgresDriver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
 	return "INSERT INTO users (id, name, email) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", []any{1, "test", "test@example.com"}, nil
 }
 
 type sqliteDriver struct{}
 
-func (d *sqliteDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
+func (d *sqliteDriver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
 	return "INSERT OR IGNORE INTO users (id, name, email) VALUES (?, ?, ?)", []any{1, "test", "test@example.com"}, nil
 }

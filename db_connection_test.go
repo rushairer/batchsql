@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 )
 
 // MockDB 模拟数据库连接
@@ -71,7 +72,7 @@ type MockDBExecutor struct {
 	errorMessage string
 }
 
-func (m *MockDBExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.Schema, data []map[string]any) error {
+func (m *MockDBExecutor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
 	if m.shouldFail {
 		return errors.New(m.errorMessage)
 	}
@@ -82,6 +83,10 @@ func (m *MockDBExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.Sche
 		return err
 	}
 
+	return nil
+}
+
+func (m *MockDBExecutor) WithMetricsReporter(metricsReporter drivers.MetricsReporter) drivers.BatchExecutor {
 	return nil
 }
 
@@ -101,7 +106,7 @@ func TestDBConnection_ConnectionFailure(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
 		SetString("name", "test")
@@ -141,7 +146,7 @@ func TestDBConnection_SlowConnection(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
 		SetString("name", "test")
@@ -181,7 +186,7 @@ func TestDBConnection_ConnectionRecovery(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
 
 	// 提交第一个请求（应该失败）
 	request1 := batchsql.NewRequest(schema).
@@ -248,7 +253,7 @@ func TestDBConnection_TransactionFailure(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
 
 	// 提交多个请求
 	for i := 0; i < 10; i++ {
@@ -301,7 +306,7 @@ func TestDBConnection_ContextCancellationDuringExecution(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
 		SetString("name", "test")
@@ -338,7 +343,7 @@ func TestDBConnection_MaxConnectionsExceeded(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 100, 10, time.Second, executor)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
 
 	// 提交大量请求
 	for i := 0; i < 50; i++ {
@@ -392,7 +397,7 @@ func TestDBConnection_NetworkPartition(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
 		SetString("name", "test")

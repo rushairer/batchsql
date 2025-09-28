@@ -8,26 +8,35 @@ import (
 	"github.com/rushairer/batchsql/drivers"
 )
 
-// BatchProcessor 批量处理器
-type BatchProcessor struct {
-	db *redis.Client
+// Executor Redis批量执行器
+// 直接实现 BatchExecutor 接口，无需 BatchProcessor 层
+// 架构：BatchExecutor -> Redis Client（跳过BatchProcessor层）
+//
+// 设计说明：
+// - Redis作为NoSQL数据库，有自己的数据模型和操作方式
+// - 直接实现BatchExecutor避免了不必要的抽象层
+// - 使用Redis Pipeline特性实现高效的批量操作
+type Executor struct {
+	db              *redis.Client           // Redis客户端连接
+	metricsReporter drivers.MetricsReporter // 性能指标报告器
 }
 
-// NewBatchProcessor 创建批量处理器
-func NewBatchProcessor(db *redis.Client) *BatchProcessor {
-	return &BatchProcessor{
+// NewBatchExecutor 创建Redis批量执行器
+// 返回直接实现BatchExecutor接口的执行器，无需额外的处理层
+func NewBatchExecutor(db *redis.Client) *Executor {
+	return &Executor{
 		db: db,
 	}
 }
 
 // ExecuteBatch 执行批量操作
-func (bp *BatchProcessor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
+func (e *Executor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
 	if len(data) == 0 {
 		return nil
 	}
 
 	// 使用Redis的Pipeline特性实现批量插入
-	pipeline := bp.db.Pipeline()
+	pipeline := e.db.Pipeline()
 	for _, row := range data {
 		key := row[schema.Columns[0]].(string)
 		value := row[schema.Columns[1]]
@@ -41,19 +50,8 @@ func (bp *BatchProcessor) ExecuteBatch(ctx context.Context, schema *drivers.Sche
 	return err
 }
 
-// Executor Redis批量执行器
-type Executor struct {
-	processor *BatchProcessor
-}
-
-// NewBatchExecutor 创建Redis批量执行器
-func NewBatchExecutor(db *redis.Client) *Executor {
-	return &Executor{
-		processor: NewBatchProcessor(db),
-	}
-}
-
-// ExecuteBatch 执行批量操作
-func (e *Executor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
-	return e.processor.ExecuteBatch(ctx, schema, data)
+// WithMetricsReporter 设置指标报告器
+func (e *Executor) WithMetricsReporter(metricsReporter drivers.MetricsReporter) drivers.BatchExecutor {
+	e.metricsReporter = metricsReporter
+	return e
 }

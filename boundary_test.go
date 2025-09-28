@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rushairer/batchsql"
+	"github.com/rushairer/batchsql/drivers"
 )
 
 func TestBoundary_EmptyData(t *testing.T) {
@@ -20,7 +21,7 @@ func TestBoundary_EmptyData(t *testing.T) {
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
 	// 测试空字符串
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "name", "value")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "name", "value")
 	request := batchsql.NewRequest(schema).
 		SetString("name", "").
 		SetString("value", "")
@@ -42,7 +43,7 @@ func TestBoundary_NilValues(t *testing.T) {
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
 	// 测试 nil 值
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "name", "value")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "name", "value")
 	request := batchsql.NewRequest(schema).
 		SetString("name", "test").
 		SetNull("value")
@@ -66,7 +67,7 @@ func TestBoundary_LargeStrings(t *testing.T) {
 	// 创建大字符串 (1MB)
 	largeString := strings.Repeat("A", 1024*1024)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "large_text")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "large_text")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
 		SetString("large_text", largeString)
@@ -87,7 +88,7 @@ func TestBoundary_MaxInt64(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "max_val", "min_val")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "max_val", "min_val")
 	request := batchsql.NewRequest(schema).
 		SetInt64("max_val", 9223372036854775807). // math.MaxInt64
 		SetInt64("min_val", -9223372036854775808) // math.MinInt64
@@ -108,7 +109,7 @@ func TestBoundary_MaxFloat64(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "max_float", "min_float", "zero_float")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "max_float", "min_float", "zero_float")
 	request := batchsql.NewRequest(schema).
 		SetFloat64("max_float", 1.7976931348623157e+308).  // math.MaxFloat64
 		SetFloat64("min_float", -1.7976931348623157e+308). // -math.MaxFloat64
@@ -130,7 +131,7 @@ func TestBoundary_SpecialFloats(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "special_float")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "special_float")
 
 	// 测试 NaN - 使用一个变量来避免编译时除零错误
 	zero := 0.0
@@ -179,7 +180,7 @@ func TestBoundary_UnicodeStrings(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "unicode_text")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "unicode_text")
 
 	// 测试各种 Unicode 字符
 	unicodeStrings := []string{
@@ -214,7 +215,7 @@ func TestBoundary_SpecialCharacters(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "special_text")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "special_text")
 
 	// 测试特殊字符
 	specialStrings := []string{
@@ -250,7 +251,7 @@ func TestBoundary_ZeroTime(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "zero_time", "unix_epoch")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "zero_time", "unix_epoch")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
 		SetTime("zero_time", time.Time{}).     // 零值时间
@@ -278,7 +279,7 @@ func TestBoundary_ManyColumns(t *testing.T) {
 		columns[i] = "col" + string(rune('0'+i%10))
 	}
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, columns...)
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, columns...)
 	request := batchsql.NewRequest(schema)
 
 	// 设置所有列的值
@@ -303,7 +304,7 @@ func TestBoundary_SingleColumn(t *testing.T) {
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
 	// 只有一列的 schema
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "single_col")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "single_col")
 	request := batchsql.NewRequest(schema).SetString("single_col", "value")
 
 	err := batch.Submit(ctx, request)
@@ -322,7 +323,7 @@ func TestBoundary_BufferSizeOne(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id")
 	request := batchsql.NewRequest(schema).SetInt64("id", 1)
 
 	err := batch.Submit(ctx, request)
@@ -344,7 +345,7 @@ func TestBoundary_VeryShortFlushInterval(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
+	schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id")
 
 	// 快速提交多个请求
 	for i := 0; i < 10; i++ {

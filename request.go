@@ -3,15 +3,17 @@ package batchsql
 import (
 	"fmt"
 	"time"
+
+	"github.com/rushairer/batchsql/drivers"
 )
 
 // 用来存储请求的数据的各种字段信息和对应的schema
 type Request struct {
-	schema  *Schema
+	schema  *drivers.Schema
 	columns map[string]any // 使用 map 存储列名到值的映射
 }
 
-func NewRequest(schema *Schema) *Request {
+func NewRequest(schema *drivers.Schema) *Request {
 	return &Request{
 		schema:  schema,
 		columns: make(map[string]any),
@@ -19,7 +21,7 @@ func NewRequest(schema *Schema) *Request {
 }
 
 // Schema 获取请求的 schema
-func (r *Request) Schema() *Schema {
+func (r *Request) Schema() *drivers.Schema {
 	return r.schema
 }
 

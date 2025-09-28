@@ -2,6 +2,8 @@
 
 一个高性能的 Go 批量 SQL 处理库，基于 `go-pipeline` 实现，支持多种数据库类型和冲突处理策略。
 
+*最后更新：2025年1月28日 | 版本：v2.0.0*
+
 ## 🏗️ 架构设计
 
 ### 核心组件
@@ -12,17 +14,22 @@ BatchSQL (绑定特定数据库类型)
     ↓
 gopipeline (按Schema指针分组)
     ↓
-BatchExecutor (数据库特定的执行器)
-    ↓
-BatchProcessor + SQLDriver (SQL生成和执行)
-    ↓
-Database Connection
+BatchExecutor (统一执行接口)
+    ├── CommonExecutor (SQL数据库通用执行器)
+    │   ↓
+    │   BatchProcessor + SQLDriver (SQL生成和执行)
+    │   ↓
+    │   Database Connection
+    └── 直接实现 (NoSQL数据库如Redis)
+        ↓
+        Database Connection
 ```
 
 ### 设计原则
 - **一个BatchSQL绑定一个数据库类型** - 避免混合数据库的复杂性
 - **Schema专注表结构定义** - 职责单一，可复用性强
-- **SQLDriver处理SQL生成** - 数据库特定逻辑集中管理
+- **BatchExecutor统一接口** - 所有数据库驱动的统一入口
+- **灵活的实现方式** - SQL数据库使用CommonExecutor+BatchProcessor，NoSQL可直接实现
 - **轻量级设计** - 不涉及连接池管理，支持任何数据库框架
 
 ## 🚀 功能特性
@@ -57,8 +64,10 @@ package main
 import (
     "context"
     "database/sql"
+    "log"
     "time"
     "github.com/rushairer/batchsql"
+    "github.com/rushairer/batchsql/drivers"
     _ "github.com/go-sql-driver/mysql"
 )
 
@@ -72,7 +81,8 @@ func main() {
     }
     defer db.Close()
     
-    // 2. 创建MySQL BatchSQL实例（默认方式）
+    // 2. 创建MySQL BatchSQL实例
+    // 内部使用 CommonExecutor + SQLBatchProcessor + MySQLDriver
     config := batchsql.PipelineConfig{
         BufferSize:    1000,        // 缓冲区大小
         FlushSize:     100,         // 批量刷新大小
@@ -80,11 +90,11 @@ func main() {
     }
     batch := batchsql.NewMySQLBatchSQL(ctx, db, config)
 
-    // 3. 定义 schema（不再需要指定数据库类型）
+    // 3. 定义 schema（表结构定义，与数据库类型解耦）
     userSchema := batchsql.NewSchema(
         "users",                    // 表名
-        batchsql.ConflictIgnore,   // 冲突策略
-        "id", "name", "email",     // 列名
+        drivers.ConflictIgnore,     // 冲突策略
+        "id", "name", "email",      // 列名
     )
 
     // 4. 创建并提交请求
@@ -107,13 +117,65 @@ func main() {
 }
 ```
 
+### Redis 使用示例
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "time"
+    "github.com/redis/go-redis/v9"
+    "github.com/rushairer/batchsql"
+    "github.com/rushairer/batchsql/drivers"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    // 1. 创建Redis连接
+    rdb := redis.NewClient(&redis.Options{
+        Addr: "localhost:6379",
+    })
+    defer rdb.Close()
+    
+    // 2. 创建Redis BatchSQL实例
+    // 内部直接实现 BatchExecutor 接口，无需 BatchProcessor
+    config := batchsql.PipelineConfig{
+        BufferSize:    1000,
+        FlushSize:     100,
+        FlushInterval: 5 * time.Second,
+    }
+    batch := batchsql.NewRedisBatchSQL(ctx, rdb, config)
+
+    // 3. 定义 Redis schema（key, value, ttl）
+    cacheSchema := batchsql.NewSchema(
+        "cache",                    // 逻辑表名
+        drivers.ConflictReplace,    // Redis默认覆盖
+        "key", "value", "ttl",      // 列名
+    )
+
+    // 4. 提交Redis数据
+    request := batchsql.NewRequest(cacheSchema).
+        SetString("key", "user:1").
+        SetString("value", "John Doe").
+        SetInt64("ttl", 3600000) // TTL in milliseconds
+
+    if err := batch.Submit(ctx, request); err != nil {
+        panic(err)
+    }
+}
+```
+
 ### 测试使用
 
 ```go
 func TestBatchSQL(t *testing.T) {
     ctx := context.Background()
     
-    // 使用模拟执行器进行测试（默认MySQL Driver）
+    // 使用模拟执行器进行测试
+    // 内部使用 MockExecutor 直接实现 BatchExecutor 接口
     config := batchsql.PipelineConfig{
         BufferSize:    100,
         FlushSize:     10,
@@ -121,7 +183,24 @@ func TestBatchSQL(t *testing.T) {
     }
     batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
     
-    // 测试逻辑...
+    // 定义测试schema
+    testSchema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
+    
+    // 提交测试数据
+    request := batchsql.NewRequest(testSchema).
+        SetInt64("id", 1).
+        SetString("name", "test")
+    
+    err := batch.Submit(ctx, request)
+    assert.NoError(t, err)
+    
+    // 验证模拟执行器的调用
+    time.Sleep(100 * time.Millisecond) // 等待批量处理
+    assert.True(t, mockExecutor.WasCalled())
+    
+    // 获取执行的数据
+    executedData := mockExecutor.GetExecutedData()
+    assert.Len(t, executedData, 1)
 }
 ```
 
@@ -131,23 +210,44 @@ func TestBatchSQL(t *testing.T) {
 
 #### 默认方式（推荐）
 ```go
-// 简单易用，使用全局默认Driver
+// SQL数据库：使用 CommonExecutor + BatchProcessor + SQLDriver
 mysqlBatch := batchsql.NewMySQLBatchSQL(ctx, db, config)
 postgresBatch := batchsql.NewPostgreSQLBatchSQL(ctx, db, config)
 sqliteBatch := batchsql.NewSQLiteBatchSQL(ctx, db, config)
 
-// 测试时也很简单
+// NoSQL数据库：直接实现 BatchExecutor 接口
+redisBatch := batchsql.NewRedisBatchSQL(ctx, redisClient, config)
+
+// 测试：使用 MockExecutor 直接实现 BatchExecutor
 batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
 ```
 
 #### 自定义方式（扩展支持）
 ```go
-// 支持第三方Driver扩展
+// SQL数据库：支持自定义SQLDriver
 customDriver := &MyCustomSQLDriver{}
 mysqlBatch := batchsql.NewMySQLBatchSQLWithDriver(ctx, db, config, customDriver)
 
-// 测试时使用特定Driver
+// 测试：使用特定Driver的Mock
 batch, mockExecutor := batchsql.NewBatchSQLWithMockDriver(ctx, config, customDriver)
+
+// 完全自定义：实现自己的BatchExecutor
+type MyExecutor struct {
+    // 自定义字段
+}
+
+func (e *MyExecutor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
+    // 自定义实现
+    return nil
+}
+
+func (e *MyExecutor) WithMetricsReporter(reporter drivers.MetricsReporter) drivers.BatchExecutor {
+    // 设置指标报告器
+    return e
+}
+
+customExecutor := &MyExecutor{}
+batch := batchsql.NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, customExecutor)
 ```
 
 ### 冲突处理策略
@@ -165,8 +265,8 @@ const (
 ### Schema 设计
 ```go
 // Schema专注于表结构定义，与数据库类型解耦
-userSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
-productSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")
+userSchema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email")
+productSchema := batchsql.NewSchema("products", drivers.ConflictUpdate, "id", "name", "price")
 
 // 同一个Schema可以在不同数据库类型间复用
 ```
@@ -220,6 +320,7 @@ if age, err := request.GetInt32("age"); err == nil {
 ```go
 import (
     "database/sql"
+    "github.com/redis/go-redis/v9"
     _ "github.com/go-sql-driver/mysql"
     _ "github.com/lib/pq"
     _ "github.com/mattn/go-sqlite3"
@@ -233,6 +334,8 @@ func main() {
         FlushInterval: 5 * time.Second,
     }
     
+    // SQL数据库 - 使用 CommonExecutor + BatchProcessor + SQLDriver
+    
     // MySQL
     mysqlDB, _ := sql.Open("mysql", "user:password@tcp(localhost:3306)/testdb")
     mysqlBatch := batchsql.NewMySQLBatchSQL(ctx, mysqlDB, config)
@@ -245,30 +348,97 @@ func main() {
     sqliteDB, _ := sql.Open("sqlite3", "./test.db")
     sqliteBatch := batchsql.NewSQLiteBatchSQL(ctx, sqliteDB, config)
     
+    // NoSQL数据库 - 直接实现 BatchExecutor
+    
+    // Redis
+    redisClient := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+    redisBatch := batchsql.NewRedisBatchSQL(ctx, redisClient, config)
+    
+    // 定义通用schema（可在不同数据库间复用）
+    userSchema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name")
+    productSchema := batchsql.NewSchema("products", drivers.ConflictUpdate, "id", "name", "price")
+    cacheSchema := batchsql.NewSchema("cache", drivers.ConflictReplace, "key", "value", "ttl")
+    
     // 每个BatchSQL处理对应数据库的多个表
-    userSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name")
-    productSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")
     
     // MySQL处理用户和产品表
     mysqlBatch.Submit(ctx, batchsql.NewRequest(userSchema).SetInt64("id", 1).SetString("name", "User1"))
     mysqlBatch.Submit(ctx, batchsql.NewRequest(productSchema).SetInt64("id", 1).SetString("name", "Product1").SetFloat64("price", 99.99))
+    
+    // PostgreSQL处理相同的schema
+    postgresBatch.Submit(ctx, batchsql.NewRequest(userSchema).SetInt64("id", 2).SetString("name", "User2"))
+    
+    // Redis处理缓存数据
+    redisBatch.Submit(ctx, batchsql.NewRequest(cacheSchema).
+        SetString("key", "user:1").
+        SetString("value", "User1").
+        SetInt64("ttl", 3600000))
 }
 ```
 
 ### 第三方扩展示例
 
+#### 扩展SQL数据库支持（如TiDB）
 ```go
-// 扩展支持TiDB
+// 实现SQLDriver接口
 type TiDBDriver struct{}
 
-func (d *TiDBDriver) GenerateInsertSQL(schema *batchsql.Schema, batchSize int) string {
+func (d *TiDBDriver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
     // TiDB特定的批量插入优化
-    // 实现SQLDriver接口
+    // 可以使用TiDB的特殊语法或优化
+    return sql, args, nil
 }
 
-// 使用自定义Driver
+// 使用自定义Driver，内部仍使用CommonExecutor架构
 tidbDriver := &TiDBDriver{}
 batch := batchsql.NewMySQLBatchSQLWithDriver(ctx, tidbDB, config, tidbDriver)
+```
+
+#### 扩展NoSQL数据库支持（如MongoDB）
+```go
+// 直接实现BatchExecutor接口
+type MongoExecutor struct {
+    client          *mongo.Client
+    metricsReporter drivers.MetricsReporter
+}
+
+func NewMongoBatchExecutor(client *mongo.Client) *MongoExecutor {
+    return &MongoExecutor{client: client}
+}
+
+func (e *MongoExecutor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
+    if len(data) == 0 {
+        return nil
+    }
+    
+    // MongoDB特定的批量插入逻辑
+    collection := e.client.Database("mydb").Collection(schema.TableName)
+    
+    // 转换数据格式
+    docs := make([]interface{}, len(data))
+    for i, row := range data {
+        docs[i] = row
+    }
+    
+    // 执行批量插入
+    _, err := collection.InsertMany(ctx, docs)
+    return err
+}
+
+func (e *MongoExecutor) WithMetricsReporter(reporter drivers.MetricsReporter) drivers.BatchExecutor {
+    e.metricsReporter = reporter
+    return e
+}
+
+// 创建MongoDB BatchSQL
+func NewMongoBatchSQL(ctx context.Context, client *mongo.Client, config batchsql.PipelineConfig) *batchsql.BatchSQL {
+    executor := NewMongoBatchExecutor(client)
+    return batchsql.NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
+}
+
+// 使用
+mongoClient, _ := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
+mongoBatch := NewMongoBatchSQL(ctx, mongoClient, config)
 ```
 
 ### 框架集成示例
@@ -401,7 +571,9 @@ batchsql/
 ├── go.sum                   # 依赖校验文件
 ├── .golangci.yml            # Go代码检查配置
 ├── README.md                # 项目文档
+├── ARCHITECTURE.md          # 架构设计文档（v2.0.0新增）
 ├── CONFIG.md                # 配置参数详细说明
+├── CONTRIBUTING.md          # 贡献指南（已更新架构部分）
 ├── QUALITY_ASSESSMENT.md    # 项目质量评估报告
 ├── README-INTEGRATION-TESTS.md # 集成测试文档
 ├── RELEASE_CHECKLIST.md     # 发布检查清单
@@ -411,19 +583,23 @@ batchsql/
 ├── docker-compose.*.yml     # Docker 测试配置文件
 ├── Dockerfile.*             # Docker 构建文件
 ├── drivers/                 # 数据库驱动目录
-│   ├── interfaces.go        # 驱动接口定义
+│   ├── interfaces.go        # 核心接口定义（BatchExecutor, BatchProcessor, SQLDriver等）
+│   ├── common_executor.go   # 通用执行器实现（SQL数据库共用）
+│   ├── batch_processor.go   # 批量处理器实现（SQL数据库共用）
 │   ├── mock/                # 模拟驱动（用于测试）
 │   │   ├── driver.go        # Mock SQL驱动实现
-│   │   └── executor.go      # Mock批量执行器实现
+│   │   └── executor.go      # Mock批量执行器实现（直接实现BatchExecutor）
 │   ├── mysql/               # MySQL驱动
 │   │   ├── driver.go        # MySQL SQL驱动实现
-│   │   └── executor.go      # MySQL批量执行器实现
+│   │   └── executor.go      # MySQL执行器工厂（返回CommonExecutor）
 │   ├── postgresql/          # PostgreSQL驱动
 │   │   ├── driver.go        # PostgreSQL SQL驱动实现
-│   │   └── executor.go      # PostgreSQL批量执行器实现
-│   └── sqlite/              # SQLite驱动
-│       ├── driver.go        # SQLite SQL驱动实现
-│       └── executor.go      # SQLite批量执行器实现
+│   │   └── executor.go      # PostgreSQL执行器工厂（返回CommonExecutor）
+│   ├── sqlite/              # SQLite驱动
+│   │   ├── driver.go        # SQLite SQL驱动实现
+│   │   └── executor.go      # SQLite执行器工厂（返回CommonExecutor）
+│   └── redis/               # Redis驱动
+│       └── executor.go      # Redis执行器（直接实现BatchExecutor）
 └── test/                    # 测试目录
     ├── integration/         # 集成测试
     │   ├── main.go          # 集成测试主程序
@@ -448,40 +624,60 @@ batchsql/
 
 ## 🔧 架构图
 
+### 整体架构
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Application   │───▶│    BatchSQL      │───▶│  gopipeline     │
-│                 │    │ (MySQL/PG/SQLite)│    │ (异步批量处理)   │
+│                 │    │(MySQL/PG/SQLite/ │    │  (异步批量处理)   │
+│                 │    │    Redis)        │    │                 │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                 │                        │
                                 ▼                        ▼
                        ┌──────────────────┐    ┌─────────────────┐
                        │ BatchExecutor    │    │  Flush Function │
-                       │ (数据库特定)      │    │ (批量刷新逻辑)   │
+                       │ (统一执行接口)     │    │  (批量刷新逻辑)   │
                        └──────────────────┘    └─────────────────┘
                                 │                        │
                                 ▼                        ▼
                        ┌──────────────────┐    ┌─────────────────┐
-                       │ BatchProcessor   │    │ Schema Grouping │
-                       │ (处理核心逻辑)    │    │ (按表分组聚合)   │
+                       │ 实现方式分支       │    │ Schema Grouping │
+                       │                  │    │  (按表分组聚合)   │
                        └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │   SQLDriver      │    │   SQL Generation│
-                       │ (数据库特定SQL)   │    │ (批量INSERT语句) │
-                       └──────────────────┘    └─────────────────┘
-                                │
-                                ▼
-                       ┌──────────────────┐
-                       │   Database       │
-                       │ (用户管理连接池)  │
-                       └──────────────────┘
+                          │              │
+                          ▼              ▼
+              ┌─────────────────┐  ┌─────────────────┐
+              │ CommonExecutor  │  │  直接实现        │
+              │ (SQL数据库)      │  │  (NoSQL数据库)   │
+              └─────────────────┘  └─────────────────┘
+                          │              │
+                          ▼              ▼
+              ┌─────────────────┐  ┌─────────────────┐
+              │BatchProcessor + │  │   Database      │
+              │   SQLDriver     │  │ (如Redis Client)│
+              └─────────────────┘  └─────────────────┘
+                          │
+                          ▼
+              ┌─────────────────┐
+              │   Database      │
+              │ (SQL连接池)     │
+              └─────────────────┘
+```
+
+### SQL数据库执行路径
+```
+BatchExecutor → CommonExecutor → BatchProcessor → SQLDriver → Database
+```
+
+### NoSQL数据库执行路径  
+```
+BatchExecutor → 直接实现 → Database
 ```
 
 ## 📚 相关文档
 
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - 详细的架构设计文档和扩展指南 ⭐ *v2.0.0新增*
 - **[CONFIG.md](CONFIG.md)** - 详细的配置参数说明和调优建议
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - 贡献指南（已更新架构部分）
 - **[README-INTEGRATION-TESTS.md](README-INTEGRATION-TESTS.md)** - 集成测试完整文档
 - **[QUALITY_ASSESSMENT.md](QUALITY_ASSESSMENT.md)** - 项目质量评估报告
 - **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** - 发布检查清单

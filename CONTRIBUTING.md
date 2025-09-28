@@ -170,29 +170,154 @@ if err := validateRequest(req); err != nil {
 
 ## 🏗️ Architecture Guidelines
 
-### Adding New Database Drivers
-1. **Create driver directory**: `drivers/newdb/`
-2. **Implement interfaces**:
+*基于重构后的架构设计 - 版本 v2.0.0*
+
+### 架构概览
+BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支持不同类型的数据库：
+
+- **SQL数据库**: 使用 `CommonExecutor` + `BatchProcessor` + `SQLDriver`
+- **NoSQL数据库**: 直接实现 `BatchExecutor` 接口
+- **测试环境**: 使用 `MockExecutor` 直接实现
+
+### 添加新的SQL数据库支持
+
+1. **实现SQLDriver接口**:
    ```go
+   // drivers/newdb/driver.go
    type NewDBDriver struct{}
    
-   func (d *NewDBDriver) GenerateInsertSQL(schema *Schema, batchSize int) string {
-       // Implementation
-   }
-   
-   type NewDBExecutor struct{}
-   
-   func (e *NewDBExecutor) ExecuteBatch(ctx context.Context, requests []*Request) error {
-       // Implementation
+   func (d *NewDBDriver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
+       // 生成数据库特定的SQL语句
+       // 处理冲突策略：ConflictIgnore, ConflictReplace, ConflictUpdate
+       return sql, args, nil
    }
    ```
-3. **Add factory method**:
+
+2. **创建执行器工厂**:
    ```go
-   func NewNewDBBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
-       // Implementation
+   // drivers/newdb/executor.go
+   func NewBatchExecutor(db *sql.DB) *drivers.CommonExecutor {
+       return drivers.NewSQLExecutor(db, &NewDBDriver{})
+   }
+   
+   func NewBatchExecutorWithDriver(db *sql.DB, driver drivers.SQLDriver) *drivers.CommonExecutor {
+       return drivers.NewSQLExecutor(db, driver)
    }
    ```
-4. **Add tests and documentation**
+
+3. **添加BatchSQL工厂方法**:
+   ```go
+   // batchsql.go
+   func NewNewDBBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
+       executor := newdb.NewBatchExecutor(db)
+       return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
+   }
+   ```
+
+### 添加新的NoSQL数据库支持
+
+1. **直接实现BatchExecutor接口**:
+   ```go
+   // drivers/newnosql/executor.go
+   type Executor struct {
+       client          *NewNoSQLClient
+       metricsReporter drivers.MetricsReporter
+   }
+   
+   func (e *Executor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
+       // 直接实现数据库特定的批量操作
+       // 无需经过BatchProcessor层
+       return nil
+   }
+   
+   func (e *Executor) WithMetricsReporter(reporter drivers.MetricsReporter) drivers.BatchExecutor {
+       e.metricsReporter = reporter
+       return e
+   }
+   ```
+
+2. **创建工厂方法**:
+   ```go
+   func NewBatchExecutor(client *NewNoSQLClient) *Executor {
+       return &Executor{client: client}
+   }
+   ```
+
+3. **添加BatchSQL工厂方法**:
+   ```go
+   func NewNewNoSQLBatchSQL(ctx context.Context, client *NewNoSQLClient, config PipelineConfig) *BatchSQL {
+       executor := newnosql.NewBatchExecutor(client)
+       return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
+   }
+   ```
+
+### 测试新的数据库驱动
+
+1. **单元测试**:
+   ```go
+   func TestNewDBDriver_GenerateInsertSQL(t *testing.T) {
+       driver := &NewDBDriver{}
+       schema := &drivers.Schema{
+           TableName: "test_table",
+           Columns:   []string{"id", "name"},
+           ConflictStrategy: drivers.ConflictIgnore,
+       }
+       data := []map[string]any{
+           {"id": 1, "name": "test"},
+       }
+       
+       sql, args, err := driver.GenerateInsertSQL(schema, data)
+       assert.NoError(t, err)
+       assert.Contains(t, sql, "INSERT")
+       assert.Len(t, args, 2)
+   }
+   ```
+
+2. **集成测试**:
+   ```go
+   func TestNewDBBatchSQL_Integration(t *testing.T) {
+       db := setupTestDB(t) // 设置测试数据库
+       defer db.Close()
+       
+       config := PipelineConfig{
+           BufferSize:    100,
+           FlushSize:     10,
+           FlushInterval: time.Second,
+       }
+       batch := NewNewDBBatchSQL(ctx, db, config)
+       
+       // 测试批量插入
+       schema := NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
+       request := NewRequest(schema).SetInt64("id", 1).SetString("name", "test")
+       
+       err := batch.Submit(ctx, request)
+       assert.NoError(t, err)
+       
+       // 验证数据插入
+       // ...
+   }
+   ```
+
+### 架构最佳实践
+
+1. **选择合适的实现方式**:
+   - SQL数据库：使用CommonExecutor架构，复用通用逻辑
+   - NoSQL数据库：直接实现BatchExecutor，避免不必要的抽象
+
+2. **性能优化**:
+   - 使用数据库特定的批量操作API
+   - 避免在热路径中进行内存分配
+   - 利用数据库的Pipeline或Batch特性
+
+3. **错误处理**:
+   - 提供清晰的错误信息
+   - 区分临时错误和永久错误
+   - 支持错误重试机制
+
+4. **指标收集**:
+   - 实现MetricsReporter接口
+   - 记录执行时间、批次大小、成功/失败状态
+   - 提供数据库特定的指标
 
 ### Performance Considerations
 - Use pointer receivers for methods

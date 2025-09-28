@@ -2,7 +2,7 @@
 
 一个高性能的 Go 批量 SQL 处理库，基于 `go-pipeline` 实现，支持多种数据库类型和冲突处理策略。
 
-*最后更新：2025年1月28日 | 版本：v2.0.0*
+*最后更新：2025年1月28日 | 版本：v1.0.1.0*
 
 ## 🏗️ 架构设计
 
@@ -571,7 +571,7 @@ batchsql/
 ├── go.sum                   # 依赖校验文件
 ├── .golangci.yml            # Go代码检查配置
 ├── README.md                # 项目文档
-├── ARCHITECTURE.md          # 架构设计文档（v2.0.0新增）
+├── ARCHITECTURE.md          # 架构设计文档（v1.0.1.0新增）
 ├── CONFIG.md                # 配置参数详细说明
 ├── CONTRIBUTING.md          # 贡献指南（已更新架构部分）
 ├── QUALITY_ASSESSMENT.md    # 项目质量评估报告
@@ -675,7 +675,7 @@ BatchExecutor → 直接实现 → Database
 
 ## 📚 相关文档
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - 详细的架构设计文档和扩展指南 ⭐ *v2.0.0新增*
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - 详细的架构设计文档和扩展指南 ⭐ *v1.0.1.0新增*
 - **[CONFIG.md](CONFIG.md)** - 详细的配置参数说明和调优建议
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - 贡献指南（已更新架构部分）
 - **[README-INTEGRATION-TESTS.md](README-INTEGRATION-TESTS.md)** - 集成测试完整文档

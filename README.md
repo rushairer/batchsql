@@ -516,8 +516,11 @@ docker logs -f batchsql-integration-test
 # Prometheus: http://localhost:9092
 # Grafana: http://localhost:3002 (admin/admin123)
 
+# 集成测试完成后会保持运行15分钟，确保Prometheus有足够时间抓取指标
+# 可以通过环境变量调整保持时间：KEEP_ALIVE_MINUTES=30
+
 # 如果需要单独运行本地Go程序进行监控
-# go run test/integration/main.go
+# KEEP_ALIVE_MINUTES=10 go run test/integration/main.go
 # 然后访问 http://localhost:8080/metrics 查看指标
 ```
 

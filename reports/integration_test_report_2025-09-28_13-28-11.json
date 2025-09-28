@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-09-28T13:28:11.708615+08:00",
+  "environment": "Docker Integration",
+  "go_version": "go1.25.1",
+  "test_config": {
+    "test_duration": 1800000000000,
+    "concurrent_workers": 10,
+    "records_per_worker": 2000,
+    "batch_size": 200,
+    "buffer_size": 5000,
+    "flush_interval": 100000000
+  },
+  "results": [],
+  "summary": {
+    "total_tests": 0,
+    "passed_tests": 0,
+    "failed_tests": 0,
+    "total_records": 0,
+    "average_rps": 0,
+    "max_rps": 0,
+    "total_duration": "625ns"
+  }
+}

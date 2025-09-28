@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -115,7 +117,7 @@ func main() {
 	prometheusMetrics := monitoring.NewPrometheusMetrics()
 
 	// 启动Prometheus HTTP服务器
-	prometheusPort := parseIntEnv("PROMETHEUS_PORT", 9090)
+	prometheusPort := parseIntEnv("PROMETHEUS_PORT", 8080)
 	if err := prometheusMetrics.StartServer(prometheusPort); err != nil {
 		log.Printf("⚠️ Failed to start Prometheus server: %v", err)
 	} else {
@@ -175,6 +177,44 @@ func main() {
 	// 输出结果
 	printSummary(report)
 
+	// 保持服务运行，让Prometheus有时间抓取指标
+	keepAliveMinutes := parseIntEnv("KEEP_ALIVE_MINUTES", 10) // 默认保持10分钟
+	if keepAliveMinutes > 0 {
+		log.Printf("📊 保持Prometheus服务运行 %d 分钟，以便指标抓取...", keepAliveMinutes)
+		log.Printf("📊 Metrics endpoint: http://localhost:%d/metrics", prometheusPort)
+		log.Printf("📊 按 Ctrl+C 可提前退出")
+
+		// 创建一个定时器和信号处理
+		keepAliveDuration := time.Duration(keepAliveMinutes) * time.Minute
+		timer := time.NewTimer(keepAliveDuration)
+
+		// 每分钟输出一次状态
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+
+		// 监听中断信号
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+		startKeepAlive := time.Now()
+
+		for {
+			select {
+			case <-timer.C:
+				log.Printf("📊 保持运行时间已到，程序即将退出")
+				goto Exit
+			case <-ticker.C:
+				elapsed := time.Since(startKeepAlive)
+				remaining := keepAliveDuration - elapsed
+				log.Printf("📊 已保持运行 %.0f 分钟，剩余 %.0f 分钟", elapsed.Minutes(), remaining.Minutes())
+			case sig := <-sigChan:
+				log.Printf("📊 收到信号 %v，程序即将退出", sig)
+				goto Exit
+			}
+		}
+	}
+
+Exit:
 	// 如果有失败的测试，退出码为 1
 	if report.Summary.FailedTests > 0 {
 		os.Exit(1)

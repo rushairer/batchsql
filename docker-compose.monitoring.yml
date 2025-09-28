@@ -64,6 +64,7 @@ services:
       
       # Prometheus配置
       - PROMETHEUS_PORT=9091
+      - KEEP_ALIVE_MINUTES=15  # 保持运行15分钟，给Prometheus充足时间抓取
     ports:
       - "9091:9091"  # Prometheus metrics endpoint
     volumes:

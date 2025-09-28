@@ -38,8 +38,8 @@ docker-compose -f docker-compose.monitoring.yml up -d
 
 ### 2. 访问监控界面
 
-- **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/admin123)
+- **Prometheus**: http://localhost:9092
+- **Grafana**: http://localhost:3002 (admin/admin123)
 - **测试指标**: http://localhost:9091/metrics
 
 ### 3. 查看性能仪表板
@@ -198,7 +198,7 @@ rate(batchsql_memory_usage_mb{type="alloc"}[5m])
 
 ```bash
 # 检查 Prometheus 目标状态
-curl http://localhost:9090/api/v1/targets
+curl http://localhost:9092/api/v1/targets
 
 # 查看可用指标
 curl http://localhost:9091/metrics

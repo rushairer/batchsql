@@ -506,15 +506,19 @@ BatchSQL提供以下Prometheus监控指标：
 ### 监控环境快速启动
 
 ```bash
-# 启动完整监控栈（Prometheus + Grafana）
+# 启动完整监控栈（包含数据库、集成测试、Prometheus、Grafana）
 docker-compose -f docker-compose.monitoring.yml up -d
 
-# 运行集成测试并收集监控数据
-go run test/integration/main.go
+# 查看集成测试日志（自动运行并收集监控数据）
+docker logs -f batchsql-integration-test
 
 # 访问监控界面
-# Prometheus: http://localhost:9090
-# Grafana: http://localhost:3000 (admin/admin)
+# Prometheus: http://localhost:9092
+# Grafana: http://localhost:3002 (admin/admin123)
+
+# 如果需要单独运行本地Go程序进行监控
+# go run test/integration/main.go
+# 然后访问 http://localhost:8080/metrics 查看指标
 ```
 
 ## ⚡ 性能优化

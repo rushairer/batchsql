@@ -1,18 +1,37 @@
 services:
-  # SQLite 压力测试运行器 - 使用 SQLite 优化配置
+  # SQLite
+  sqlite:
+    image: alpine/sqlite:latest
+    container_name: batchsql-sqlite-integration
+    volumes:
+        - sqlite_data:/apps
+        - ./test/sql/sqlite/init.sql:/apps/init.sql
+    command: ["-cmd", ".read /apps/init.sql", "-cmd", ".system tail -f /dev/null", "/apps/test.db"]
+    healthcheck:
+      test: ["CMD", "sqlite3", "/apps/test.db", ".tables"]
+      timeout: 20s
+      retries: 10
+      interval: 5s
+    networks:
+      - batchsql-network
+
+  #SQLite 压力测试运行器 - 使用 SQLite 优化配置     
   sqlite-test:
     build:
       context: .
       dockerfile: Dockerfile.cgo.integration
     container_name: batchsql-sqlite-test
+    depends_on:
+      sqlite:
+        condition: service_healthy
     env_file:
       - .env.sqlite.test  # 使用 SQLite 专用配置
     environment:
-      - SQLITE_DSN=/app/data/test.db
+      - SQLITE_DSN=/apps/test.db
       - TEST_TYPE=sqlite
     volumes:
+      - sqlite_data:/apps
       - ./test/reports:/app/reports
-      - ./test/data:/app/data
     networks:
       - batchsql-network
     command: ["./run-single-db-test.sh"]

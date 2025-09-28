@@ -36,30 +36,27 @@ test-unit:
 test: test-unit
 	@echo "✅ All tests completed"
 
-# Docker 集成测试 - 单数据库高性能压力测试 (30分钟)
+# Docker 集成测试 - 单数据库高性能压力测试
 docker-mysql-test:
-	@echo "🐳 Starting MySQL 30-minute pressure test..."
-	@echo "📊 Configuration: 10 workers × 2000 records × 30min = High-performance pressure test"
+	@echo "🐳 Starting MySQL pressure test..."
 	docker-compose -f docker-compose.mysql.yml down -v --remove-orphans
 	docker-compose -f docker-compose.mysql.yml build --no-cache
 	docker-compose -f docker-compose.mysql.yml up --abort-on-container-exit --exit-code-from mysql-test
 
 docker-postgres-test:
-	@echo "🐳 Starting PostgreSQL 30-minute pressure test..."
-	@echo "📊 Configuration: 10 workers × 2000 records × 30min = High-performance pressure test"
+	@echo "🐳 Starting PostgreSQL pressure test..."
 	docker-compose -f docker-compose.postgres.yml down -v --remove-orphans
 	docker-compose -f docker-compose.postgres.yml build --no-cache
 	docker-compose -f docker-compose.postgres.yml up --abort-on-container-exit --exit-code-from postgres-test
 
 docker-sqlite-test:
-	@echo "🐳 Starting SQLite 30-minute pressure test..."
-	@echo "📊 Configuration: 10 workers × 2000 records × 30min = High-performance pressure test"
+	@echo "🐳 Starting SQLite pressure test..."
 	docker-compose -f docker-compose.sqlite.yml down -v --remove-orphans
 	docker-compose -f docker-compose.sqlite.yml build --no-cache
 	docker-compose -f docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test
 
 docker-all-tests: docker-mysql-test docker-postgres-test docker-sqlite-test
-	@echo "🎉 All 30-minute pressure tests completed!"
+	@echo "🎉 All pressure tests completed!"
 	@echo "📊 Check ./test/reports/ for detailed performance reports"
 
 # 代码质量检查

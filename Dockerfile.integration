@@ -2,7 +2,7 @@
 FROM golang:1.20-alpine AS builder
 
 # 安装必要的构建工具
-#RUN apk add --no-cache git  musl-dev
+#RUN apk add --no-cache git musl-dev
 
 # 设置工作目录
 WORKDIR /app

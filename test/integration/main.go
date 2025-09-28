@@ -107,7 +107,7 @@ type TestSummary struct {
 }
 
 func main() {
-	log.Println("🚀 Starting BatchSQL Integration Tests...")
+	log.Println("🚀 启动 BatchSQL 集成测试...")
 
 	// 加载配置
 	config := loadConfig()
@@ -115,7 +115,7 @@ func main() {
 	// 创建测试报告
 	report := &TestReport{
 		Timestamp:   time.Now(),
-		Environment: "Docker Integration",
+		Environment: "Docker 集成环境",
 		GoVersion:   runtime.Version(),
 		TestConfig:  config,
 		Results:     []TestResult{},
@@ -125,21 +125,21 @@ func main() {
 
 	// 运行 MySQL 测试
 	if mysqlDSN := os.Getenv("MYSQL_DSN"); mysqlDSN != "" {
-		log.Println("📊 Running MySQL integration tests...")
+		log.Println("📊 正在运行 MySQL 集成测试...")
 		mysqlResults := runDatabaseTests("mysql", mysqlDSN, config)
 		report.Results = append(report.Results, mysqlResults...)
 	}
 
 	// 运行 PostgreSQL 测试
 	if postgresDSN := os.Getenv("POSTGRES_DSN"); postgresDSN != "" {
-		log.Println("📊 Running PostgreSQL integration tests...")
+		log.Println("📊 正在运行 PostgreSQL 集成测试...")
 		postgresResults := runDatabaseTests("postgres", postgresDSN, config)
 		report.Results = append(report.Results, postgresResults...)
 	}
 
 	// 运行 SQLite 测试
 	if sqliteDSN := os.Getenv("SQLITE_DSN"); sqliteDSN != "" {
-		log.Println("📊 Running SQLite integration tests...")
+		log.Println("📊 正在运行 SQLite 集成测试...")
 		sqliteResults := runDatabaseTests("sqlite3", sqliteDSN, config)
 		report.Results = append(report.Results, sqliteResults...)
 	}
@@ -170,13 +170,13 @@ func loadConfig() TestConfig {
 		FlushInterval:     parseDurationEnv("FLUSH_INTERVAL", 100*time.Millisecond),
 	}
 
-	log.Printf("📋 Loaded Test Configuration:")
-	log.Printf("   Test Duration: %v", config.TestDuration)
-	log.Printf("   Concurrent Workers: %d", config.ConcurrentWorkers)
-	log.Printf("   Records Per Worker: %d", config.RecordsPerWorker)
-	log.Printf("   Batch Size: %d", config.BatchSize)
-	log.Printf("   Buffer Size: %d", config.BufferSize)
-	log.Printf("   Flush Interval: %v", config.FlushInterval)
+	log.Printf("📋 已加载测试配置：")
+	log.Printf("   测试时长：%v", config.TestDuration)
+	log.Printf("   并发工作线程：%d", config.ConcurrentWorkers)
+	log.Printf("   每线程记录数：%d", config.RecordsPerWorker)
+	log.Printf("   批大小：%d", config.BatchSize)
+	log.Printf("   缓冲区大小：%d", config.BufferSize)
+	log.Printf("   刷新间隔：%v", config.FlushInterval)
 
 	return config
 }
@@ -187,7 +187,7 @@ func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
 	// 连接数据库
 	db, err := sql.Open(dbType, dsn)
 	if err != nil {
-		log.Printf("❌ Failed to connect to %s: %v", dbType, err)
+		log.Printf("❌ 连接 %s 失败：%v", dbType, err)
 		return results
 	}
 	defer db.Close()
@@ -199,13 +199,13 @@ func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
 
 	// 测试连接
 	if err := db.Ping(); err != nil {
-		log.Printf("❌ Failed to ping %s: %v", dbType, err)
+		log.Printf("❌ Ping %s 失败：%v", dbType, err)
 		return results
 	}
 
 	// 创建测试表
 	if err := createTestTables(db, dbType); err != nil {
-		log.Printf("❌ Failed to create test tables for %s: %v", dbType, err)
+		log.Printf("❌ 为 %s 创建测试表失败：%v", dbType, err)
 		return results
 	}
 
@@ -214,22 +214,22 @@ func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
 		name     string
 		testFunc func(*sql.DB, string, TestConfig) TestResult
 	}{
-		{"High Throughput Test", runHighThroughputTest},
-		{"Concurrent Workers Test", runConcurrentWorkersTest},
-		{"Large Batch Test", runLargeBatchTest},
-		{"Memory Pressure Test", runMemoryPressureTest},
-		{"Long Duration Test", runLongDurationTest},
+		{"高吞吐量测试", runHighThroughputTest},
+		{"并发工作线程测试", runConcurrentWorkersTest},
+		{"大批次测试", runLargeBatchTest},
+		{"内存压力测试", runMemoryPressureTest},
+		{"长时间运行测试", runLongDurationTest},
 	}
 
 	for _, tc := range testCases {
 		// 每个测试前清理表数据，确保测试独立性
-		log.Printf("  🧹 Clearing table before %s...", tc.name)
+		log.Printf("  🧹 在运行 %s 前清理表数据...", tc.name)
 		if err := clearTestTable(db, dbType); err != nil {
 			log.Printf("❌ Failed to clear table before %s: %v", tc.name, err)
 			// 继续执行测试，但记录错误
 		}
 
-		log.Printf("  🔄 Running %s on %s...", tc.name, dbType)
+		log.Printf("  🔄 在 %s 上运行 %s...", dbType, tc.name)
 		result := tc.testFunc(db, dbType, config)
 		result.TestName = tc.name
 		result.Database = dbType
@@ -394,7 +394,7 @@ func clearSQLiteTableByRecreate(db *sql.DB) error {
 		}
 	}
 
-	log.Printf("  ✅ SQLite table recreated successfully")
+	log.Printf("  ✅ 已成功重建 SQLite 表")
 	return nil
 }
 
@@ -485,7 +485,7 @@ TestComplete:
 	// 查询数据库中的实际记录数
 	actualRecords, countErr := getActualRecordCount(db)
 	if countErr != nil {
-		errors = append(errors, fmt.Sprintf("Failed to count actual records: %v", countErr))
+		errors = append(errors, fmt.Sprintf("统计实际记录数失败：%v", countErr))
 		actualRecords = -1 // 标记为无法获取
 	}
 
@@ -630,7 +630,7 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 	actualRecords, countErr := getActualRecordCount(db)
 	if countErr != nil {
 		mu.Lock()
-		errors = append(errors, fmt.Sprintf("Failed to count actual records: %v", countErr))
+		errors = append(errors, fmt.Sprintf("统计实际记录数失败：%v", countErr))
 		mu.Unlock()
 		actualRecords = -1 // 标记为无法获取
 	}
@@ -768,7 +768,7 @@ func saveReport(report *TestReport) {
 	// 智能检测报告目录 - 兼容本地和Docker环境
 	reportsDir := getReportsDirectory()
 	if err := os.MkdirAll(reportsDir, 0o755); err != nil {
-		log.Printf("❌ Failed to create reports directory: %v", err)
+		log.Printf("❌ 创建报告目录失败：%v", err)
 		return
 	}
 
@@ -779,16 +779,16 @@ func saveReport(report *TestReport) {
 	// 保存 JSON 报告
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
-		log.Printf("❌ Failed to marshal report: %v", err)
+		log.Printf("❌ 序列化报告失败：%v", err)
 		return
 	}
 
 	if err := os.WriteFile(filename, data, 0o644); err != nil {
-		log.Printf("❌ Failed to save report: %v", err)
+		log.Printf("❌ 保存报告失败：%v", err)
 		return
 	}
 
-	log.Printf("📊 Test report saved to: %s", filename)
+	log.Printf("📊 测试报告已保存到：%s", filename)
 
 	// 生成 HTML 报告
 	generateHTMLReport(report, timestamp, reportsDir)
@@ -943,11 +943,11 @@ func generateHTMLReport(report *TestReport, timestamp string, reportsDir string)
 
 	htmlFilename := fmt.Sprintf("%s/integration_test_report_%s.html", reportsDir, timestamp)
 	if err := os.WriteFile(htmlFilename, []byte(htmlContent), 0o644); err != nil {
-		log.Printf("❌ Failed to save HTML report: %v", err)
+		log.Printf("❌ 保存 HTML 报告失败：%v", err)
 		return
 	}
 
-	log.Printf("📊 HTML report saved to: %s", htmlFilename)
+	log.Printf("📊 HTML 报告已保存到：%s", htmlFilename)
 }
 
 func printSummary(report *TestReport) {

@@ -48,7 +48,6 @@ services:
       - TEST_TYPE=postgres
     volumes:
       - ./test/reports:/app/reports
-      - ./test/data:/app/data
     networks:
       - batchsql-network
     command: ["./run-single-db-test.sh"]

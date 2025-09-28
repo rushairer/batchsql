@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"time"
 
+	redisV9 "github.com/redis/go-redis/v9"
 	"github.com/rushairer/batchsql/drivers/mock"
 	"github.com/rushairer/batchsql/drivers/mysql"
 	"github.com/rushairer/batchsql/drivers/postgresql"
+	"github.com/rushairer/batchsql/drivers/redis"
 	"github.com/rushairer/batchsql/drivers/sqlite"
 	gopipeline "github.com/rushairer/go-pipeline/v2"
 )
@@ -120,6 +122,12 @@ func NewPostgreSQLBatchSQLWithDriver(ctx context.Context, db *sql.DB, config Pip
 // NewSQLiteBatchSQL 创建SQLite BatchSQL实例（使用默认Driver）
 func NewSQLiteBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
 	executor := sqlite.NewBatchExecutor(db)
+	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
+}
+
+// NewRedisBatchSQL 创建Redis BatchSQL实例
+func NewRedisBatchSQL(ctx context.Context, db *redisV9.Client, config PipelineConfig) *BatchSQL {
+	executor := redis.NewBatchExecutor(db)
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 

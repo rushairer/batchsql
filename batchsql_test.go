@@ -20,8 +20,9 @@ func TestBatchSQL(t *testing.T) {
 		FlushSize:     10,
 		FlushInterval: time.Second,
 	}
-	batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
-
+	mysqlBatch, mysqlSchemaMockExecutor := batchsql.NewBatchSQLWithMockDriver(ctx, config, mysql.DefaultDriver)
+	postgreSQLBatch, postgreSQLMockExecutor := batchsql.NewBatchSQLWithMockDriver(ctx, config, postgresql.DefaultDriver)
+	sqliteBatch, sqliteMockExecutor := batchsql.NewBatchSQLWithMockDriver(ctx, config, sqlite.DefaultDriver)
 	// 创建不同的 schema
 	mysqlSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email", "created_at")
 	postgresSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")
@@ -36,7 +37,7 @@ func TestBatchSQL(t *testing.T) {
 			SetString("email", "user"+string(rune(i))+"@example.com").
 			SetTime("created_at", time.Now())
 
-		if err := batch.Submit(ctx, userRequest); err != nil {
+		if err := mysqlBatch.Submit(ctx, userRequest); err != nil {
 			t.Errorf("submit user request failed: %v", err)
 		}
 
@@ -47,7 +48,7 @@ func TestBatchSQL(t *testing.T) {
 				SetString("name", "Product"+string(rune(i/2))).
 				SetFloat64("price", float64(i)*10.5)
 
-			if err := batch.Submit(ctx, productRequest); err != nil {
+			if err := postgreSQLBatch.Submit(ctx, productRequest); err != nil {
 				t.Errorf("submit product request failed: %v", err)
 			}
 		}
@@ -59,7 +60,7 @@ func TestBatchSQL(t *testing.T) {
 				SetString("message", "Log message "+string(rune(i))).
 				SetTime("timestamp", time.Now())
 
-			if err := batch.Submit(ctx, logRequest); err != nil {
+			if err := sqliteBatch.Submit(ctx, logRequest); err != nil {
 				t.Errorf("submit log request failed: %v", err)
 			}
 		}
@@ -69,13 +70,31 @@ func TestBatchSQL(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// 验证执行结果
-	if len(mockExecutor.ExecutedBatches) == 0 {
-		t.Error("No batches were executed")
+	if len(mysqlSchemaMockExecutor.ExecutedBatches) == 0 {
+		t.Error("No MySQL batches were executed")
 	}
 
-	t.Logf("Total executed batches: %d", len(mockExecutor.ExecutedBatches))
-	for i, batch := range mockExecutor.ExecutedBatches {
-		t.Logf("Batch %d: %d requests", i, len(batch))
+	t.Logf("Total executed batches: %d", len(mysqlSchemaMockExecutor.ExecutedBatches))
+	for i, batch := range mysqlSchemaMockExecutor.ExecutedBatches {
+		t.Logf("MySQL batch %d: %d requests", i, len(batch))
+	}
+
+	if len(postgreSQLMockExecutor.ExecutedBatches) == 0 {
+		t.Error("No PostgreSQL batches were executed")
+	}
+
+	t.Logf("Total executed batches: %d", len(postgreSQLMockExecutor.ExecutedBatches))
+	for i, batch := range postgreSQLMockExecutor.ExecutedBatches {
+		t.Logf("PostgreSQL batch%d: %d requests", i, len(batch))
+	}
+
+	if len(sqliteMockExecutor.ExecutedBatches) == 0 {
+		t.Error("No SQLite batches were executed")
+	}
+
+	t.Logf("Total executed batches: %d", len(sqliteMockExecutor.ExecutedBatches))
+	for i, batch := range sqliteMockExecutor.ExecutedBatches {
+		t.Logf("SQLite batch%d: %d requests", i, len(batch))
 	}
 }
 

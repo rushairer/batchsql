@@ -18,6 +18,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rushairer/batchsql"
 	"github.com/rushairer/batchsql/drivers"
+	"github.com/rushairer/batchsql/monitoring"
 )
 
 // 环境变量解析辅助函数
@@ -87,12 +88,13 @@ type MemoryStats struct {
 
 // TestReport 测试报告
 type TestReport struct {
-	Timestamp   time.Time    `json:"timestamp"`
-	Environment string       `json:"environment"`
-	GoVersion   string       `json:"go_version"`
-	TestConfig  TestConfig   `json:"test_config"`
-	Results     []TestResult `json:"results"`
-	Summary     TestSummary  `json:"summary"`
+	Timestamp         time.Time                     `json:"timestamp"`
+	Environment       string                        `json:"environment"`
+	GoVersion         string                        `json:"go_version"`
+	TestConfig        TestConfig                    `json:"test_config"`
+	Results           []TestResult                  `json:"results"`
+	Summary           TestSummary                   `json:"summary"`
+	PrometheusMetrics *monitoring.PrometheusMetrics `json:"-"` // 不序列化到JSON
 }
 
 // TestSummary 测试摘要
@@ -109,16 +111,36 @@ type TestSummary struct {
 func main() {
 	log.Println("🚀 Starting BatchSQL Integration Tests...")
 
+	// 初始化Prometheus监控
+	prometheusMetrics := monitoring.NewPrometheusMetrics()
+
+	// 启动Prometheus HTTP服务器
+	prometheusPort := parseIntEnv("PROMETHEUS_PORT", 9090)
+	if err := prometheusMetrics.StartServer(prometheusPort); err != nil {
+		log.Printf("⚠️ Failed to start Prometheus server: %v", err)
+	} else {
+		log.Printf("📊 Prometheus metrics server started on port %d", prometheusPort)
+		log.Printf("📊 Metrics endpoint: http://localhost:%d/metrics", prometheusPort)
+	}
+
+	// 确保在程序结束时停止Prometheus服务器
+	defer func() {
+		if err := prometheusMetrics.StopServer(); err != nil {
+			log.Printf("⚠️ Failed to stop Prometheus server: %v", err)
+		}
+	}()
+
 	// 加载配置
 	config := loadConfig()
 
 	// 创建测试报告
 	report := &TestReport{
-		Timestamp:   time.Now(),
-		Environment: "Docker Integration",
-		GoVersion:   runtime.Version(),
-		TestConfig:  config,
-		Results:     []TestResult{},
+		Timestamp:         time.Now(),
+		Environment:       "Docker Integration",
+		GoVersion:         runtime.Version(),
+		TestConfig:        config,
+		Results:           []TestResult{},
+		PrometheusMetrics: prometheusMetrics, // 添加Prometheus指标收集器到报告中
 	}
 
 	startTime := time.Now()
@@ -126,21 +148,21 @@ func main() {
 	// 运行 MySQL 测试
 	if mysqlDSN := os.Getenv("MYSQL_DSN"); mysqlDSN != "" {
 		log.Println("📊 Running MySQL integration tests...")
-		mysqlResults := runDatabaseTests("mysql", mysqlDSN, config)
+		mysqlResults := runDatabaseTests("mysql", mysqlDSN, config, prometheusMetrics)
 		report.Results = append(report.Results, mysqlResults...)
 	}
 
 	// 运行 PostgreSQL 测试
 	if postgresDSN := os.Getenv("POSTGRES_DSN"); postgresDSN != "" {
 		log.Println("📊 Running PostgreSQL integration tests...")
-		postgresResults := runDatabaseTests("postgres", postgresDSN, config)
+		postgresResults := runDatabaseTests("postgres", postgresDSN, config, prometheusMetrics)
 		report.Results = append(report.Results, postgresResults...)
 	}
 
 	// 运行 SQLite 测试
 	if sqliteDSN := os.Getenv("SQLITE_DSN"); sqliteDSN != "" {
 		log.Println("📊 Running SQLite integration tests...")
-		sqliteResults := runDatabaseTests("sqlite3", sqliteDSN, config)
+		sqliteResults := runDatabaseTests("sqlite3", sqliteDSN, config, prometheusMetrics)
 		report.Results = append(report.Results, sqliteResults...)
 	}
 
@@ -181,7 +203,7 @@ func loadConfig() TestConfig {
 	return config
 }
 
-func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
+func runDatabaseTests(dbType, dsn string, config TestConfig, prometheusMetrics *monitoring.PrometheusMetrics) []TestResult {
 	var results []TestResult
 
 	// 连接数据库
@@ -212,7 +234,7 @@ func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
 	// 运行不同的测试场景
 	testCases := []struct {
 		name     string
-		testFunc func(*sql.DB, string, TestConfig) TestResult
+		testFunc func(*sql.DB, string, TestConfig, *monitoring.PrometheusMetrics) TestResult
 	}{
 		{"High Throughput Test", runHighThroughputTest},
 		{"Concurrent Workers Test", runConcurrentWorkersTest},
@@ -229,10 +251,37 @@ func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
 			// 继续执行测试，但记录错误
 		}
 
+		// 设置当前测试用例标签
+		prometheusMetrics.SetCurrentTestCase(tc.name)
+
 		log.Printf("  🔄 Running %s on %s...", tc.name, dbType)
-		result := tc.testFunc(db, dbType, config)
+		result := tc.testFunc(db, dbType, config, prometheusMetrics)
 		result.TestName = tc.name
 		result.Database = dbType
+
+		// 记录测试结果到Prometheus
+		prometheusMetrics.RecordTestResult(dbType, tc.name, monitoring.TestResult{
+			Database:            result.Database,
+			TestName:            result.TestName,
+			Duration:            result.Duration,
+			TotalRecords:        result.TotalRecords,
+			ActualRecords:       result.ActualRecords,
+			DataIntegrityRate:   result.DataIntegrityRate,
+			DataIntegrityStatus: result.DataIntegrityStatus,
+			RecordsPerSecond:    result.RecordsPerSecond,
+			RPSValid:            result.RPSValid,
+			RPSNote:             result.RPSNote,
+			ConcurrentWorkers:   result.ConcurrentWorkers,
+			MemoryUsage: monitoring.MemoryStats{
+				AllocMB:      result.MemoryUsage.AllocMB,
+				TotalAllocMB: result.MemoryUsage.TotalAllocMB,
+				SysMB:        result.MemoryUsage.SysMB,
+				NumGC:        result.MemoryUsage.NumGC,
+			},
+			Errors:  result.Errors,
+			Success: result.Success,
+		})
+
 		results = append(results, result)
 
 		// 测试间隔，让系统恢复
@@ -398,7 +447,7 @@ func clearSQLiteTableByRecreate(db *sql.DB) error {
 	return nil
 }
 
-func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *monitoring.PrometheusMetrics) TestResult {
 	ctx := context.Background()
 
 	var batchSQL *batchsql.BatchSQL
@@ -408,19 +457,19 @@ func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestRes
 			BufferSize:    config.BufferSize,
 			FlushSize:     config.BatchSize,
 			FlushInterval: config.FlushInterval,
-		})
+		}).WithMetricsReporter(prometheusMetrics)
 	case "postgres":
 		batchSQL = batchsql.NewPostgreSQLBatchSQL(ctx, db, batchsql.PipelineConfig{
 			BufferSize:    config.BufferSize,
 			FlushSize:     config.BatchSize,
 			FlushInterval: config.FlushInterval,
-		})
+		}).WithMetricsReporter(prometheusMetrics)
 	case "sqlite3":
 		batchSQL = batchsql.NewSQLiteBatchSQL(ctx, db, batchsql.PipelineConfig{
 			BufferSize:    config.BufferSize,
 			FlushSize:     config.BatchSize,
 			FlushInterval: config.FlushInterval,
-		})
+		}).WithMetricsReporter(prometheusMetrics)
 	}
 
 	schema := batchsql.NewSchema("integration_test", drivers.ConflictIgnore,
@@ -526,7 +575,7 @@ TestComplete:
 	}
 }
 
-func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *monitoring.PrometheusMetrics) TestResult {
 	ctx := context.Background()
 
 	var batchSQL *batchsql.BatchSQL
@@ -536,19 +585,19 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 			BufferSize:    config.BufferSize,
 			FlushSize:     config.BatchSize,
 			FlushInterval: config.FlushInterval,
-		})
+		}).WithMetricsReporter(prometheusMetrics)
 	case "postgres":
 		batchSQL = batchsql.NewPostgreSQLBatchSQL(ctx, db, batchsql.PipelineConfig{
 			BufferSize:    config.BufferSize,
 			FlushSize:     config.BatchSize,
 			FlushInterval: config.FlushInterval,
-		})
+		}).WithMetricsReporter(prometheusMetrics)
 	case "sqlite3":
 		batchSQL = batchsql.NewSQLiteBatchSQL(ctx, db, batchsql.PipelineConfig{
 			BufferSize:    config.BufferSize,
 			FlushSize:     config.BatchSize,
 			FlushInterval: config.FlushInterval,
-		})
+		}).WithMetricsReporter(prometheusMetrics)
 	}
 
 	schema := batchsql.NewSchema("integration_test", drivers.ConflictIgnore,
@@ -672,35 +721,35 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 	}
 }
 
-func runLargeBatchTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runLargeBatchTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *monitoring.PrometheusMetrics) TestResult {
 	// 大批次测试 - 使用更大的批次大小
 	largeConfig := config
 	largeConfig.BatchSize = 5000
 	largeConfig.BufferSize = 50000
 
-	result := runHighThroughputTest(db, dbType, largeConfig)
+	result := runHighThroughputTest(db, dbType, largeConfig, prometheusMetrics)
 	result.TestName = "Large Batch Test"
 	return result
 }
 
-func runMemoryPressureTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runMemoryPressureTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *monitoring.PrometheusMetrics) TestResult {
 	// 内存压力测试 - 使用大数据量和小批次
 	memConfig := config
 	memConfig.BatchSize = 100
 	memConfig.BufferSize = 1000
 	memConfig.RecordsPerWorker = 50000
 
-	result := runConcurrentWorkersTest(db, dbType, memConfig)
+	result := runConcurrentWorkersTest(db, dbType, memConfig, prometheusMetrics)
 	result.TestName = "Memory Pressure Test"
 	return result
 }
 
-func runLongDurationTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runLongDurationTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *monitoring.PrometheusMetrics) TestResult {
 	// 长时间运行测试
 	longConfig := config
 	longConfig.TestDuration = 10 * time.Minute
 
-	result := runHighThroughputTest(db, dbType, longConfig)
+	result := runHighThroughputTest(db, dbType, longConfig, prometheusMetrics)
 	result.TestName = "Long Duration Test"
 	return result
 }

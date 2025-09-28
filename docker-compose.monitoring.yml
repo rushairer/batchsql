@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # Prometheus 监控服务
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: batchsql-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - batchsql-network
+    restart: unless-stopped
+
+  # Grafana 可视化服务
+  grafana:
+    image: grafana/grafana:latest
+    container_name: batchsql-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    networks:
+      - batchsql-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # 集成测试服务（带Prometheus监控）
+  integration-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.integration
+    container_name: batchsql-integration-test
+    environment:
+      # 数据库连接配置
+      - MYSQL_DSN=root:password@tcp(mysql:3306)/batchsql_test?charset=utf8mb4&parseTime=True&loc=Local
+      - POSTGRES_DSN=postgres://postgres:password@postgres:5432/batchsql_test?sslmode=disable
+      - SQLITE_DSN=/app/test.db
+      
+      # 测试配置
+      - TEST_DURATION=30m
+      - CONCURRENT_WORKERS=10
+      - RECORDS_PER_WORKER=5000
+      - BATCH_SIZE=500
+      - BUFFER_SIZE=10000
+      - FLUSH_INTERVAL=200ms
+      
+      # Prometheus配置
+      - PROMETHEUS_PORT=9091
+    ports:
+      - "9091:9091"  # Prometheus metrics endpoint
+    volumes:
+      - ./reports:/app/reports
+    networks:
+      - batchsql-network
+    depends_on:
+      - mysql
+      - postgres
+      - prometheus
+    restart: "no"
+
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: batchsql-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: batchsql_test
+      MYSQL_USER: testuser
+      MYSQL_PASSWORD: testpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./test/sql/mysql:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - batchsql-network
+    restart: unless-stopped
+
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15
+    container_name: batchsql-postgres
+    environment:
+      POSTGRES_DB: batchsql_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./test/sql/postgres:/docker-entrypoint-initdb.d
+    networks:
+      - batchsql-network
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  mysql_data:
+  postgres_data:
+
+networks:
+  batchsql-network:
+    driver: bridge

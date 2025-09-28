@@ -454,6 +454,69 @@ sqlxDB, _ := sqlx.Connect("mysql", dsn)
 batch := batchsql.NewMySQLBatchSQL(ctx, sqlxDB.DB, config)
 ```
 
+### Prometheus监控集成
+
+```go
+import (
+    "github.com/rushairer/batchsql"
+    "github.com/rushairer/batchsql/monitoring"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    // 创建Prometheus监控器
+    prometheusMetrics := monitoring.NewPrometheusMetrics()
+    
+    // 启动Prometheus HTTP服务器
+    go func() {
+        http.Handle("/metrics", promhttp.Handler())
+        log.Fatal(http.ListenAndServe(":8080", nil))
+    }()
+    
+    // 创建BatchSQL并启用监控
+    config := batchsql.PipelineConfig{
+        BufferSize:    1000,
+        FlushSize:     100,
+        FlushInterval: 5 * time.Second,
+    }
+    
+    batch := batchsql.NewMySQLBatchSQL(ctx, db, config).
+        WithMetricsReporter(prometheusMetrics)
+    
+    // 正常使用BatchSQL，监控指标会自动收集
+    schema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name")
+    request := batchsql.NewRequest(schema).SetInt64("id", 1).SetString("name", "John")
+    
+    if err := batch.Submit(ctx, request); err != nil {
+        log.Printf("Error: %v", err)
+    }
+}
+```
+
+### 监控指标说明
+
+BatchSQL提供以下Prometheus监控指标：
+
+- **batchsql_operations_total**: 操作总数（按数据库类型、表名、操作类型分类）
+- **batchsql_operation_duration_seconds**: 操作耗时分布
+- **batchsql_batch_size**: 批次大小分布
+- **batchsql_errors_total**: 错误总数（按数据库类型、表名、错误类型分类）
+
+### 监控环境快速启动
+
+```bash
+# 启动完整监控栈（Prometheus + Grafana）
+docker-compose -f docker-compose.monitoring.yml up -d
+
+# 运行集成测试并收集监控数据
+go run test/integration/main.go
+
+# 访问监控界面
+# Prometheus: http://localhost:9090
+# Grafana: http://localhost:3000 (admin/admin)
+```
+
 ## ⚡ 性能优化
 
 ### 内存效率
@@ -677,6 +740,7 @@ BatchExecutor → 直接实现 → Database
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - 详细的架构设计文档和扩展指南 ⭐ *v1.0.1.0新增*
 - **[CONFIG.md](CONFIG.md)** - 详细的配置参数说明和调优建议
+- **[MONITORING.md](MONITORING.md)** - Prometheus监控指南 ⭐ *v1.0.1.0新增*
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - 贡献指南（已更新架构部分）
 - **[README-INTEGRATION-TESTS.md](README-INTEGRATION-TESTS.md)** - 集成测试完整文档
 - **[QUALITY_ASSESSMENT.md](QUALITY_ASSESSMENT.md)** - 项目质量评估报告

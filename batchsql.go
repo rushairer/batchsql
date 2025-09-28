@@ -189,3 +189,18 @@ func (b *BatchSQL) Submit(ctx context.Context, request *Request) error {
 		return ctx.Err()
 	}
 }
+
+// WithMetricsReporter 设置性能指标报告器
+// 返回新的BatchSQL实例，底层executor配置了指标收集器
+func (b *BatchSQL) WithMetricsReporter(reporter drivers.MetricsReporter) *BatchSQL {
+	// 创建新的executor实例，配置metrics reporter
+	newExecutor := b.executor.WithMetricsReporter(reporter)
+
+	// 创建新的BatchSQL实例，使用配置了metrics的executor
+	newBatchSQL := &BatchSQL{
+		pipeline: b.pipeline, // 复用现有的pipeline
+		executor: newExecutor,
+	}
+
+	return newBatchSQL
+}

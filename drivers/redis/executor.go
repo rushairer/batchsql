@@ -40,11 +40,11 @@ func (e *Executor) ExecuteBatch(ctx context.Context, _ *drivers.Schema, data []m
 	pipeline := e.db.Pipeline()
 	for _, row := range data {
 		log.Println(row)
-		cmds := []string{}
+		cmds := []interface{}{}
 		for _, v := range row {
 			cmds = append(cmds, v.(string))
 		}
-		cmd := pipeline.Do(ctx, cmds)
+		cmd := pipeline.Do(ctx, cmds...)
 		log.Println(cmd)
 	}
 	cmds, err := pipeline.Exec(ctx)

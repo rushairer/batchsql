@@ -19,8 +19,8 @@ type CommonExecutor struct {
 	metricsReporter MetricsReporter // 性能指标报告器
 }
 
-// NewExecutor 创建通用执行器（使用自定义BatchProcessor）
-func NewExecutor(processor BatchProcessor) *CommonExecutor {
+// NewCommonExecutor 创建通用执行器（使用自定义BatchProcessor）
+func NewCommonExecutor(processor BatchProcessor) *CommonExecutor {
 	return &CommonExecutor{
 		processor: processor,
 	}
@@ -29,7 +29,7 @@ func NewExecutor(processor BatchProcessor) *CommonExecutor {
 // NewSQLExecutor 创建SQL数据库执行器（推荐方式）
 // 内部使用 SQLBatchProcessor + SQLDriver 组合
 func NewSQLExecutor(db *sql.DB, driver SQLDriver) *CommonExecutor {
-	return NewExecutor(NewSQLBatchProcessor(db, driver))
+	return NewCommonExecutor(NewSQLBatchProcessor(db, driver))
 }
 
 // ExecuteBatch 执行批量操作
@@ -43,7 +43,6 @@ func (e *CommonExecutor) ExecuteBatch(ctx context.Context, schema *Schema, data 
 	}
 	if e.metricsReporter != nil {
 		e.metricsReporter.RecordBatchExecution(
-			"postgresql",
 			schema.TableName,
 			len(data),
 			time.Since(startTime).Milliseconds(),

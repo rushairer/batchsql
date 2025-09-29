@@ -45,5 +45,5 @@ type BatchProcessor interface {
 
 // MetricsReporter 性能监控报告器接口
 type MetricsReporter interface {
-	RecordBatchExecution(driver string, table string, batchSize int, duration int64, status string)
+	RecordBatchExecution(tableName string, batchSize int, duration int64, status string)
 }

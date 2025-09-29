@@ -79,7 +79,7 @@ func runRedisHighThroughputTest(rdb *redis.Client, config TestConfig) TestResult
 
 	// Redis 使用简单的 key-value schema
 	schema := batchsql.NewSchema("redis_test", drivers.ConflictIgnore,
-		"key", "value", "ttl")
+		"cmd", "key", "value", "ex_flag", "ttl")
 
 	startTime := time.Now()
 	var recordCount int64
@@ -102,8 +102,10 @@ func runRedisHighThroughputTest(rdb *redis.Client, config TestConfig) TestResult
 			goto TestComplete
 		default:
 			request := batchsql.NewRequest(schema).
+				SetString("cmd", "SET").
 				SetString("key", fmt.Sprintf("test:user:%d", i)).
 				SetString("value", fmt.Sprintf(`{"id":%d,"name":"User_%d","email":"user_%d@example.com","active":%t}`, i, i, i, i%2 == 0)).
+				SetString("ex_flag", "EX").
 				SetInt64("ttl", 3600000) // 1小时 TTL (毫秒)
 
 			if err := batchSQL.Submit(testCtx, request); err != nil {
@@ -125,6 +127,9 @@ func runRedisHighThroughputTest(rdb *redis.Client, config TestConfig) TestResult
 TestComplete:
 	duration := time.Since(startTime)
 
+	log.Printf("🔍 测试完成，提交了 %d 条记录，耗时 %v", recordCount, duration)
+	log.Printf("🔍 等待Redis处理完成...")
+
 	// 等待处理完成
 	time.Sleep(5 * time.Second)
 
@@ -133,11 +138,16 @@ TestComplete:
 	runtime.GC()
 	runtime.ReadMemStats(&m2)
 
+	log.Printf("🔍 开始统计Redis中的实际记录数...")
+
 	// 查询 Redis 中的实际记录数
 	actualRecords, countErr := getRedisRecordCount(rdb, ctx)
 	if countErr != nil {
+		log.Printf("❌ 统计实际记录数失败：%v", countErr)
 		errors = append(errors, fmt.Sprintf("统计实际记录数失败：%v", countErr))
 		actualRecords = -1
+	} else {
+		log.Printf("🔍 统计完成 - 提交: %d, 实际: %d", recordCount, actualRecords)
 	}
 
 	// 计算数据完整性
@@ -188,7 +198,7 @@ func runRedisConcurrentWorkersTest(rdb *redis.Client, config TestConfig) TestRes
 	})
 
 	schema := batchsql.NewSchema("redis_test", drivers.ConflictIgnore,
-		"cmd", "key", "value", "ttl")
+		"cmd", "key", "value", "ex_flag", "ttl")
 
 	startTime := time.Now()
 	var totalRecords int64
@@ -220,9 +230,10 @@ func runRedisConcurrentWorkersTest(rdb *redis.Client, config TestConfig) TestRes
 
 				for i := batch; i < endIdx; i++ {
 					request := batchsql.NewRequest(schema).
-						SetString("cmd", "set").
+						SetString("cmd", "SET").
 						SetString("key", fmt.Sprintf("test:worker:%d:user:%d", id, baseID+int64(i))).
 						SetString("value", fmt.Sprintf(`{"worker_id":%d,"user_id":%d,"name":"W%d_U%d","active":%t}`, id, baseID+int64(i), id, i, (id+i)%2 == 0)).
+						SetString("ex_flag", "EX").
 						SetInt64("ttl", 3600000) // 1小时 TTL
 
 					if err := batchSQL.Submit(ctx, request); err != nil {
@@ -336,7 +347,27 @@ func runRedisLongDurationTest(rdb *redis.Client, config TestConfig) TestResult {
 
 // getRedisRecordCount 获取 Redis 中的记录数量
 func getRedisRecordCount(rdb *redis.Client, ctx context.Context) (int64, error) {
+	log.Printf("🔍 开始统计Redis记录数...")
+
 	// 使用 DBSIZE 命令获取当前数据库中的 key 数量
 	count, err := rdb.DBSize(ctx).Result()
-	return count, err
+	if err != nil {
+		log.Printf("❌ DBSIZE命令执行失败: %v", err)
+		return 0, err
+	}
+
+	log.Printf("🔍 DBSIZE返回结果: %d", count)
+
+	// 额外验证：使用KEYS命令采样检查（仅用于调试，生产环境不推荐）
+	keys, err := rdb.Keys(ctx, "test:*").Result()
+	if err != nil {
+		log.Printf("⚠️ KEYS命令执行失败: %v", err)
+	} else {
+		log.Printf("🔍 KEYS test:* 返回数量: %d", len(keys))
+		if len(keys) > 0 && len(keys) <= 5 {
+			log.Printf("🔍 前几个key示例: %v", keys)
+		}
+	}
+
+	return count, nil
 }

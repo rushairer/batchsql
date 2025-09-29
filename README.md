@@ -158,6 +158,7 @@ func main() {
 
     // 4. 提交Redis数据
     request := batchsql.NewRequest(cacheSchema).
+        SetString("cmd", "set").
         SetString("key", "user:1").
         SetString("value", "John Doe").
         SetInt64("ttl", 3600000) // TTL in milliseconds

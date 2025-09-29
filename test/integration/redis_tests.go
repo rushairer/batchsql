@@ -188,7 +188,7 @@ func runRedisConcurrentWorkersTest(rdb *redis.Client, config TestConfig) TestRes
 	})
 
 	schema := batchsql.NewSchema("redis_test", drivers.ConflictIgnore,
-		"key", "value", "ttl")
+		"cmd", "key", "value", "ttl")
 
 	startTime := time.Now()
 	var totalRecords int64
@@ -220,6 +220,7 @@ func runRedisConcurrentWorkersTest(rdb *redis.Client, config TestConfig) TestRes
 
 				for i := batch; i < endIdx; i++ {
 					request := batchsql.NewRequest(schema).
+						SetString("cmd", "set").
 						SetString("key", fmt.Sprintf("test:worker:%d:user:%d", id, baseID+int64(i))).
 						SetString("value", fmt.Sprintf(`{"worker_id":%d,"user_id":%d,"name":"W%d_U%d","active":%t}`, id, baseID+int64(i), id, i, (id+i)%2 == 0)).
 						SetInt64("ttl", 3600000) // 1小时 TTL

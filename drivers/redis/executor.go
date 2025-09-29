@@ -2,7 +2,7 @@ package redis
 
 import (
 	"context"
-	"time"
+	"log"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/rushairer/batchsql/drivers"
@@ -30,7 +30,8 @@ func NewBatchExecutor(db *redis.Client) *Executor {
 }
 
 // ExecuteBatch 执行批量操作
-func (e *Executor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
+func (e *Executor) ExecuteBatch(ctx context.Context, _ *drivers.Schema, data []map[string]any) error {
+	log.Println("ExecuteBatch")
 	if len(data) == 0 {
 		return nil
 	}
@@ -38,15 +39,14 @@ func (e *Executor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, dat
 	// 使用Redis的Pipeline特性实现批量插入
 	pipeline := e.db.Pipeline()
 	for _, row := range data {
-		key := row[schema.Columns[0]].(string)
-		value := row[schema.Columns[1]]
-		pipeline.Do(ctx, key, value)
-		if ttlInt, ok := row[schema.Columns[2]].(int64); ok && ttlInt > 0 {
-			ttl := time.Duration(ttlInt) * time.Millisecond
-			pipeline.Expire(ctx, key, ttl)
-		}
+		log.Println("row: ", row)
+		cmd := pipeline.Do(ctx, row)
+		log.Println("command: ", cmd)
+
 	}
-	_, err := pipeline.Exec(ctx)
+	cmds, err := pipeline.Exec(ctx)
+
+	log.Println(cmds, err)
 	return err
 }
 

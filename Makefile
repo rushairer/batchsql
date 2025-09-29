@@ -40,27 +40,27 @@ test: test-unit
 # Docker 集成测试 - 单数据库高性能压力测试
 docker-mysql-test:
 	@echo "🐳 Starting MySQL pressure test..."
-	docker-compose -f ./test/docker-compose.mysql.yml down -v --remove-orphans
-	docker-compose -f ./test/docker-compose.mysql.yml build --no-cache
-	docker-compose -f ./test/docker-compose.mysql.yml up --abort-on-container-exit --exit-code-from mysql-test
+	docker-compose -f ./docker-compose.integration.yml down mysql mysql-test -v --remove-orphans
+	docker-compose -f ./docker-compose.integration.yml build mysql mysql-test --no-cache
+	docker-compose -f ./docker-compose.integration.yml up mysql mysql-test --abort-on-container-exit --exit-code-from mysql-test
 
 docker-postgres-test:
 	@echo "🐳 Starting PostgreSQL pressure test..."
-	docker-compose -f ./test/docker-compose.postgres.yml down -v --remove-orphans
-	docker-compose -f ./test/docker-compose.postgres.yml build --no-cache
-	docker-compose -f ./test/docker-compose.postgres.yml up --abort-on-container-exit --exit-code-from postgres-test
+	docker-compose -f ./docker-compose.integration.yml down postgres postgres-test -v --remove-orphans
+	docker-compose -f ./docker-compose.integration.yml build postgres postgres-test --no-cache
+	docker-compose -f ./docker-compose.integration.yml up postgres postgres-test --abort-on-container-exit --exit-code-from postgres-test
 
 docker-sqlite-test:
 	@echo "🐳 Starting SQLite pressure test..."
-	docker-compose -f ./test/docker-compose.sqlite.yml down -v --remove-orphans
-	docker-compose -f ./test/docker-compose.sqlite.yml build --no-cache
-	docker-compose -f ./test/docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test
+	docker-compose -f ./docker-compose.integration.yml down sqlite sqlite-test -v --remove-orphans
+	docker-compose -f ./docker-compose.integration.yml build sqlite sqlite-test --no-cache
+	docker-compose -f ./docker-compose.integration.yml up sqlite sqlite-test --abort-on-container-exit --exit-code-from sqlite-test
 
 docker-redis-test:
 	@echo "🐳 Starting Redis pressure test..."
-	docker-compose -f ./test/docker-compose.redis.yml down -v --remove-orphans
-	docker-compose -f ./test/docker-compose.redis.yml build --no-cache
-	docker-compose -f ./test/docker-compose.redis.yml up --abort-on-container-exit --exit-code-from redis-test
+	docker-compose -f ./docker-compose.integration.yml down redis redis-test -v --remove-orphans
+	docker-compose -f ./docker-compose.integration.yml build redis redis-test --no-cache
+	docker-compose -f ./docker-compose.integration.yml up redis redis-test --abort-on-container-exit --exit-code-from redis-test
 
 docker-all-tests: docker-mysql-test docker-postgres-test docker-sqlite-test docker-redis-test
 	@echo "🎉 All pressure tests completed!"
@@ -97,10 +97,10 @@ clean:
 	go clean -testcache
 	rm -f coverage.out coverage.html
 	rm -rf test/reports/*
-	docker-compose -f ./test/docker-compose.mysql.yml down -v --remove-orphans 2>/dev/null || true
-	docker-compose -f ./test/docker-compose.postgres.yml down -v --remove-orphans 2>/dev/null || true
-	docker-compose -f ./test/docker-compose.sqlite.yml down -v --remove-orphans 2>/dev/null || true
-	docker-compose -f ./test/docker-compose.redis.yml down -v --remove-orphans 2>/dev/null || true
+	docker-compose -f ./docker-compose.mysql.yml down -v --remove-orphans 2>/dev/null || true
+	docker-compose -f ./docker-compose.postgres.yml down -v --remove-orphans 2>/dev/null || true
+	docker-compose -f ./docker-compose.sqlite.yml down -v --remove-orphans 2>/dev/null || true
+	docker-compose -f ./docker-compose.redis.yml down -v --remove-orphans 2>/dev/null || true
 
 	docker system prune -f
 

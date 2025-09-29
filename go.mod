@@ -1,13 +1,15 @@
 module github.com/rushairer/batchsql
 
-go 1.20
+go 1.21.0
 
 require (
-	github.com/go-sql-driver/mysql v1.7.1
+	github.com/go-sql-driver/mysql v1.9.3
 	github.com/lib/pq v1.10.9
 	github.com/redis/go-redis/v9 v9.14.0
 	github.com/rushairer/go-pipeline/v2 v2.0.1
 )
+
+require filippo.io/edwards25519 v1.1.0 // indirect
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

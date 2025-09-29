@@ -13,6 +13,7 @@ help:
 	@echo "  docker-mysql-test    - Run MySQL pressure test (30min)"
 	@echo "  docker-postgres-test - Run PostgreSQL pressure test (30min)"
 	@echo "  docker-sqlite-test   - Run SQLite pressure test (30min)"
+	@echo "  docker-redis-test   - Run Redis pressure test (30min)"
 	@echo "  docker-all-tests     - Run all database pressure tests"
 	@echo "  lint                 - Run linter"
 	@echo "  fmt                  - Format code"
@@ -55,7 +56,13 @@ docker-sqlite-test:
 	docker-compose -f ./test/docker-compose.sqlite.yml build --no-cache
 	docker-compose -f ./test/docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test
 
-docker-all-tests: docker-mysql-test docker-postgres-test docker-sqlite-test
+docker-redis-test:
+	@echo "🐳 Starting Redis pressure test..."
+	docker-compose -f ./test/docker-compose.redis.yml down -v --remove-orphans
+	docker-compose -f ./test/docker-compose.redis.yml build --no-cache
+	docker-compose -f ./test/docker-compose.redis.yml up --abort-on-container-exit --exit-code-from redis-test
+
+docker-all-tests: docker-mysql-test docker-postgres-test docker-sqlite-test docker-redis-test
 	@echo "🎉 All pressure tests completed!"
 	@echo "📊 Check ./test/reports/ for detailed performance reports"
 
@@ -93,6 +100,8 @@ clean:
 	docker-compose -f ./test/docker-compose.mysql.yml down -v --remove-orphans 2>/dev/null || true
 	docker-compose -f ./test/docker-compose.postgres.yml down -v --remove-orphans 2>/dev/null || true
 	docker-compose -f ./test/docker-compose.sqlite.yml down -v --remove-orphans 2>/dev/null || true
+	docker-compose -f ./test/docker-compose.redis.yml down -v --remove-orphans 2>/dev/null || true
+
 	docker system prune -f
 
 # 完整的 CI/CD 流程

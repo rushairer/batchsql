@@ -16,7 +16,7 @@ FROM alpine:3.17
 
 # 安装运行时依赖和数据库客户端工具
 RUN apk add --no-cache ca-certificates bash \
-    mysql-client postgresql-client
+    mysql-client postgresql-client redis
 
 # 设置工作目录
 WORKDIR /app

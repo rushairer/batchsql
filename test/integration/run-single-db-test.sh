@@ -18,6 +18,7 @@ echo "   测试类型：${TEST_TYPE:-未配置}"
 echo "   MySQL 连接串：${MYSQL_DSN:-未配置}"
 echo "   PostgreSQL 连接串：${POSTGRES_DSN:-未配置}"
 echo "   SQLite 连接串：${SQLITE_DSN:-未配置}"
+echo "   Redis 连接串：${REDIS_DSN:-未配置}"
 echo "   测试时长：${TEST_DURATION:-1800s}（无超时限制）"
 echo "   并发工作线程：${CONCURRENT_WORKERS:-10}"
 echo "   每线程记录数：${RECORDS_PER_WORKER:-2000}"
@@ -88,6 +89,25 @@ if [ "$TEST_TYPE" = "sqlite" ] && [ ! -z "$SQLITE_DSN" ]; then
     
     if [ "$SQLITE_READY" = false ]; then
         echo "   ❌ 150 秒后仍无法连接到 SQLite"
+        exit 1
+    fi
+fi
+
+if [ "$TEST_TYPE" = "redis" ] && [ ! -z "$REDIS_DSN" ]; then
+    echo "   正在检查 redis 数据库..."
+    REDIS_READY=false
+    for i in {1..30}; do
+        if timeout 5 redis-cli -h redis -a testpass123 ping >/dev/null 2>&1; then
+            echo "   ✅ redis 已就绪，可进行高性能测试"
+            REDIS_READY=true
+            break
+        fi
+        echo "   ⏳ 正在等待 redis……（第 $i/30 次尝试）"
+        sleep 5
+    done
+    
+    if [ "$REDIS_READY" = false ]; then
+        echo "   ❌ 150 秒后仍无法连接到 redis"
         exit 1
     fi
 fi

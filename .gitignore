@@ -59,3 +59,4 @@ logs/
 *.backup
 test/integration/reports
 test_integration
+integration-test

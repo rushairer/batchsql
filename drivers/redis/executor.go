@@ -31,6 +31,7 @@ func NewBatchExecutor(db *redis.Client) *Executor {
 
 // ExecuteBatch 执行批量操作
 func (e *Executor) ExecuteBatch(ctx context.Context, _ *drivers.Schema, data []map[string]any) error {
+	log.Println("ExecuteBatch")
 	if len(data) == 0 {
 		return nil
 	}
@@ -38,6 +39,7 @@ func (e *Executor) ExecuteBatch(ctx context.Context, _ *drivers.Schema, data []m
 	// 使用Redis的Pipeline特性实现批量插入
 	pipeline := e.db.Pipeline()
 	for _, row := range data {
+		log.Println(row)
 		cmds := []string{}
 		for _, v := range row {
 			cmds = append(cmds, v.(string))
@@ -45,7 +47,8 @@ func (e *Executor) ExecuteBatch(ctx context.Context, _ *drivers.Schema, data []m
 		cmd := pipeline.Do(ctx, cmds)
 		log.Println(cmd)
 	}
-	_, err := pipeline.Exec(ctx)
+	cmds, err := pipeline.Exec(ctx)
+	log.Println(cmds)
 	return err
 }
 

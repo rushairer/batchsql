@@ -39,21 +39,21 @@ test: test-unit
 # Docker 集成测试 - 单数据库高性能压力测试
 docker-mysql-test:
 	@echo "🐳 Starting MySQL pressure test..."
-	docker-compose -f docker-compose.mysql.yml down -v --remove-orphans
-	docker-compose -f docker-compose.mysql.yml build --no-cache
-	docker-compose -f docker-compose.mysql.yml up --abort-on-container-exit --exit-code-from mysql-test
+	docker-compose -f ./test/docker-compose.mysql.yml down -v --remove-orphans
+	docker-compose -f ./test/docker-compose.mysql.yml build --no-cache
+	docker-compose -f ./test/docker-compose.mysql.yml up --abort-on-container-exit --exit-code-from mysql-test
 
 docker-postgres-test:
 	@echo "🐳 Starting PostgreSQL pressure test..."
-	docker-compose -f docker-compose.postgres.yml down -v --remove-orphans
-	docker-compose -f docker-compose.postgres.yml build --no-cache
-	docker-compose -f docker-compose.postgres.yml up --abort-on-container-exit --exit-code-from postgres-test
+	docker-compose -f ./test/docker-compose.postgres.yml down -v --remove-orphans
+	docker-compose -f ./test/docker-compose.postgres.yml build --no-cache
+	docker-compose -f ./test/docker-compose.postgres.yml up --abort-on-container-exit --exit-code-from postgres-test
 
 docker-sqlite-test:
 	@echo "🐳 Starting SQLite pressure test..."
-	docker-compose -f docker-compose.sqlite.yml down -v --remove-orphans
-	docker-compose -f docker-compose.sqlite.yml build --no-cache
-	docker-compose -f docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test
+	docker-compose -f ./test/docker-compose.sqlite.yml down -v --remove-orphans
+	docker-compose -f ./test/docker-compose.sqlite.yml build --no-cache
+	docker-compose -f ./test/docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test
 
 docker-all-tests: docker-mysql-test docker-postgres-test docker-sqlite-test
 	@echo "🎉 All pressure tests completed!"
@@ -90,9 +90,9 @@ clean:
 	go clean -testcache
 	rm -f coverage.out coverage.html
 	rm -rf test/reports/*
-	docker-compose -f docker-compose.mysql.yml down -v --remove-orphans 2>/dev/null || true
-	docker-compose -f docker-compose.postgres.yml down -v --remove-orphans 2>/dev/null || true
-	docker-compose -f docker-compose.sqlite.yml down -v --remove-orphans 2>/dev/null || true
+	docker-compose -f ./test/docker-compose.mysql.yml down -v --remove-orphans 2>/dev/null || true
+	docker-compose -f ./test/docker-compose.postgres.yml down -v --remove-orphans 2>/dev/null || true
+	docker-compose -f ./test/docker-compose.sqlite.yml down -v --remove-orphans 2>/dev/null || true
 	docker system prune -f
 
 # 完整的 CI/CD 流程

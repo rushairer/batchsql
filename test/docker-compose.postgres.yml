@@ -11,7 +11,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./test/sql/postgres:/docker-entrypoint-initdb.d
+      - ./sql/postgres:/docker-entrypoint-initdb.d
     # 高性能配置 - 给PostgreSQL分配更多资源
     command: >
       postgres 
@@ -47,7 +47,7 @@ services:
       - POSTGRES_DSN=postgres://testuser:testpass123@postgres:5432/batchsql_test?sslmode=disable
       - TEST_TYPE=postgres
     volumes:
-      - ./test/reports:/app/reports
+      - ./reports:/app/reports
     networks:
       - batchsql-network
     command: ["./run-single-db-test.sh"]

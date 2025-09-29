@@ -12,7 +12,7 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./test/sql/mysql:/docker-entrypoint-initdb.d
+      - ./sql/mysql:/docker-entrypoint-initdb.d
     # 高性能配置 - 给MySQL分配更多资源
     command: >
       --default-authentication-plugin=mysql_native_password 
@@ -45,7 +45,7 @@ services:
       - MYSQL_DSN=testuser:testpass123@tcp(mysql:3306)/batchsql_test?parseTime=true&multiStatements=true
       - TEST_TYPE=mysql
     volumes:
-      - ./test/reports:/app/reports
+      - ./reports:/app/reports
     networks:
       - batchsql-network
     command: ["./run-single-db-test.sh"]

@@ -5,7 +5,7 @@ services:
     container_name: batchsql-sqlite-integration
     volumes:
         - sqlite_data:/apps
-        - ./test/sql/sqlite/init.sql:/apps/init.sql
+        - ./sql/sqlite/init.sql:/apps/init.sql
     command: ["-cmd", ".read /apps/init.sql", "-cmd", ".system tail -f /dev/null", "/apps/test.db"]
     healthcheck:
       test: ["CMD", "sqlite3", "/apps/test.db", ".tables"]
@@ -31,7 +31,7 @@ services:
       - TEST_TYPE=sqlite
     volumes:
       - sqlite_data:/apps
-      - ./test/reports:/app/reports
+      - ./reports:/app/reports
     networks:
       - batchsql-network
     command: ["./run-single-db-test.sh"]

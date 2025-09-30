@@ -526,14 +526,12 @@ batch := batchsql.NewMySQLBatchSQL(ctx, sqlxDB.DB, config)
 - 轻量级场景可用 SQLite
 - 缓存场景推荐 Redis（性能优异）
 
-*详细分析报告：[QUALITY_ASSESSMENT.md](QUALITY_ASSESSMENT.md)*
-
 ## 📚 文档导航
 
 BatchSQL 提供完整的文档体系，按使用场景分类：
 
 ### 🚀 快速开始
-- [README.md](README.md) - 项目概览和快速开始
+
 - [📖 文档索引](docs/index.md) - 完整的文档导航和索引
 - [💡 使用示例](docs/guides/examples.md) - 丰富的代码示例和最佳实践
 
@@ -560,9 +558,6 @@ BatchSQL 提供完整的文档体系，按使用场景分类：
 - [📋 测试报告](docs/reports/TEST_REPORT_ANALYSIS.md) - 详细测试结果分析
 - [🛠️ 工具说明](docs/reports/sqlite-tools.md) - SQLite 测试工具文档
 
-*详细分析报告：[质量评估报告](docs/development/quality.md)*
-*重要修复记录：[修复日志](docs/development/changelog.md)*
-
 ## 🐛 重要修复记录
 
 ### 数据完整性监控指标修复 (2025-09-30)
@@ -570,7 +565,7 @@ BatchSQL 提供完整的文档体系，按使用场景分类：
 - **原因**：Prometheus 指标范围定义不一致（0-1 vs 0-100）
 - **修复**：统一指标范围为 0-1，修复初始化和记录逻辑
 - **影响**：✅ 监控面板现在正确显示数据完整性百分比
-- **详情**：[BUGFIX_CHANGELOG.md](BUGFIX_CHANGELOG.md)
+- **详情**：[修复日志](docs/development/changelog.md)
 
 ## 📋 测试
 

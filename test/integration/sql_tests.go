@@ -11,9 +11,12 @@ import (
 
 	"github.com/rushairer/batchsql"
 	"github.com/rushairer/batchsql/drivers"
+	"github.com/rushairer/batchsql/drivers/mysql"
+	"github.com/rushairer/batchsql/drivers/postgresql"
+	"github.com/rushairer/batchsql/drivers/sqlite"
 )
 
-func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
+func runDatabaseTests(dbType, dsn string, config TestConfig, prometheusMetrics *PrometheusMetrics) []TestResult {
 	var results []TestResult
 
 	// 连接数据库
@@ -28,6 +31,11 @@ func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
 	db.SetMaxOpenConns(100)
 	db.SetMaxIdleConns(50)
 	db.SetConnMaxLifetime(time.Hour)
+
+	// 记录活跃连接数
+	if prometheusMetrics != nil {
+		prometheusMetrics.UpdateActiveConnections(dbType, 100) // 最大连接数
+	}
 
 	// 测试连接
 	if err := db.Ping(); err != nil {
@@ -44,7 +52,7 @@ func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
 	// 运行不同的测试场景
 	testCases := []struct {
 		name     string
-		testFunc func(*sql.DB, string, TestConfig) TestResult
+		testFunc func(*sql.DB, string, TestConfig, *PrometheusMetrics) TestResult
 	}{
 		{"高吞吐量测试", runHighThroughputTest},
 		{"并发工作线程测试", runConcurrentWorkersTest},
@@ -62,10 +70,15 @@ func runDatabaseTests(dbType, dsn string, config TestConfig) []TestResult {
 		}
 
 		log.Printf("  🔄 在 %s 上运行 %s...", dbType, tc.name)
-		result := tc.testFunc(db, dbType, config)
+		result := tc.testFunc(db, dbType, config, prometheusMetrics)
 		result.TestName = tc.name
 		result.Database = dbType
 		results = append(results, result)
+
+		// 实时记录测试结果到 Prometheus
+		if prometheusMetrics != nil {
+			prometheusMetrics.RecordTestResult(result)
+		}
 
 		// 测试间隔，让系统恢复
 		time.Sleep(5 * time.Second)
@@ -198,29 +211,32 @@ func clearSQLiteTableByRecreate(db *sql.DB) error {
 	return nil
 }
 
-func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	ctx := context.Background()
 
 	var batchSQL *batchsql.BatchSQL
 	switch dbType {
 	case "mysql":
-		batchSQL = batchsql.NewMySQLBatchSQL(ctx, db, batchsql.PipelineConfig{
-			BufferSize:    config.BufferSize,
-			FlushSize:     config.BatchSize,
-			FlushInterval: config.FlushInterval,
-		})
+		executor := mysql.NewBatchExecutor(db)
+		if prometheusMetrics != nil {
+			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "高吞吐量测试")
+			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+		}
+		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "postgres":
-		batchSQL = batchsql.NewPostgreSQLBatchSQL(ctx, db, batchsql.PipelineConfig{
-			BufferSize:    config.BufferSize,
-			FlushSize:     config.BatchSize,
-			FlushInterval: config.FlushInterval,
-		})
+		executor := postgresql.NewBatchExecutor(db)
+		if prometheusMetrics != nil {
+			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "高吞吐量测试")
+			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+		}
+		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "sqlite3":
-		batchSQL = batchsql.NewSQLiteBatchSQL(ctx, db, batchsql.PipelineConfig{
-			BufferSize:    config.BufferSize,
-			FlushSize:     config.BatchSize,
-			FlushInterval: config.FlushInterval,
-		})
+		executor := sqlite.NewBatchExecutor(db)
+		if prometheusMetrics != nil {
+			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "高吞吐量测试")
+			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+		}
+		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	}
 
 	schema := batchsql.NewSchema("integration_test", drivers.ConflictIgnore,
@@ -229,6 +245,12 @@ func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestRes
 	startTime := time.Now()
 	var recordCount int64
 	var errors []string
+
+	// 设置并发工作线程数和活跃连接数指标
+	if prometheusMetrics != nil {
+		prometheusMetrics.concurrentWorkers.WithLabelValues(dbType, "高吞吐量测试").Set(1) // 单线程测试
+		prometheusMetrics.activeConnections.WithLabelValues(dbType).Set(1)           // 单个连接
+	}
 
 	// 记录初始内存
 	var m1 runtime.MemStats
@@ -246,6 +268,8 @@ func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestRes
 		case <-testCtx.Done():
 			goto TestComplete
 		default:
+			batchStartTime := time.Now()
+
 			request := batchsql.NewRequest(schema).
 				SetInt64("id", i).
 				SetString("name", fmt.Sprintf("User_%d", i)).
@@ -262,11 +286,35 @@ func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig) TestRes
 				}
 			} else {
 				recordCount++
+
+				// 记录批处理时间和响应时间
+				if prometheusMetrics != nil {
+					batchDuration := time.Since(batchStartTime)
+					prometheusMetrics.RecordBatchProcessTime(dbType, config.BatchSize, batchDuration)
+					prometheusMetrics.RecordResponseTime(dbType, "insert", batchDuration)
+				}
 			}
 
-			// 定期强制GC，避免内存积累
+			// 定期更新实时指标
 			if i%1000 == 0 {
 				runtime.GC()
+
+				// 更新实时 RPS 和内存使用
+				if prometheusMetrics != nil {
+					elapsed := time.Since(startTime).Seconds()
+					if elapsed > 0 {
+						currentRPS := float64(recordCount) / elapsed
+						prometheusMetrics.UpdateCurrentRPS(dbType, "高吞吐量测试", currentRPS)
+					}
+
+					// 更新内存使用
+					var m runtime.MemStats
+					runtime.ReadMemStats(&m)
+					prometheusMetrics.UpdateMemoryUsage(dbType, "高吞吐量测试",
+						float64(m.Alloc)/1024/1024,
+						float64(m.TotalAlloc)/1024/1024,
+						float64(m.Sys)/1024/1024)
+				}
 			}
 		}
 	}
@@ -326,29 +374,38 @@ TestComplete:
 	}
 }
 
-func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	ctx := context.Background()
+
+	// 设置并发工作线程数和活跃连接数指标
+	if prometheusMetrics != nil {
+		prometheusMetrics.concurrentWorkers.WithLabelValues(dbType, "并发工作线程测试").Set(float64(config.ConcurrentWorkers))
+		prometheusMetrics.activeConnections.WithLabelValues(dbType).Set(float64(config.ConcurrentWorkers)) // 每个工作线程一个连接
+	}
 
 	var batchSQL *batchsql.BatchSQL
 	switch dbType {
 	case "mysql":
-		batchSQL = batchsql.NewMySQLBatchSQL(ctx, db, batchsql.PipelineConfig{
-			BufferSize:    config.BufferSize,
-			FlushSize:     config.BatchSize,
-			FlushInterval: config.FlushInterval,
-		})
+		executor := mysql.NewBatchExecutor(db)
+		if prometheusMetrics != nil {
+			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "并发工作线程测试")
+			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+		}
+		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "postgres":
-		batchSQL = batchsql.NewPostgreSQLBatchSQL(ctx, db, batchsql.PipelineConfig{
-			BufferSize:    config.BufferSize,
-			FlushSize:     config.BatchSize,
-			FlushInterval: config.FlushInterval,
-		})
+		executor := postgresql.NewBatchExecutor(db)
+		if prometheusMetrics != nil {
+			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "并发工作线程测试")
+			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+		}
+		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "sqlite3":
-		batchSQL = batchsql.NewSQLiteBatchSQL(ctx, db, batchsql.PipelineConfig{
-			BufferSize:    config.BufferSize,
-			FlushSize:     config.BatchSize,
-			FlushInterval: config.FlushInterval,
-		})
+		executor := sqlite.NewBatchExecutor(db)
+		if prometheusMetrics != nil {
+			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "并发工作线程测试")
+			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+		}
+		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	}
 
 	schema := batchsql.NewSchema("integration_test", drivers.ConflictIgnore,
@@ -472,35 +529,35 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig) Test
 	}
 }
 
-func runLargeBatchTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runLargeBatchTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	// 大批次测试 - 使用更大的批次大小
 	largeConfig := config
 	largeConfig.BatchSize = 5000
 	largeConfig.BufferSize = 50000
 
-	result := runHighThroughputTest(db, dbType, largeConfig)
+	result := runHighThroughputTest(db, dbType, largeConfig, prometheusMetrics)
 	result.TestName = "Large Batch Test"
 	return result
 }
 
-func runMemoryPressureTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runMemoryPressureTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	// 内存压力测试 - 使用大数据量和小批次
 	memConfig := config
 	memConfig.BatchSize = 100
 	memConfig.BufferSize = 1000
 	memConfig.RecordsPerWorker = 50000
 
-	result := runConcurrentWorkersTest(db, dbType, memConfig)
+	result := runConcurrentWorkersTest(db, dbType, memConfig, prometheusMetrics)
 	result.TestName = "Memory Pressure Test"
 	return result
 }
 
-func runLongDurationTest(db *sql.DB, dbType string, config TestConfig) TestResult {
+func runLongDurationTest(db *sql.DB, dbType string, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	// 长时间运行测试
 	longConfig := config
 	longConfig.TestDuration = 10 * time.Minute
 
-	result := runHighThroughputTest(db, dbType, longConfig)
+	result := runHighThroughputTest(db, dbType, longConfig, prometheusMetrics)
 	result.TestName = "Long Duration Test"
 	return result
 }

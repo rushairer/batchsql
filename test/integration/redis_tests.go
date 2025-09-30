@@ -11,10 +11,11 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/rushairer/batchsql"
 	"github.com/rushairer/batchsql/drivers"
+	redisDriver "github.com/rushairer/batchsql/drivers/redis"
 )
 
 // runRedisTests 运行 Redis 数据库测试
-func runRedisTests(dsn string, config TestConfig) []TestResult {
+func runRedisTests(dsn string, config TestConfig, prometheusMetrics *PrometheusMetrics) []TestResult {
 	var results []TestResult
 
 	// 解析 Redis DSN
@@ -35,10 +36,15 @@ func runRedisTests(dsn string, config TestConfig) []TestResult {
 		return results
 	}
 
+	// 记录活跃连接数
+	if prometheusMetrics != nil {
+		prometheusMetrics.UpdateActiveConnections("redis", 1) // Redis 单连接
+	}
+
 	// 运行不同的测试场景
 	testCases := []struct {
 		name     string
-		testFunc func(*redis.Client, TestConfig) TestResult
+		testFunc func(*redis.Client, TestConfig, *PrometheusMetrics) TestResult
 	}{
 		{"高吞吐量测试", runRedisHighThroughputTest},
 		{"并发工作线程测试", runRedisConcurrentWorkersTest},
@@ -55,10 +61,15 @@ func runRedisTests(dsn string, config TestConfig) []TestResult {
 		}
 
 		log.Printf("  🔄 在 Redis 上运行 %s...", tc.name)
-		result := tc.testFunc(rdb, config)
+		result := tc.testFunc(rdb, config, prometheusMetrics)
 		result.TestName = tc.name
 		result.Database = "redis"
 		results = append(results, result)
+
+		// 实时记录测试结果到 Prometheus
+		if prometheusMetrics != nil {
+			prometheusMetrics.RecordTestResult(result)
+		}
 
 		// 测试间隔，让系统恢复
 		time.Sleep(5 * time.Second)
@@ -68,14 +79,15 @@ func runRedisTests(dsn string, config TestConfig) []TestResult {
 }
 
 // runRedisHighThroughputTest Redis 高吞吐量测试
-func runRedisHighThroughputTest(rdb *redis.Client, config TestConfig) TestResult {
+func runRedisHighThroughputTest(rdb *redis.Client, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	ctx := context.Background()
 
-	batchSQL := batchsql.NewRedisBatchSQL(ctx, rdb, batchsql.PipelineConfig{
-		BufferSize:    config.BufferSize,
-		FlushSize:     config.BatchSize,
-		FlushInterval: config.FlushInterval,
-	})
+	executor := redisDriver.NewBatchExecutor(rdb)
+	if prometheusMetrics != nil {
+		metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "redis", "高吞吐量测试")
+		executor = executor.WithMetricsReporter(metricsReporter)
+	}
+	batchSQL := batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 
 	// Redis 使用简单的 key-value schema
 	schema := batchsql.NewSchema("redis_test", drivers.ConflictIgnore,
@@ -108,6 +120,8 @@ func runRedisHighThroughputTest(rdb *redis.Client, config TestConfig) TestResult
 				SetString("ex_flag", "EX").
 				SetInt64("ttl", 3600000) // 1小时 TTL (毫秒)
 
+			batchStartTime := time.Now()
+
 			if err := batchSQL.Submit(testCtx, request); err != nil {
 				errors = append(errors, err.Error())
 				if len(errors) > 100 {
@@ -115,11 +129,35 @@ func runRedisHighThroughputTest(rdb *redis.Client, config TestConfig) TestResult
 				}
 			} else {
 				recordCount++
+
+				// 记录批处理时间和响应时间
+				if prometheusMetrics != nil {
+					batchDuration := time.Since(batchStartTime)
+					prometheusMetrics.RecordBatchProcessTime("redis", config.BatchSize, batchDuration)
+					prometheusMetrics.RecordResponseTime("redis", "set", batchDuration)
+				}
 			}
 
-			// 定期强制GC
+			// 定期更新实时指标
 			if i%1000 == 0 {
 				runtime.GC()
+
+				// 更新实时 RPS 和内存使用
+				if prometheusMetrics != nil {
+					elapsed := time.Since(startTime).Seconds()
+					if elapsed > 0 {
+						currentRPS := float64(recordCount) / elapsed
+						prometheusMetrics.UpdateCurrentRPS("redis", "高吞吐量测试", currentRPS)
+					}
+
+					// 更新内存使用
+					var m runtime.MemStats
+					runtime.ReadMemStats(&m)
+					prometheusMetrics.UpdateMemoryUsage("redis", "高吞吐量测试",
+						float64(m.Alloc)/1024/1024,
+						float64(m.TotalAlloc)/1024/1024,
+						float64(m.Sys)/1024/1024)
+				}
 			}
 		}
 	}
@@ -188,7 +226,7 @@ TestComplete:
 }
 
 // runRedisConcurrentWorkersTest Redis 并发工作线程测试
-func runRedisConcurrentWorkersTest(rdb *redis.Client, config TestConfig) TestResult {
+func runRedisConcurrentWorkersTest(rdb *redis.Client, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	ctx := context.Background()
 
 	batchSQL := batchsql.NewRedisBatchSQL(ctx, rdb, batchsql.PipelineConfig{
@@ -313,34 +351,34 @@ func runRedisConcurrentWorkersTest(rdb *redis.Client, config TestConfig) TestRes
 }
 
 // runRedisLargeBatchTest Redis 大批次测试
-func runRedisLargeBatchTest(rdb *redis.Client, config TestConfig) TestResult {
+func runRedisLargeBatchTest(rdb *redis.Client, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	largeConfig := config
 	largeConfig.BatchSize = 5000
 	largeConfig.BufferSize = 50000
 
-	result := runRedisHighThroughputTest(rdb, largeConfig)
+	result := runRedisHighThroughputTest(rdb, largeConfig, prometheusMetrics)
 	result.TestName = "Large Batch Test"
 	return result
 }
 
 // runRedisMemoryPressureTest Redis 内存压力测试
-func runRedisMemoryPressureTest(rdb *redis.Client, config TestConfig) TestResult {
+func runRedisMemoryPressureTest(rdb *redis.Client, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	memConfig := config
 	memConfig.BatchSize = 100
 	memConfig.BufferSize = 1000
 	memConfig.RecordsPerWorker = 50000
 
-	result := runRedisConcurrentWorkersTest(rdb, memConfig)
+	result := runRedisConcurrentWorkersTest(rdb, memConfig, prometheusMetrics)
 	result.TestName = "Memory Pressure Test"
 	return result
 }
 
 // runRedisLongDurationTest Redis 长时间运行测试
-func runRedisLongDurationTest(rdb *redis.Client, config TestConfig) TestResult {
+func runRedisLongDurationTest(rdb *redis.Client, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	longConfig := config
 	longConfig.TestDuration = 10 * time.Minute
 
-	result := runRedisHighThroughputTest(rdb, longConfig)
+	result := runRedisHighThroughputTest(rdb, longConfig, prometheusMetrics)
 	result.TestName = "Long Duration Test"
 	return result
 }

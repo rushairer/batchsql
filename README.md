@@ -2,7 +2,7 @@
 
 一个高性能的 Go 批量 SQL 处理库，基于 `go-pipeline` 实现，支持多种数据库类型和冲突处理策略。
 
-*最后更新：2025年1月28日 | 版本：v1.0.2*
+*最后更新：2025年9月30日 | 版本：v1.0.3*
 
 ## 🏗️ 架构设计
 
@@ -528,6 +528,50 @@ batch := batchsql.NewMySQLBatchSQL(ctx, sqlxDB.DB, config)
 
 *详细分析报告：[QUALITY_ASSESSMENT.md](QUALITY_ASSESSMENT.md)*
 
+## 📚 文档导航
+
+BatchSQL 提供完整的文档体系，按使用场景分类：
+
+### 🚀 快速开始
+- [README.md](README.md) - 项目概览和快速开始
+- [📖 文档索引](docs/index.md) - 完整的文档导航和索引
+- [💡 使用示例](docs/guides/examples.md) - 丰富的代码示例和最佳实践
+
+### 📖 API 文档
+- [🚀 API 参考](docs/api/reference.md) - 完整的 API 文档和使用指南
+- [⚙️ 配置指南](docs/api/configuration.md) - 详细的配置参数说明
+
+### 📖 用户指南
+- [🧪 测试指南](docs/guides/testing.md) - 完整的测试文档和 Redis 测试报告
+- [📊 监控指南](docs/guides/monitoring.md) - Prometheus + Grafana 监控系统
+- [🔧 故障排除](docs/guides/troubleshooting.md) - 完整的问题诊断和解决方案
+- [🔗 集成测试](docs/guides/integration-tests.md) - 集成测试详细说明
+
+### 🔧 开发文档
+- [🏗️ 架构设计](docs/development/architecture.md) - 系统架构和设计理念
+- [🤝 贡献指南](docs/development/contributing.md) - 如何参与项目开发
+- [📋 发布清单](docs/development/release.md) - 版本发布流程
+- [📈 质量评估](docs/development/quality.md) - 代码质量分析报告
+- [🐛 修复记录](docs/development/changelog.md) - 重要修复和改进记录
+
+### 📊 测试报告
+- [📈 性能分析](docs/reports/PERFORMANCE_ANALYSIS.md) - SQLite 性能测试分析
+- [🔧 优化建议](docs/reports/SQLITE_OPTIMIZATION.md) - SQLite 优化策略
+- [📋 测试报告](docs/reports/TEST_REPORT_ANALYSIS.md) - 详细测试结果分析
+- [🛠️ 工具说明](docs/reports/sqlite-tools.md) - SQLite 测试工具文档
+
+*详细分析报告：[质量评估报告](docs/development/quality.md)*
+*重要修复记录：[修复日志](docs/development/changelog.md)*
+
+## 🐛 重要修复记录
+
+### 数据完整性监控指标修复 (2025-09-30)
+- **问题**：Grafana 监控面板显示数据完整性为 10000% 而非正常的 100%
+- **原因**：Prometheus 指标范围定义不一致（0-1 vs 0-100）
+- **修复**：统一指标范围为 0-1，修复初始化和记录逻辑
+- **影响**：✅ 监控面板现在正确显示数据完整性百分比
+- **详情**：[BUGFIX_CHANGELOG.md](BUGFIX_CHANGELOG.md)
+
 ## 📋 测试
 
 ### 单元测试
@@ -551,6 +595,33 @@ make docker-postgres-test   # PostgreSQL 测试
 make docker-sqlite-test     # SQLite 测试
 make docker-redis-test      # Redis 测试
 ```
+
+### 📊 性能监控（Prometheus + Grafana）
+
+BatchSQL 支持 Prometheus 指标收集和 Grafana 可视化，让你能够实时监控性能曲线变化。
+
+#### 快速启动监控
+```bash
+# 使用 Make 命令（推荐）
+make monitoring                           # 启动监控环境
+make test-integration-with-monitoring     # 启动监控后运行测试
+
+# 或使用脚本
+./scripts/start-monitoring.sh            # 启动监控环境
+./scripts/start-monitoring.sh --stop     # 停止监控服务
+```
+
+#### 访问监控界面
+- **Grafana 仪表板**: http://localhost:3000 (admin/admin)
+- **Prometheus 控制台**: http://localhost:9091  
+- **BatchSQL 指标**: http://localhost:9090/metrics
+
+#### 监控指标
+- **性能指标**: RPS、响应时间、批处理时间
+- **资源指标**: 内存使用、并发工作线程、活跃连接
+- **质量指标**: 数据完整性率、错误率
+
+详细使用说明请参考：[Prometheus 监控指南](test/integration/PROMETHEUS_MONITORING.md)
 
 ### SQLite 专用测试工具
 ```bash

@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # BatchSQL 集成测试指标
+  - job_name: 'batchsql-integration-test'
+    static_configs:
+      - targets: ['batchsql-mysql-test:8080', 'batchsql-postgres-test:8080', 'batchsql-sqlite-test:8080', 'batchsql-redis-test:8080']
+    scrape_interval: 10s
+    metrics_path: /metrics
+    scrape_timeout: 5s
+
+  # Prometheus 自身指标
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

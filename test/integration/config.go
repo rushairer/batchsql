@@ -17,6 +17,15 @@ func parseIntEnv(key string, defaultValue int) int {
 	return defaultValue
 }
 
+func parseBoolEnv(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			return parsed
+		}
+	}
+	return defaultValue
+}
+
 func parseDurationEnv(key string, defaultValue time.Duration) time.Duration {
 	if value := os.Getenv(key); value != "" {
 		if parsed, err := time.ParseDuration(value); err == nil {
@@ -35,6 +44,9 @@ func loadConfig() TestConfig {
 		BatchSize:         uint32(parseIntEnv("BATCH_SIZE", 200)),
 		BufferSize:        uint32(parseIntEnv("BUFFER_SIZE", 5000)),
 		FlushInterval:     parseDurationEnv("FLUSH_INTERVAL", 100*time.Millisecond),
+		// Prometheus 配置
+		PrometheusEnabled: parseBoolEnv("PROMETHEUS_ENABLED", true), // 默认启用
+		PrometheusPort:    parseIntEnv("PROMETHEUS_PORT", 8080),     // 默认端口 8080
 	}
 
 	log.Printf("📋 已加载测试配置：")
@@ -44,6 +56,10 @@ func loadConfig() TestConfig {
 	log.Printf("   批大小：%d", config.BatchSize)
 	log.Printf("   缓冲区大小：%d", config.BufferSize)
 	log.Printf("   刷新间隔：%v", config.FlushInterval)
+	log.Printf("   Prometheus启用：%v", config.PrometheusEnabled)
+	if config.PrometheusEnabled {
+		log.Printf("   Prometheus端口：%d", config.PrometheusPort)
+	}
 
 	return config
 }

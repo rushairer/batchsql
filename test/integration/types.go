@@ -10,6 +10,9 @@ type TestConfig struct {
 	BatchSize         uint32        `json:"batch_size"`
 	BufferSize        uint32        `json:"buffer_size"`
 	FlushInterval     time.Duration `json:"flush_interval"`
+	// Prometheus 配置
+	PrometheusEnabled bool `json:"prometheus_enabled"`
+	PrometheusPort    int  `json:"prometheus_port"`
 }
 
 // TestResult 测试结果
@@ -19,7 +22,7 @@ type TestResult struct {
 	Duration            time.Duration `json:"duration"`
 	TotalRecords        int64         `json:"total_records"`         // 成功提交的记录数
 	ActualRecords       int64         `json:"actual_records"`        // 数据库中实际的记录数
-	DataIntegrityRate   float64       `json:"data_integrity_rate"`   // 数据完整性百分比
+	DataIntegrityRate   float64       `json:"data_integrity_rate"`   // 数据完整性百分比 (0-100)
 	DataIntegrityStatus string        `json:"data_integrity_status"` // 数据完整性状态描述
 	RecordsPerSecond    float64       `json:"records_per_second"`    // RPS (仅在数据完整性100%时有效)
 	RPSValid            bool          `json:"rps_valid"`             // RPS是否有效

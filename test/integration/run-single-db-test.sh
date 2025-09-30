@@ -121,7 +121,7 @@ mkdir -p /app/reports
 echo "🏥 启动健康检查服务器..."
 (
     while true; do
-        echo -e "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK" | nc -l -p 8080
+        echo -e "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK" | nc -l -p 8888
         sleep 1
     done
 ) &

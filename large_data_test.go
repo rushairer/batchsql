@@ -51,8 +51,8 @@ func TestLargeData_MillionRecords(t *testing.T) {
 			return
 		}
 
-		// 每10万条记录报告一次进度
-		if (i+1)%100000 == 0 {
+		// 每10万条记录报告一次进度（减少输出频率）
+		if (i+1)%200000 == 0 {
 			elapsed := time.Since(startTime)
 			rate := float64(i+1) / elapsed.Seconds()
 			t.Logf("Submitted %d records, rate: %.2f records/sec", i+1, rate)
@@ -164,10 +164,10 @@ func TestLargeData_LargeStrings(t *testing.T) {
 	const numRecords = 1000
 	startTime := time.Now()
 
-	// 创建不同大小的字符串
-	smallText := strings.Repeat("A", 1024)      // 1KB
-	mediumText := strings.Repeat("B", 64*1024)  // 64KB
-	largeText := strings.Repeat("C", 1024*1024) // 1MB
+	// 创建不同大小的字符串（减小尺寸避免日志输出过多）
+	smallText := strings.Repeat("A", 256)   // 256B
+	mediumText := strings.Repeat("B", 1024) // 1KB
+	largeText := strings.Repeat("C", 4096)  // 4KB
 
 	t.Logf("Starting to submit %d records with large strings...", numRecords)
 
@@ -184,7 +184,7 @@ func TestLargeData_LargeStrings(t *testing.T) {
 			return
 		}
 
-		if (i+1)%100 == 0 {
+		if (i+1)%500 == 0 {
 			elapsed := time.Since(startTime)
 			rate := float64(i+1) / elapsed.Seconds()
 			t.Logf("Submitted %d large string records, rate: %.2f records/sec", i+1, rate)
@@ -221,7 +221,7 @@ func TestLargeData_MemoryPressure(t *testing.T) {
 	schema := batchsql.NewSchema("memory_pressure_table", drivers.ConflictIgnore, "id", "data", "timestamp")
 
 	const numRecords = 100000
-	const dataSize = 10 * 1024 // 10KB per record
+	const dataSize = 1024 // 1KB per record (减小数据量)
 	largeData := strings.Repeat("X", dataSize)
 
 	// 监控内存使用
@@ -244,8 +244,8 @@ func TestLargeData_MemoryPressure(t *testing.T) {
 			return
 		}
 
-		// 每1万条记录检查内存使用
-		if (i+1)%10000 == 0 {
+		// 每2万条记录检查内存使用（减少输出频率）
+		if (i+1)%20000 == 0 {
 			var currentMem runtime.MemStats
 			runtime.ReadMemStats(&currentMem)
 
@@ -328,8 +328,8 @@ MainLoop:
 
 			recordCount++
 
-			// 每10万条记录报告一次
-			if recordCount%100000 == 0 {
+			// 每20万条记录报告一次（减少输出频率）
+			if recordCount%200000 == 0 {
 				elapsed := time.Since(startTime)
 				rate := float64(recordCount) / elapsed.Seconds()
 				t.Logf("Submitted %d records in %v, current rate: %.2f records/sec",

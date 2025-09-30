@@ -37,13 +37,15 @@ func NewBatchExecutorWithDriver(driver drivers.SQLDriver) *MockExecutor {
 func (e *MockExecutor) ExecuteBatch(_ context.Context, schema *drivers.Schema, data []map[string]any) error {
 	e.ExecutedBatches = append(e.ExecutedBatches, data)
 
-	// 生成并打印SQL信息
-	sql, args, err := e.driver.GenerateInsertSQL(schema, data)
+	// 生成SQL信息（不输出大参数）
+	_, args, err := e.driver.GenerateInsertSQL(schema, data)
 	if err != nil {
 		return err
 	}
-	log.Printf("Mock execution - Table: %s, Data count: %d, SQL: %s, Args: %v",
-		schema.TableName, len(data), sql, args)
+
+	// 只显示参数数量，避免输出大字符串
+	log.Printf("Mock execution - Table: %s, Data count: %d, Args count: %d",
+		schema.TableName, len(data), len(args))
 
 	return nil
 }

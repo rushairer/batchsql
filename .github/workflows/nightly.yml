@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # 允许手动触发
 
 env:
-  GO_VERSION: '1.20'
+  GO_VERSION: '1.23'
 
 jobs:
   # 长时间性能测试
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        database: [mysql, postgresql]
+        database: [mysql, postgresql, redis]
         test-duration: [1800s, 3600s]  # 30分钟和1小时测试
     steps:
     - name: Checkout code
@@ -60,6 +60,19 @@ jobs:
             echo 'PostgreSQL is starting up...'
             sleep 2
           done
+        elif [ "${{ matrix.database }}" == "redis" ]; then
+          docker run -d --name redis-service \
+            -p 6379:6379 \
+            redis:7-alpine
+          
+          # 等待 Redis 启动
+          for i in {30..0}; do
+            if docker exec redis-service redis-cli ping &> /dev/null; then
+              break
+            fi
+            echo 'Redis is starting up...'
+            sleep 2
+          done
         fi
 
     - name: Build test image
@@ -81,6 +94,8 @@ jobs:
           export MYSQL_DSN="testuser:testpass123@tcp(host.docker.internal:3306)/batchsql_test?parseTime=true&multiStatements=true"
         elif [ "${{ matrix.database }}" == "postgresql" ]; then
           export POSTGRES_DSN="postgres://testuser:testpass123@host.docker.internal:5432/batchsql_test?sslmode=disable"
+        elif [ "${{ matrix.database }}" == "redis" ]; then
+          export REDIS_ADDR="host.docker.internal:6379"
         fi
         
         # 运行测试
@@ -103,8 +118,8 @@ jobs:
     - name: Cleanup
       if: always()
       run: |
-        docker stop mysql-service postgres-service || true
-        docker rm mysql-service postgres-service || true
+        docker stop mysql-service postgres-service redis-service || true
+        docker rm mysql-service postgres-service redis-service || true
 
   # SQLite 压力测试（单独运行，因为预期会有失败）
   sqlite-stress-test:

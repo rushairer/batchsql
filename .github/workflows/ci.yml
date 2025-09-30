@@ -174,7 +174,7 @@ jobs:
         docker rm temp-sqlite || true
 
     - name: Upload SQLite test reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: sqlite-test-reports
@@ -245,7 +245,7 @@ jobs:
         docker rm temp-mysql || true
 
     - name: Upload MySQL test reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: mysql-test-reports
@@ -305,7 +305,7 @@ jobs:
         docker rm temp-postgres || true
 
     - name: Upload PostgreSQL test reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: postgresql-test-reports
@@ -361,7 +361,7 @@ jobs:
         docker rm temp-redis || true
 
     - name: Upload Redis test reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: redis-test-reports
@@ -449,7 +449,7 @@ jobs:
         go test -bench=. -benchmem -count=3 ./... > benchmark_results.txt
 
     - name: Upload benchmark results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: benchmark-results
         path: benchmark_results.txt
@@ -466,7 +466,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download all test reports
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: ./all-reports
 
@@ -521,7 +521,7 @@ jobs:
         echo "- Detailed reports are available in the artifacts" >> test_summary.md
 
     - name: Upload test summary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-summary
         path: test_summary.md

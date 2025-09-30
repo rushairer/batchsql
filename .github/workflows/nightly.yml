@@ -108,7 +108,7 @@ jobs:
         docker rm temp-${{ matrix.database }} || true
 
     - name: Upload performance reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: nightly-performance-${{ matrix.database }}-${{ matrix.test-duration }}
@@ -156,7 +156,7 @@ jobs:
         docker rm temp-sqlite || true
 
     - name: Upload SQLite stress reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: nightly-sqlite-stress-test
@@ -174,7 +174,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download all performance reports
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: ./performance-data
 
@@ -219,7 +219,7 @@ jobs:
         echo "- SQLite limitations are expected and documented" >> performance_analysis.md
 
     - name: Upload performance analysis
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: nightly-performance-analysis
         path: performance_analysis.md
@@ -233,7 +233,7 @@ jobs:
     if: always() && github.repository_owner == 'rushairer'  # 仅在主仓库运行
     steps:
     - name: Download performance analysis
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: nightly-performance-analysis
 

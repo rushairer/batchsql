@@ -1,4 +1,6 @@
-version: "2"
+run:
+  timeout: 5m
+  go: "1.23"
 
 linters:
   enable:
@@ -17,7 +19,8 @@ linters:
     - testifylint
     - usestdlibvars
     - wastedassign
-  settings:
+
+linters-settings:
     gosec:
       includes:
         - G102

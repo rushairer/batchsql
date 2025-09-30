@@ -621,22 +621,7 @@ make test-integration-with-monitoring     # 启动监控后运行测试
 - **资源指标**: 内存使用、并发工作线程、活跃连接
 - **质量指标**: 数据完整性率、错误率
 
-详细使用说明请参考：[Prometheus 监控指南](test/integration/PROMETHEUS_MONITORING.md)
-
-### SQLite 专用测试工具
-```bash
-# SQLite 性能基准测试
-cd test/sqlite/tools/benchmark && go run main.go
-
-# SQLite 配置分析
-cd test/sqlite/tools/config-analysis && go run main.go
-
-# SQLite 清理测试
-cd test/sqlite/tools/clear-test && go run main.go
-
-# 路径兼容性测试
-cd test/sqlite/tools/path-compatibility && go run main.go
-```
+详细使用说明请参考：[监控指南](docs/guides/monitoring.md)
 
 ### 测试覆盖范围
 - ✅ 基本批量处理功能
@@ -650,12 +635,21 @@ cd test/sqlite/tools/path-compatibility && go run main.go
 - ✅ 数据库连接异常处理
 - ✅ Redis Pipeline 批量执行
 
-*详细测试文档：[README-INTEGRATION-TESTS.md](README-INTEGRATION-TESTS.md)*
+*详细测试文档：[集成测试指南](docs/guides/integration-tests.md)*
 
 ## 🏗️ 文件结构
 
 ```
 batchsql/
+├── README.md                # 项目文档
+├── go.mod                   # Go模块定义
+├── go.sum                   # 依赖校验文件
+├── Makefile                 # 构建和测试命令
+├── .golangci.yml            # Go代码检查配置
+├── .env.test                # 统一测试配置
+├── .env.sqlite.test         # SQLite 专用测试配置
+├── docker-compose.*.yml     # Docker 测试配置文件
+├── Dockerfile.*             # Docker 构建文件
 ├── batchsql.go              # 主入口和工厂方法
 ├── schema.go                # Schema定义（表结构）
 ├── request.go               # Request定义（类型安全的数据操作）
@@ -663,21 +657,30 @@ batchsql/
 ├── interfaces.go            # 主要接口定义
 ├── error.go                 # 错误定义
 ├── batchsql_test.go         # 测试文件
-├── go.mod                   # Go模块定义
-├── go.sum                   # 依赖校验文件
-├── .golangci.yml            # Go代码检查配置
-├── README.md                # 项目文档
-├── ARCHITECTURE.md          # 架构设计文档（v1.0.1.0新增）
-├── CONFIG.md                # 配置参数详细说明
-├── CONTRIBUTING.md          # 贡献指南（已更新架构部分）
-├── QUALITY_ASSESSMENT.md    # 项目质量评估报告
-├── README-INTEGRATION-TESTS.md # 集成测试文档
-├── RELEASE_CHECKLIST.md     # 发布检查清单
-├── Makefile                 # 构建和测试命令
-├── .env.test                # 统一测试配置
-├── .env.sqlite.test         # SQLite 专用测试配置
-├── docker-compose.*.yml     # Docker 测试配置文件
-├── Dockerfile.*             # Docker 构建文件
+├── docs/                    # 📚 文档目录
+│   ├── index.md             # 文档索引
+│   ├── api/                 # API 文档
+│   │   ├── reference.md     # API 参考
+│   │   └── configuration.md # 配置指南
+│   ├── guides/              # 用户指南
+│   │   ├── examples.md      # 使用示例
+│   │   ├── testing.md       # 测试指南
+│   │   ├── monitoring.md    # 监控指南
+│   │   ├── troubleshooting.md # 故障排除
+│   │   └── integration-tests.md # 集成测试
+│   ├── development/         # 开发文档
+│   │   ├── architecture.md  # 架构设计
+│   │   ├── contributing.md  # 贡献指南
+│   │   ├── changelog.md     # 修复记录
+│   │   ├── quality.md       # 质量评估
+│   │   └── release.md       # 发布清单
+│   └── reports/             # 测试报告
+│       ├── PERFORMANCE_ANALYSIS.md
+│       ├── SQLITE_OPTIMIZATION.md
+│       ├── TEST_REPORT_ANALYSIS.md
+│       └── sqlite-tools.md
+├── scripts/                 # 🔧 脚本目录
+│   └── start-monitoring.sh  # 监控启动脚本
 ├── drivers/                 # 数据库驱动目录
 │   ├── interfaces.go        # 核心接口定义
 │   ├── common_executor.go   # 通用执行器实现
@@ -701,23 +704,15 @@ batchsql/
 └── test/                    # 测试目录
     ├── integration/         # 集成测试
     │   ├── main.go          # 集成测试主程序
+    │   ├── prometheus.go    # Prometheus 指标集成
+    │   ├── grafana/         # Grafana 配置
     │   └── run-single-db-test.sh # 单数据库测试脚本
-    ├── reports/             # 测试报告目录
     ├── sql/                 # 数据库初始化脚本
     │   ├── mysql/           # MySQL 初始化脚本
     │   ├── postgres/        # PostgreSQL 初始化脚本
     │   └── sqlite/          # SQLite 初始化脚本
-    └── sqlite/              # SQLite 专用测试工具
-        ├── README.md        # SQLite 测试工具说明
-        ├── SQLITE_OPTIMIZATION.md # SQLite 优化文档
-        ├── PERFORMANCE_ANALYSIS.md # 性能分析报告
-        ├── TEST_REPORT_ANALYSIS.md # 测试报告分析
+    └── sqlite/              # SQLite 测试相关文件
         └── tools/           # SQLite 测试工具集
-            ├── README.md    # 工具集说明
-            ├── benchmark/   # 性能基准测试
-            ├── clear-test/  # 清理方式测试
-            ├── config-analysis/ # 配置分析工具
-            └── path-compatibility/ # 路径兼容性测试
 ```
 
 ## 🔧 架构图

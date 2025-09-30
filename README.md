@@ -750,17 +750,6 @@ batchsql/
               └─────────────────┘  └─────────────────┘
 ```
 
-## 📚 相关文档
-
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - 详细的架构设计文档和扩展指南 ⭐ *v1.0.1.0新增*
-- **[CONFIG.md](CONFIG.md)** - 详细的配置参数说明和调优建议
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - 贡献指南（已更新架构部分）
-- **[README-INTEGRATION-TESTS.md](README-INTEGRATION-TESTS.md)** - 集成测试完整文档
-- **[QUALITY_ASSESSMENT.md](QUALITY_ASSESSMENT.md)** - 项目质量评估报告
-- **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** - 发布检查清单
-- **[test/sqlite/README.md](test/sqlite/README.md)** - SQLite 测试工具集说明
-- **[test/sqlite/SQLITE_OPTIMIZATION.md](test/sqlite/SQLITE_OPTIMIZATION.md)** - SQLite 优化文档
-- **[test/sqlite/PERFORMANCE_ANALYSIS.md](test/sqlite/PERFORMANCE_ANALYSIS.md)** - SQLite 性能分析
 
 ## 🤝 贡献
 

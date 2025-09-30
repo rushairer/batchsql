@@ -44,15 +44,15 @@ help: ## 显示帮助信息
 # 构建相关
 build: ## 构建项目
 	@echo "🔨 构建 BatchSQL..."
-	go build -v ./...
+	@go build ./...
 
 test: ## 运行单元测试
 	@echo "🧪 运行单元测试..."
-	go test -v ./...
+	@go test ./...
 
 test-race: ## 运行竞态检测测试
 	@echo "🏃 运行竞态检测测试..."
-	go test -race -v ./...
+	@go test -race ./...
 
 # 集成测试相关
 test-integration: ## 运行集成测试
@@ -127,13 +127,13 @@ docker-all-tests-with-monitoring: ## 所有数据库 Docker 测试 + 监控
 # 依赖管理
 deps: ## 安装/更新依赖
 	@echo "📦 安装依赖..."
-	go mod download
-	go mod tidy
+	@go mod download
+	@go mod tidy
 
 deps-update: ## 更新所有依赖到最新版本
 	@echo "⬆️ 更新依赖..."
-	go get -u ./...
-	go mod tidy
+	@go get -u ./...
+	@go mod tidy
 
 # 监控相关
 monitoring: ## 启动 Prometheus + Grafana 监控环境
@@ -170,7 +170,7 @@ dev-setup: deps ## 设置开发环境
 
 fmt: ## 格式化代码
 	@echo "🎨 格式化代码..."
-	go fmt ./...
+	@go fmt ./... > /dev/null
 
 lint: ## 运行代码检查
 	@echo "🔍 运行代码检查..."
@@ -206,6 +206,10 @@ docs: ## 生成文档
 		echo "⚠️ godoc 未安装"; \
 		echo "💡 安装方法: go install golang.org/x/tools/cmd/godoc@latest"; \
 	fi
+
+# CI/CD 相关
+ci: deps fmt lint test test-race ## CI 流程（依赖安装 + 格式化 + 代码检查 + 测试）
+	@echo "🚀 CI 流程完成 - 所有检查通过"
 
 # 发布相关
 release-check: test lint ## 发布前检查

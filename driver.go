@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 )
 
 // SQLDriver 数据库特定的SQL生成器接口
@@ -14,7 +15,9 @@ type SQLDriver interface {
 
 var DefaultMySQLDriver = NewMySQLDriver()
 
-type MySQLDriver struct{}
+type MySQLDriver struct {
+	placeholders sync.Map // key: (colCount<<32)|batchSize  value: string
+}
 
 func NewMySQLDriver() *MySQLDriver {
 	return &MySQLDriver{}
@@ -68,17 +71,28 @@ func (d *MySQLDriver) GenerateInsertSQL(ctx context.Context, schema *Schema, dat
 }
 
 func (d *MySQLDriver) generatePlaceholders(columnCount, batchSize int) string {
+	if columnCount <= 0 || batchSize <= 0 {
+		return ""
+	}
+	key := (uint64(columnCount) << 32) | uint64(batchSize)
+	if v, ok := d.placeholders.Load(key); ok {
+		return v.(string)
+	}
 	singleRow := "(" + strings.Repeat("?, ", columnCount-1) + "?)"
 	rows := make([]string, batchSize)
 	for i := range rows {
 		rows[i] = singleRow
 	}
-	return strings.Join(rows, ", ")
+	out := strings.Join(rows, ", ")
+	d.placeholders.Store(key, out)
+	return out
 }
 
 var DefaultPostgreSQLDriver = NewPostgreSQLDriver()
 
-type PostgreSQLDriver struct{}
+type PostgreSQLDriver struct {
+	placeholders sync.Map // key: (colCount<<32)|batchSize  value: string
+}
 
 func NewPostgreSQLDriver() *PostgreSQLDriver {
 	return &PostgreSQLDriver{}
@@ -130,20 +144,31 @@ func (d *PostgreSQLDriver) GenerateInsertSQL(ctx context.Context, schema *Schema
 }
 
 func (d *PostgreSQLDriver) generatePlaceholders(columnCount, batchSize int) string {
+	if columnCount <= 0 || batchSize <= 0 {
+		return ""
+	}
+	key := (uint64(columnCount) << 32) | uint64(batchSize)
+	if v, ok := d.placeholders.Load(key); ok {
+		return v.(string)
+	}
 	rows := make([]string, batchSize)
 	for i := 0; i < batchSize; i++ {
-		placeholders := make([]string, columnCount)
+		ph := make([]string, columnCount)
 		for j := 0; j < columnCount; j++ {
-			placeholders[j] = fmt.Sprintf("$%d", i*columnCount+j+1)
+			ph[j] = fmt.Sprintf("$%d", i*columnCount+j+1)
 		}
-		rows[i] = "(" + strings.Join(placeholders, ", ") + ")"
+		rows[i] = "(" + strings.Join(ph, ", ") + ")"
 	}
-	return strings.Join(rows, ", ")
+	out := strings.Join(rows, ", ")
+	d.placeholders.Store(key, out)
+	return out
 }
 
 var DefaultSQLiteDriver = NewSQLiteDriver()
 
-type SQLiteDriver struct{}
+type SQLiteDriver struct {
+	placeholders sync.Map // key: (colCount<<32)|batchSize  value: string
+}
 
 func NewSQLiteDriver() *SQLiteDriver {
 	return &SQLiteDriver{}
@@ -197,12 +222,21 @@ func (d *SQLiteDriver) GenerateInsertSQL(ctx context.Context, schema *Schema, da
 }
 
 func (d *SQLiteDriver) generatePlaceholders(columnCount, batchSize int) string {
+	if columnCount <= 0 || batchSize <= 0 {
+		return ""
+	}
+	key := (uint64(columnCount) << 32) | uint64(batchSize)
+	if v, ok := d.placeholders.Load(key); ok {
+		return v.(string)
+	}
 	singleRow := "(" + strings.Repeat("?, ", columnCount-1) + "?)"
 	rows := make([]string, batchSize)
 	for i := range rows {
 		rows[i] = singleRow
 	}
-	return strings.Join(rows, ", ")
+	out := strings.Join(rows, ", ")
+	d.placeholders.Store(key, out)
+	return out
 }
 
 type MockDriver struct {

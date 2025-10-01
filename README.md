@@ -623,9 +623,6 @@ BatchSQL 支持 Prometheus 指标收集和 Grafana 可视化，让你能够实�
 make monitoring                           # 启动监控环境
 make test-integration-with-monitoring     # 启动监控后运行测试
 
-# 或使用脚本
-
-
 ```
 
 #### 访问监控界面
@@ -733,36 +730,21 @@ batchsql/
 ## 🔧 架构图
 
 ### 整体架构
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Application   │───▶│    BatchSQL      │───▶│  gopipeline     │
-│                 │    │(MySQL/PG/SQLite/ │    │  (异步批量处理)   │
-│                 │    │    Redis)        │    │                 │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │ BatchExecutor    │    │  Flush Function │
-                       │ (统一执行接口)     │    │  (批量刷新逻辑)   │
-                       └──────────────────┘    └─────────────────┘
-                                │                        │
-                                ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │ 数据库驱动层       │    │ Schema Grouping │
-                       │                  │    │  (按表分组聚合)   │
-                       └──────────────────┘    └─────────────────┘
-                          │              │
-                          ▼              ▼
-              ┌─────────────────┐  ┌─────────────────┐
-              │   SQL数据库      │  │   Redis数据库    │
-              │ (MySQL/PG/SQLite)│  │                 │
-              └─────────────────┘  └─────────────────┘
-                          │              │
-                          ▼              ▼
-              ┌─────────────────┐  ┌─────────────────┐
-              │   Database      │  │  Redis Client   │
-              │ (SQL连接池)      │  │ (Redis连接)     │
-              └─────────────────┘  └─────────────────┘
+```mermaid
+flowchart TB
+  A[Application] --> B["BatchSQL<br/>(MySQL/PG/SQLite/Redis)"] --> C[gopipeline<br/>(异步批量处理)]
+
+  B --> D[BatchExecutor<br/>(统一执行接口)]
+  C --> E[Flush Function<br/>(批量刷新逻辑)]
+
+  D --> F[数据库驱动层]
+  E --> G[Schema Grouping<br/>(按表分组聚合)]
+
+  F --> H[SQL数据库<br/>(MySQL/PG/SQLite)]
+  F --> I[Redis数据库]
+
+  H --> J[Database<br/>(SQL连接池)]
+  I --> K[Redis Client<br/>(Redis连接)]
 ```
 
 
@@ -782,114 +764,8 @@ batchsql/
 - 代码覆盖率 ≥ 60%
 - 通过 golangci-lint 检查
 
-## 🗺️ 项目架构图 (Mermaid)
 
-### 系统架构总览
-```mermaid
-graph TD
-  A["Apps / Benchmarks / cmd/*"] --> C["BatchSQL Core"]
-  subgraph Core
-    C["BatchSQL Core"]
-    C1["Config & Env<br/>.env.test / .env.sqlite.test"]
-    C2["Buffer & Batching<br/>batch size, flush interval, buffer size"]
-    C3["Workers<br/>concurrency"]
-    C4["Metrics Hooks"]
-  end
 
-  C --> D1["Driver: MySQL"]
-  C --> D2["Driver: Postgres"]
-  C --> D3["Driver: SQLite"]
-  C --> D4["Driver: Redis"]
-
-  subgraph Storage Backends
-    DB1[(MySQL)]
-    DB2[(Postgres)]
-    DB3[(SQLite File)]
-    DB4[(Redis)]
-  end
-
-  D1 --> DB1
-  D2 --> DB2
-  D3 --> DB3
-  D4 --> DB4
-
-  subgraph Tests
-    T1["Unit Tests<br/>go test ./..."]
-    T2["Int Tests via Docker<br/>sqlite/mysql/postgres/redis -test"]
-    SQL["Init SQL<br/>test/sql/*"]
-  end
-  SQL -. mounted .-> T2
-  T1 --> C
-  T2 --> C
-
-  subgraph Docker
-    DCi["docker-compose.ci.yml<br/>no host ports"]
-    DInt["docker-compose.integration.yml<br/>with ports, local dev"]
-    Images["Dockerfile.integration<br/>Dockerfile.sqlite.integration"]
-  end
-  Images --> T2
-  DCi --> T2
-  DInt --> T2
-
-  subgraph Docs
-    DOCS["docs/*<br/>api, guides, reports, development"]
-    README["README.md"]
-  end
-  DOCS --> A
-  README --> A
-```
-
-### CI/CD 流程（GitHub Actions）
-```mermaid
-flowchart TD
-  subgraph Triggers
-    P1["push: main/develop"]
-    PR["pull_request"]
-    SCH["schedule (cron)"]
-    TAG["tag: v*"]
-    WD["workflow_dispatch"]
-  end
-
-  P1 --> CI[.github/workflows/ci.yml]
-  PR --> CI
-  SCH --> CI
-
-  TAG --> REL[.github/workflows/release.yml]
-  WD --> REL
-  SCH --> NTL[.github/workflows/nightly.yml]
-  WD --> NTL
-
-  subgraph CI Pipeline
-    CQ["Code Quality<br/>fmt/vet/golangci-lint + docs/Makefile checks"]
-    UT["Unit Tests<br/>coverage"]
-    IS["Integration - SQLite<br/>compose.ci.yml up sqlite/sqlite-test"]
-    IM["Integration - MySQL<br/>compose.ci.yml up mysql/mysql-test"]
-    IP["Integration - Postgres<br/>compose.ci.yml up postgres/postgres-test"]
-    IR["Integration - Redis<br/>compose.ci.yml up redis/redis-test"]
-    PB["Performance Benchmarks<br/>go test -bench"]
-    SUM["Test Summary<br/>artifact"]
-  end
-  CI --> CQ --> UT --> IS --> IM --> IP --> IR --> PB --> SUM
-
-  subgraph Release
-    PRV["Pre-release Validation<br/>unit + quick sqlite int"]
-    FIT["Full Integration Matrix<br/>mysql/postgres/redis"]
-    BR["Build Release Artifacts"]
-    CH["Generate Changelog"]
-    GR["Create GitHub Release"]
-    PN["Post-Release Notification"]
-  end
-  REL --> PRV --> FIT --> BR --> CH --> GR --> PN
-
-  subgraph Nightly
-    LRT["Long Running Tests<br/>matrix: mysql/postgres/redis"]
-    SST["SQLite Stress Test"]
-    PA["Performance Analysis"]
-    NR["Notify (optional)"]
-  end
-  NTL --> LRT --> PA --> NR
-  NTL --> SST --> PA
-```
 
 ## 📄 许可证
 

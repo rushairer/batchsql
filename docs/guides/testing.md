@@ -127,6 +127,30 @@ func (m *MockExecutor) GetProcessedCount() int {
 }
 ```
 
+### 并发安全与快照断言（v1.1.0 起）
+
+- MockExecutor 现在对内部批次写入加锁，新增 SnapshotExecutedBatches() 以提供一次性拷贝快照，避免并发读写竞态。
+- 在并发测试或异步断言中，推荐使用快照方法而非直接读取内部切片。
+
+示例：
+```go
+batch, mock := batchsql.NewBatchSQLWithMock(ctx, batchsql.PipelineConfig{
+    BufferSize: 100, FlushSize: 10, FlushInterval: 50*time.Millisecond,
+})
+
+// 并发提交若干请求...
+// 等待一小段时间让批处理刷新（或使用更稳妥的同步手段）
+time.Sleep(100 * time.Millisecond)
+
+// 使用快照进行断言，避免竞态
+batches := mock.SnapshotExecutedBatches()
+total := 0
+for _, b := range batches {
+    total += len(b)
+}
+require.GreaterOrEqual(t, total, expectedMin)
+```
+
 ## 🔗 集成测试
 
 ### 快速运行集成测试

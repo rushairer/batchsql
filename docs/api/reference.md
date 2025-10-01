@@ -30,6 +30,23 @@ func NewBatchSQL(
 - `flushInterval`: 刷新间隔（推荐：100ms-1s）
 - `executor`: 批量执行器实现
 
+### Submit 取消语义（v1.1.0 起）
+
+- 当传入的 ctx 已被取消或超时，Submit 会在尝试入队之前立即返回 ctx.Err()（context.Canceled 或 context.DeadlineExceeded）
+- 对提交通道的选择发生前即检查 ctx，避免“已入队但外部随后取消”的不确定性
+- 调用方应在提交前管理好 context 生命周期，避免无效提交
+
+最小示例：
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+cancel() // 或自然超时
+
+if err := batch.Submit(ctx, req); err != nil {
+    // 立即返回 context.Canceled 或 context.DeadlineExceeded，不会入队
+    log.Printf("submit cancelled: %v", err)
+}
+```
+
 ### Schema 定义
 
 ```go

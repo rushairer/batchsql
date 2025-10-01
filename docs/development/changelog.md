@@ -1,5 +1,21 @@
 # BatchSQL 重要修复记录
 
+## ✨ 行为与依赖更新 (2025-10-01)
+
+### 变更
+- Submit 提交逻辑：当 ctx 已取消或超时，入队前即优先返回 ctx.Err()（context.Canceled 或 context.DeadlineExceeded），避免“已入队后再取消”的不确定性。
+- MockExecutor：引入并发安全（RWMutex），新增 SnapshotExecutedBatches()，用于获取一次性快照进行断言，规避并发读写竞态。
+- 依赖升级：github.com/rushairer/go-pipeline/v2 v2.0.1 → v2.0.2。
+
+### 影响
+- 调用方可依赖更确定的取消语义；如文档或示例曾暗示“提交后仍可能入队”，需更新为“取消优先，不入队”。
+- 并发测试/示例建议改用快照方法进行断言。
+
+### 文档
+- API 参考新增“Submit 取消语义（v1.1.0 起）”章节
+- 测试指南新增“并发安全与快照断言（v1.1.0 起）”
+
+
 ## 🐛 数据完整性指标异常修复 (2025-09-30)
 
 ### 问题描述

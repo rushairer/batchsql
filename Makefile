@@ -67,56 +67,56 @@ test-integration-with-monitoring: monitoring ## 启动监控后运行集成测�
 # Docker 集成测试 - 单数据库高性能压力测试
 docker-mysql-test: ## 运行 MySQL Docker 压力测试
 	@echo "🐳 Starting MySQL pressure test..."
-	docker-compose -f ./docker-compose.integration.yml down mysql mysql-test -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml build mysql mysql-test --no-cache
-	docker-compose -f ./docker-compose.integration.yml up mysql mysql-test --abort-on-container-exit --exit-code-from mysql-test
+	docker compose -f ./docker-compose.integration.yml down mysql mysql-test -v --remove-orphans
+	docker compose -f ./docker-compose.integration.yml build mysql mysql-test --no-cache
+	docker compose -f ./docker-compose.integration.yml up mysql mysql-test --abort-on-container-exit --exit-code-from mysql-test
 
 docker-postgres-test: ## 运行 PostgreSQL Docker 压力测试
 	@echo "🐳 Starting PostgreSQL pressure test..."
-	docker-compose -f ./docker-compose.integration.yml down postgres postgres-test -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml build postgres postgres-test --no-cache
-	docker-compose -f ./docker-compose.integration.yml up postgres postgres-test --abort-on-container-exit --exit-code-from postgres-test
+	docker compose -f ./docker-compose.integration.yml down postgres postgres-test -v --remove-orphans
+	docker compose -f ./docker-compose.integration.yml build postgres postgres-test --no-cache
+	docker compose -f ./docker-compose.integration.yml up postgres postgres-test --abort-on-container-exit --exit-code-from postgres-test
 
 docker-sqlite-test: ## 运行 SQLite Docker 压力测试
 	@echo "🐳 Starting SQLite pressure test..."
-	docker-compose -f ./docker-compose.integration.yml down sqlite sqlite-test -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml build sqlite sqlite-test --no-cache
-	docker-compose -f ./docker-compose.integration.yml up sqlite sqlite-test --abort-on-container-exit --exit-code-from sqlite-test
+	docker compose -f ./docker-compose.integration.yml down sqlite sqlite-test -v --remove-orphans
+	docker compose -f ./docker-compose.integration.yml build sqlite sqlite-test --no-cache
+	docker compose -f ./docker-compose.integration.yml up sqlite sqlite-test --abort-on-container-exit --exit-code-from sqlite-test
 
 docker-redis-test: ## 运行 Redis Docker 压力测试
 	@echo "🐳 Starting Redis pressure test..."
-	docker-compose -f ./docker-compose.integration.yml down redis redis-test -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml build redis redis-test --no-cache
-	docker-compose -f ./docker-compose.integration.yml up redis redis-test --abort-on-container-exit --exit-code-from redis-test
+	docker compose -f ./docker-compose.integration.yml down redis redis-test -v --remove-orphans
+	docker compose -f ./docker-compose.integration.yml build redis redis-test --no-cache
+	docker compose -f ./docker-compose.integration.yml up redis redis-test --abort-on-container-exit --exit-code-from redis-test
 
 docker-all-tests: docker-mysql-test docker-postgres-test docker-sqlite-test docker-redis-test ## 运行所有数据库 Docker 压力测试
 	@echo "🎉 All pressure tests completed!"
 	@echo "📊 Check ./test/reports/ for detailed performance reports"
 
-# Docker 测试 + 监控（使用统一的 docker-compose 文件）
+# Docker 测试 + 监控（使用统一的 docker compose 文件）
 docker-mysql-test-with-monitoring: ## MySQL Docker 测试 + 监控
 	@echo "🐳📊 Starting MySQL pressure test with monitoring..."
-	docker-compose -f ./docker-compose.integration.yml down mysql mysql-test prometheus grafana -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml build mysql mysql-test --no-cache
-	docker-compose -f ./docker-compose.integration.yml up mysql mysql-test prometheus grafana --abort-on-container-exit --exit-code-from mysql-test
+	docker compose -f ./docker-compose.integration.yml down mysql mysql-test prometheus grafana -v --remove-orphans
+	docker compose -f ./docker-compose.integration.yml build mysql mysql-test --no-cache
+	docker compose -f ./docker-compose.integration.yml up mysql mysql-test prometheus grafana --abort-on-container-exit --exit-code-from mysql-test
 
 docker-postgres-test-with-monitoring: ## PostgreSQL Docker 测试 + 监控
 	@echo "🐳📊 Starting PostgreSQL pressure test with monitoring..."
-	docker-compose -f ./docker-compose.integration.yml down postgres postgres-test prometheus grafana -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml build postgres postgres-test --no-cache
-	docker-compose -f ./docker-compose.integration.yml up postgres postgres-test prometheus grafana --abort-on-container-exit --exit-code-from postgres-test
+	docker compose -f ./docker-compose.integration.yml down postgres postgres-test prometheus grafana -v --remove-orphans
+	docker compose -f ./docker-compose.integration.yml build postgres postgres-test --no-cache
+	docker compose -f ./docker-compose.integration.yml up postgres postgres-test prometheus grafana --abort-on-container-exit --exit-code-from postgres-test
 
 docker-sqlite-test-with-monitoring: ## SQLite Docker 测试 + 监控
 	@echo "🐳📊 Starting SQLite pressure test with monitoring..."
-	docker-compose -f ./docker-compose.integration.yml down sqlite sqlite-test prometheus grafana -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml build sqlite sqlite-test --no-cache
-	docker-compose -f ./docker-compose.integration.yml up sqlite sqlite-test prometheus grafana --abort-on-container-exit --exit-code-from sqlite-test
+	docker compose -f ./docker-compose.integration.yml down sqlite sqlite-test prometheus grafana -v --remove-orphans
+	docker compose -f ./docker-compose.integration.yml build sqlite sqlite-test --no-cache
+	docker compose -f ./docker-compose.integration.yml up sqlite sqlite-test prometheus grafana --abort-on-container-exit --exit-code-from sqlite-test
 
 docker-redis-test-with-monitoring: ## Redis Docker 测试 + 监控
 	@echo "🐳📊 Starting Redis pressure test with monitoring..."
-	docker-compose -f ./docker-compose.integration.yml down redis redis-test prometheus grafana -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml build redis redis-test --no-cache
-	docker-compose -f ./docker-compose.integration.yml up redis redis-test prometheus grafana --abort-on-container-exit --exit-code-from redis-test
+	docker compose -f ./docker-compose.integration.yml down redis redis-test prometheus grafana -v --remove-orphans
+	docker compose -f ./docker-compose.integration.yml build redis redis-test --no-cache
+	docker compose -f ./docker-compose.integration.yml up redis redis-test prometheus grafana --abort-on-container-exit --exit-code-from redis-test
 
 docker-all-tests-with-monitoring: docker-mysql-test-with-monitoring docker-postgres-test-with-monitoring docker-sqlite-test-with-monitoring docker-redis-test-with-monitoring## 所有数据库 Docker 测试 + 监控
 	@echo "🎉 All pressure tests completed!"
@@ -136,28 +136,28 @@ deps-update: ## 更新所有依赖到最新版本
 # 监控相关
 monitoring: ## 启动 Prometheus + Grafana 监控环境
 	@echo "📊 启动监控环境..."
-	docker-compose -f ./docker-compose.integration.yml up prometheus grafana -d
+	docker compose -f ./docker-compose.integration.yml up prometheus grafana -d
 
 monitoring-foreground: ## 前台启动监控环境
 	@echo "📊 前台启动监控环境..."
-	docker-compose -f ./docker-compose.integration.yml up prometheus grafana
+	docker compose -f ./docker-compose.integration.yml up prometheus grafana
 
 monitoring-stop: ## 停止监控服务
 	@echo "🛑 停止监控服务..."
-	docker-compose -f ./docker-compose.integration.yml down prometheus grafana
+	docker compose -f ./docker-compose.integration.yml down prometheus grafana
 
 monitoring-status: ## 查看监控服务状态
 	@echo "📊 监控服务状态:"
-	docker-compose -f ./docker-compose.integration.yml ps prometheus grafana
+	docker compose -f ./docker-compose.integration.yml ps prometheus grafana
 
 monitoring-logs: ## 查看监控服务日志
 	@echo "📋 监控服务日志:"
-	docker-compose -f ./docker-compose.integration.yml logs -f prometheus grafana
+	docker compose -f ./docker-compose.integration.yml logs -f prometheus grafana
 
 monitoring-cleanup: ## 清理并重启监控服务
 	@echo "🧹 清理并重启监控服务..."
-	docker-compose -f ./docker-compose.integration.yml down prometheus grafana -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml up prometheus grafana -d
+	docker compose -f ./docker-compose.integration.yml down prometheus grafana -v --remove-orphans
+	docker compose -f ./docker-compose.integration.yml up prometheus grafana -d
 
 # 开发相关
 dev-setup: deps ## 设置开发环境

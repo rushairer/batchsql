@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        database: [mysql, postgresql, redis]
+        database: [mysql, postgres, redis]
         test-duration: [1800s, 3600s]  # 30分钟和1小时测试
     steps:
     - name: Checkout code
@@ -44,7 +44,7 @@ jobs:
             echo 'MySQL is starting up...'
             sleep 2
           done
-        elif [ "${{ matrix.database }}" == "postgresql" ]; then
+        elif [ "${{ matrix.database }}" == "postgres" ]; then
           docker run -d --name postgres-service \
             -e POSTGRES_DB=batchsql_test \
             -e POSTGRES_USER=testuser \
@@ -77,7 +77,7 @@ jobs:
 
     - name: Build test image
       run: |
-        docker compose -f docker-compose.${{ matrix.database }}.yml build --no-cache
+        docker compose -f docker-compose.integration.yml build ${{ matrix.database }} ${{ matrix.database }}-test --no-cache
 
     - name: Run long performance tests
       run: |
@@ -92,14 +92,14 @@ jobs:
         # 设置数据库连接
         if [ "${{ matrix.database }}" == "mysql" ]; then
           export MYSQL_DSN="testuser:testpass123@tcp(host.docker.internal:3306)/batchsql_test?parseTime=true&multiStatements=true"
-        elif [ "${{ matrix.database }}" == "postgresql" ]; then
+        elif [ "${{ matrix.database }}" == "postgres" ]; then
           export POSTGRES_DSN="postgres://testuser:testpass123@host.docker.internal:5432/batchsql_test?sslmode=disable"
         elif [ "${{ matrix.database }}" == "redis" ]; then
           export REDIS_ADDR="host.docker.internal:6379"
         fi
         
         # 运行测试
-        timeout 7200 docker compose -f docker-compose.${{ matrix.database }}.yml up --abort-on-container-exit --exit-code-from ${{ matrix.database }}-test || true
+        timeout 7200 docker compose -f docker-compose.integration.yml up ${{ matrix.database }} ${{ matrix.database }}-test --abort-on-container-exit --exit-code-from ${{ matrix.database }}-test || true
 
     - name: Extract performance reports
       run: |
@@ -134,7 +134,7 @@ jobs:
 
     - name: Build SQLite test image
       run: |
-        docker compose -f docker-compose.sqlite.yml build --no-cache
+        docker compose -f docker-compose.integration.yml build sqlite sqlite-test --no-cache
 
     - name: Run SQLite stress tests
       run: |
@@ -147,7 +147,7 @@ jobs:
         export FLUSH_INTERVAL=50ms
         
         # 运行测试并忽略退出码（SQLite 预期会有失败）
-        docker compose -f docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test || true
+        docker compose -f docker-compose.integration.yml up sqlite sqlite-test --abort-on-container-exit --exit-code-from sqlite-test || true
 
     - name: Extract SQLite stress reports
       run: |

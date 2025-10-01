@@ -7,22 +7,46 @@
 ## 🏗️ 架构设计
 
 ### 核心组件
-```
-Application
-    ↓
-BatchSQL (绑定特定数据库类型)
-    ↓
-gopipeline (按Schema指针分组)
-    ↓
-BatchExecutor (统一执行接口)
-    ├── CommonExecutor (通用执行器)
-    │   ↓
-    │   BatchProcessor + Driver (操作生成和执行)
-    │   ↓
-    │   Database Connection
-    └── 支持多种数据库类型
-        ├── SQL数据库: MySQL、PostgreSQL、SQLite
-        └── NoSQL数据库: Redis
+```mermaid
+flowchart TB
+
+  %% 子图1：系统级数据流
+  subgraph A0[系统级数据流]
+    A1[Application] --> A2["BatchSQL<br/>(MySQL/PG/SQLite/Redis)"] --> A3["gopipeline<br/>(异步批量处理)"]
+
+    A2 --> A4["BatchExecutor<br/>(统一执行接口)"]
+    A3 --> A5["Flush Function<br/>(批量刷新逻辑)"]
+
+    A4 --> A6[数据库驱动层]
+    A5 --> A7["Schema Grouping<br/>(按表分组聚合)"]
+
+    A6 --> A8["SQL数据库<br/>(MySQL/PG/SQLite)"]
+    A6 --> A9[Redis数据库]
+
+    A8 --> A10["Database<br/>(SQL连接池)"]
+    A9 --> A11["Redis Client<br/>(Redis连接)"]
+  end
+
+  %% 子图2：组件分层与驱动路径
+  subgraph B0[组件分层与驱动路径]
+    B1["BatchExecutor"] --> B2["CommonExecutor<br/>(通用执行器)"]
+    B2 --> B3["BatchProcessor + Driver<br/>(操作生成和执行)"]
+    B3 --> B4["Database Connection"]
+
+    %% 数据库类型分支
+    B4 --> B5[SQL数据库]
+    B4 --> B6[NoSQL数据库]
+
+    B5 --> B51[MySQL]
+    B5 --> B52[PostgreSQL]
+    B5 --> B53[SQLite]
+
+    B6 --> B61[Redis]
+  end
+
+  %% 视图之间的对应关系（虚线）
+  A4 -. 同一执行器 .-> B1
+  A6 -. 连接/驱动 .-> B4
 ```
 
 ### 设计原则
@@ -727,25 +751,7 @@ batchsql/
         └── tools/...
 ```
 
-## 🔧 架构图
 
-### 整体架构
-```mermaid
-flowchart TB
-  A[Application] --> B["BatchSQL<br/>(MySQL/PG/SQLite/Redis)"] --> C[gopipeline<br/>(异步批量处理)]
-
-  B --> D[BatchExecutor<br/>(统一执行接口)]
-  C --> E[Flush Function<br/>(批量刷新逻辑)]
-
-  D --> F[数据库驱动层]
-  E --> G[Schema Grouping<br/>(按表分组聚合)]
-
-  F --> H[SQL数据库<br/>(MySQL/PG/SQLite)]
-  F --> I[Redis数据库]
-
-  H --> J[Database<br/>(SQL连接池)]
-  I --> K[Redis Client<br/>(Redis连接)]
-```
 
 
 ## 🤝 贡献

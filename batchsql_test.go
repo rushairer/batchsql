@@ -67,30 +67,33 @@ func TestBatchSQL(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// 验证执行结果
-	if len(mysqlSchemaMockExecutor.ExecutedBatches) == 0 {
+	snapshotMy := mysqlSchemaMockExecutor.SnapshotExecutedBatches()
+	if len(snapshotMy) == 0 {
 		t.Error("No MySQL batches were executed")
 	}
 
-	t.Logf("Total executed batches: %d", len(mysqlSchemaMockExecutor.ExecutedBatches))
-	for i, batch := range mysqlSchemaMockExecutor.ExecutedBatches {
+	t.Logf("Total executed batches: %d", len(snapshotMy))
+	for i, batch := range snapshotMy {
 		t.Logf("MySQL batch %d: %d requests", i, len(batch))
 	}
 
-	if len(postgreSQLMockExecutor.ExecutedBatches) == 0 {
+	snapshotPg := postgreSQLMockExecutor.SnapshotExecutedBatches()
+	if len(snapshotPg) == 0 {
 		t.Error("No PostgreSQL batches were executed")
 	}
 
-	t.Logf("Total executed batches: %d", len(postgreSQLMockExecutor.ExecutedBatches))
-	for i, batch := range postgreSQLMockExecutor.ExecutedBatches {
+	t.Logf("Total executed batches: %d", len(snapshotPg))
+	for i, batch := range snapshotPg {
 		t.Logf("PostgreSQL batch%d: %d requests", i, len(batch))
 	}
 
-	if len(sqliteMockExecutor.ExecutedBatches) == 0 {
+	snapshotSq := sqliteMockExecutor.SnapshotExecutedBatches()
+	if len(snapshotSq) == 0 {
 		t.Error("No SQLite batches were executed")
 	}
 
-	t.Logf("Total executed batches: %d", len(sqliteMockExecutor.ExecutedBatches))
-	for i, batch := range sqliteMockExecutor.ExecutedBatches {
+	t.Logf("Total executed batches: %d", len(snapshotSq))
+	for i, batch := range snapshotSq {
 		t.Logf("SQLite batch%d: %d requests", i, len(batch))
 	}
 }
@@ -125,11 +128,12 @@ func TestSchemaGrouping(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 
 	// 验证是否按 schema 指针正确分组
-	if len(mockExecutor.ExecutedBatches) == 0 {
+	snapshot := mockExecutor.SnapshotExecutedBatches()
+	if len(snapshot) == 0 {
 		t.Error("No batches were executed")
 	}
 
-	t.Logf("Schema grouping test - executed batches: %d", len(mockExecutor.ExecutedBatches))
+	t.Logf("Schema grouping test - executed batches: %d", len(snapshot))
 }
 
 func TestSQLGeneration(t *testing.T) {

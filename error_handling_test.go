@@ -46,6 +46,9 @@ func TestErrorHandling_ExecutionError(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, errorExecutor)
 
+	// 提前创建错误通道，避免并发期间修改内部通道
+	errorChan := batch.ErrorChan(10)
+
 	// 创建 schema 和请求
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
 	request := batchsql.NewRequest(schema).SetInt64("id", 1)
@@ -55,9 +58,6 @@ func TestErrorHandling_ExecutionError(t *testing.T) {
 	if err != nil {
 		t.Errorf("Submit should not return error immediately: %v", err)
 	}
-
-	// 监听错误通道
-	errorChan := batch.ErrorChan(10)
 
 	// 等待错误
 	select {
@@ -83,6 +83,9 @@ func TestErrorHandling_ContextTimeout(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, slowExecutor)
 
+	// 提前创建错误通道，使用短超时
+	errorChan := batch.ErrorChan(10)
+
 	// 创建 schema 和请求
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
 	request := batchsql.NewRequest(schema).SetInt64("id", 1)
@@ -92,9 +95,6 @@ func TestErrorHandling_ContextTimeout(t *testing.T) {
 	if err != nil {
 		t.Errorf("Submit should not return error immediately: %v", err)
 	}
-
-	// 监听错误通道，使用短超时
-	errorChan := batch.ErrorChan(10)
 
 	// 等待错误或超时
 	select {
@@ -120,6 +120,9 @@ func TestErrorHandling_ContextCancellation(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, slowExecutor)
 
+	// 提前创建错误通道
+	errorChan := batch.ErrorChan(10)
+
 	// 创建 schema 和请求
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id")
 	request := batchsql.NewRequest(schema).SetInt64("id", 1)
@@ -129,9 +132,6 @@ func TestErrorHandling_ContextCancellation(t *testing.T) {
 	if err != nil {
 		t.Errorf("Submit should not return error immediately: %v", err)
 	}
-
-	// 监听错误通道
-	errorChan := batch.ErrorChan(10)
 
 	// 等待错误或超时
 	select {
@@ -184,6 +184,9 @@ func TestErrorHandling_MultipleErrors(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 2, time.Second, errorExecutor)
 
+	// 提前创建错误通道
+	errorChan := batch.ErrorChan(10)
+
 	// 创建多个不同的 schema
 	schema1 := batchsql.NewSchema("table1", batchsql.ConflictIgnore, "id")
 	schema2 := batchsql.NewSchema("table2", batchsql.ConflictIgnore, "id")
@@ -193,9 +196,6 @@ func TestErrorHandling_MultipleErrors(t *testing.T) {
 	_ = batch.Submit(ctx, batchsql.NewRequest(schema1).SetInt64("id", 1))
 	_ = batch.Submit(ctx, batchsql.NewRequest(schema2).SetInt64("id", 2))
 	_ = batch.Submit(ctx, batchsql.NewRequest(schema3).SetInt64("id", 3))
-
-	// 监听错误通道
-	errorChan := batch.ErrorChan(10)
 
 	// 等待错误
 	select {

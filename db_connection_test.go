@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 // MockDB 模拟数据库连接
 type MockDB struct {
+	mu           sync.RWMutex
 	shouldFail   bool
 	errorMessage string
 	delay        time.Duration
@@ -20,35 +22,52 @@ type MockDB struct {
 }
 
 func (m *MockDB) Ping() error {
+	m.mu.Lock()
 	m.pingCount++
-	if m.shouldFail {
-		return errors.New(m.errorMessage)
+	shouldFail := m.shouldFail
+	errMsg := m.errorMessage
+	m.mu.Unlock()
+
+	if shouldFail {
+		return errors.New(errMsg)
 	}
 	return nil
 }
 
 func (m *MockDB) Exec(query string, args ...any) (sql.Result, error) {
+	m.mu.Lock()
 	m.execCount++
-	if m.delay > 0 {
-		time.Sleep(m.delay)
+	delay := m.delay
+	shouldFail := m.shouldFail
+	errMsg := m.errorMessage
+	m.mu.Unlock()
+
+	if delay > 0 {
+		time.Sleep(delay)
 	}
-	if m.shouldFail {
-		return nil, errors.New(m.errorMessage)
+	if shouldFail {
+		return nil, errors.New(errMsg)
 	}
 	return &MockResult{}, nil
 }
 
 func (m *MockDB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	m.mu.Lock()
 	m.execCount++
-	if m.delay > 0 {
+	delay := m.delay
+	shouldFail := m.shouldFail
+	errMsg := m.errorMessage
+	m.mu.Unlock()
+
+	if delay > 0 {
 		select {
-		case <-time.After(m.delay):
+		case <-time.After(delay):
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
 	}
-	if m.shouldFail {
-		return nil, errors.New(m.errorMessage)
+	if shouldFail {
+		return nil, errors.New(errMsg)
 	}
 	return &MockResult{}, nil
 }
@@ -62,6 +81,13 @@ func (m *MockResult) LastInsertId() (int64, error) {
 
 func (m *MockResult) RowsAffected() (int64, error) {
 	return 1, nil
+}
+
+// 线程安全地更新 shouldFail
+func (m *MockDB) SetShouldFail(v bool) {
+	m.mu.Lock()
+	m.shouldFail = v
+	m.mu.Unlock()
 }
 
 // MockBatchExecutor 模拟批量执行器，用于测试数据库连接异常
@@ -105,6 +131,9 @@ func TestDBConnection_ConnectionFailure(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
+	// 提前创建错误通道，避免并发修改内部通道
+	errorChan := batch.ErrorChan(10)
+
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
@@ -114,9 +143,6 @@ func TestDBConnection_ConnectionFailure(t *testing.T) {
 	if err != nil {
 		t.Errorf("Submit should not fail immediately: %v", err)
 	}
-
-	// 监听错误通道
-	errorChan := batch.ErrorChan(10)
 
 	select {
 	case err := <-errorChan:
@@ -145,6 +171,9 @@ func TestDBConnection_SlowConnection(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
+	// 提前创建错误通道
+	errorChan := batch.ErrorChan(10)
+
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
@@ -154,9 +183,6 @@ func TestDBConnection_SlowConnection(t *testing.T) {
 	if err != nil {
 		t.Errorf("Submit should not fail immediately: %v", err)
 	}
-
-	// 监听错误通道
-	errorChan := batch.ErrorChan(10)
 
 	select {
 	case err := <-errorChan:
@@ -185,6 +211,9 @@ func TestDBConnection_ConnectionRecovery(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
+	// 提前创建错误通道
+	errorChan := batch.ErrorChan(10)
+
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 
 	// 提交第一个请求（应该失败）
@@ -196,9 +225,6 @@ func TestDBConnection_ConnectionRecovery(t *testing.T) {
 	if err != nil {
 		t.Errorf("Submit should not fail immediately: %v", err)
 	}
-
-	// 监听错误通道
-	errorChan := batch.ErrorChan(10)
 
 	// 等待第一个错误
 	select {
@@ -213,7 +239,7 @@ func TestDBConnection_ConnectionRecovery(t *testing.T) {
 	}
 
 	// 模拟连接恢复
-	mockDB.shouldFail = false
+	mockDB.SetShouldFail(false)
 
 	// 提交第二个请求（应该成功）
 	request2 := batchsql.NewRequest(schema).
@@ -305,6 +331,9 @@ func TestDBConnection_ContextCancellationDuringExecution(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
+	// 提前创建错误通道
+	errorChan := batch.ErrorChan(10)
+
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
@@ -314,9 +343,6 @@ func TestDBConnection_ContextCancellationDuringExecution(t *testing.T) {
 	if err != nil {
 		t.Errorf("Submit should not fail immediately: %v", err)
 	}
-
-	// 监听错误通道
-	errorChan := batch.ErrorChan(10)
 
 	// 等待错误（应该是上下文取消错误）
 	select {
@@ -342,6 +368,9 @@ func TestDBConnection_MaxConnectionsExceeded(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 100, 10, time.Second, executor)
 
+	// 提前创建错误通道
+	errorChan := batch.ErrorChan(50)
+
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 
 	// 提交大量请求
@@ -356,8 +385,6 @@ func TestDBConnection_MaxConnectionsExceeded(t *testing.T) {
 		}
 	}
 
-	// 监听错误通道
-	errorChan := batch.ErrorChan(50)
 	errorCount := 0
 
 	timeout := time.After(3 * time.Second)
@@ -396,6 +423,9 @@ func TestDBConnection_NetworkPartition(t *testing.T) {
 
 	batch := batchsql.NewBatchSQL(ctx, 10, 5, time.Second, executor)
 
+	// 提前创建错误通道，期望超时错误
+	errorChan := batch.ErrorChan(10)
+
 	schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
 	request := batchsql.NewRequest(schema).
 		SetInt64("id", 1).
@@ -405,9 +435,6 @@ func TestDBConnection_NetworkPartition(t *testing.T) {
 	if err != nil {
 		t.Errorf("Submit should not fail immediately: %v", err)
 	}
-
-	// 监听错误通道，期望超时错误
-	errorChan := batch.ErrorChan(10)
 
 	select {
 	case err := <-errorChan:

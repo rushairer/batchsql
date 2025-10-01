@@ -3,6 +3,7 @@ package batchsql_test
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -144,8 +145,7 @@ func TestConcurrency_HighFrequencySubmission(t *testing.T) {
 				err := batch.Submit(ctx, request)
 				if err != nil {
 					// 使用原子操作计数错误
-					// atomic.AddInt32(&errorCount, 1)
-					errorCount++
+					atomic.AddInt32(&errorCount, 1)
 					t.Errorf("High frequency submission failed: %v", err)
 				}
 			}
@@ -196,9 +196,9 @@ func TestConcurrency_ContextCancellation(t *testing.T) {
 
 					err := batch.Submit(ctx, request)
 					if err != nil {
-						errorCount++
+						atomic.AddInt32(&errorCount, 1)
 					} else {
-						submittedCount++
+						atomic.AddInt32(&submittedCount, 1)
 					}
 				}
 			}
@@ -207,14 +207,14 @@ func TestConcurrency_ContextCancellation(t *testing.T) {
 
 	// 在短时间后取消上下文
 	go func() {
-		time.Sleep(time.Nanosecond)
+		time.Sleep(10 * time.Millisecond)
 		cancel()
 	}()
 
 	wg.Wait()
 
-	t.Logf("Submitted requests before cancellation: %d", submittedCount)
-	t.Logf("Errors after cancellation: %d", errorCount)
+	t.Logf("Submitted requests before cancellation: %d", atomic.LoadInt32(&submittedCount))
+	t.Logf("Errors after cancellation: %d", atomic.LoadInt32(&errorCount))
 
 	// 验证取消后不能再提交
 	request := batchsql.NewRequest(schema).SetInt64("id", 99999).SetString("data", "after_cancel")
@@ -238,6 +238,9 @@ func TestConcurrency_MixedOperations(t *testing.T) {
 
 	var wg sync.WaitGroup
 	const numOperations = 1000
+
+	// 提前创建错误通道，避免并发期间修改内部通道指针
+	errorChan := batch.ErrorChan(100)
 
 	// 提交操作的 goroutine
 	wg.Add(1)
@@ -265,7 +268,6 @@ func TestConcurrency_MixedOperations(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		errorChan := batch.ErrorChan(100)
 		errorCount := 0
 
 		timeout := time.After(5 * time.Second)
@@ -333,7 +335,7 @@ func TestConcurrency_StressTest(t *testing.T) {
 				}
 			}
 
-			totalErrors += int32(localErrors)
+			atomic.AddInt32(&totalErrors, int32(localErrors))
 		}(i)
 	}
 

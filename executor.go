@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -113,6 +114,7 @@ type MockExecutor struct {
 	ExecutedBatches [][]map[string]any
 	driver          SQLDriver
 	metricsReporter MetricsReporter
+	mu              sync.RWMutex
 }
 
 // NewMockExecutor 创建模拟批量执行器（使用默认Driver）
@@ -136,7 +138,9 @@ func NewMockExecutorWithDriver(driver SQLDriver) *MockExecutor {
 
 // ExecuteBatch 模拟执行批量操作
 func (e *MockExecutor) ExecuteBatch(ctx context.Context, schema *Schema, data []map[string]any) error {
+	e.mu.Lock()
 	e.ExecutedBatches = append(e.ExecutedBatches, data)
+	e.mu.Unlock()
 
 	// 生成SQL信息（不输出大参数）
 	_, args, err := e.driver.GenerateInsertSQL(ctx, schema, data)
@@ -155,4 +159,13 @@ func (e *MockExecutor) ExecuteBatch(ctx context.Context, schema *Schema, data []
 func (e *MockExecutor) WithMetricsReporter(metricsReporter MetricsReporter) BatchExecutor {
 	e.metricsReporter = metricsReporter
 	return e
+}
+
+// SnapshotExecutedBatches 返回一次性快照，避免并发读写竞态
+func (e *MockExecutor) SnapshotExecutedBatches() [][]map[string]any {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	out := make([][]map[string]any, len(e.ExecutedBatches))
+	copy(out, e.ExecutedBatches)
+	return out
 }

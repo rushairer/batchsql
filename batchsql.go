@@ -189,6 +189,11 @@ func (b *BatchSQL) ErrorChan(size int) <-chan error {
 
 // Submit 提交请求到批量处理管道
 func (b *BatchSQL) Submit(ctx context.Context, request *Request) error {
+	// 优先尊重取消，避免 select 在多就绪时随机选择发送路径
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	if request == nil {
 		return ErrEmptyRequest
 	}

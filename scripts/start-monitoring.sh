@@ -62,13 +62,13 @@ while [[ $# -gt 0 ]]; do
             ;;
         --stop)
             echo -e "${YELLOW}🛑 停止监控服务...${NC}"
-            docker-compose -f $COMPOSE_FILE down prometheus grafana
+            docker compose -f $COMPOSE_FILE down prometheus grafana
             echo -e "${GREEN}✅ 监控服务已停止${NC}"
             exit 0
             ;;
         --status)
             echo -e "${BLUE}📊 监控服务状态:${NC}"
-            docker-compose -f $COMPOSE_FILE ps prometheus grafana
+            docker compose -f $COMPOSE_FILE ps prometheus grafana
             exit 0
             ;;
         *)
@@ -86,7 +86,7 @@ check_dependencies() {
         exit 1
     fi
 
-    if ! command -v docker-compose &> /dev/null; then
+    if ! command -v docker compose &> /dev/null; then
         echo -e "${RED}❌ Docker Compose 未安装或不在 PATH 中${NC}"
         exit 1
     fi
@@ -123,7 +123,7 @@ check_config_files() {
 cleanup_services() {
     if [[ $CLEANUP == true ]]; then
         echo -e "${YELLOW}🧹 清理旧服务...${NC}"
-        docker-compose -f $COMPOSE_FILE down prometheus grafana -v --remove-orphans
+        docker compose -f $COMPOSE_FILE down prometheus grafana -v --remove-orphans
         docker system prune -f
         echo -e "${GREEN}✅ 清理完成${NC}"
     fi
@@ -138,7 +138,7 @@ start_services() {
         compose_args+=("-d")
     fi
 
-    docker-compose -f $COMPOSE_FILE up prometheus grafana "${compose_args[@]}"
+    docker compose -f $COMPOSE_FILE up prometheus grafana "${compose_args[@]}"
     
     if [[ $DETACH_MODE == true ]]; then
         echo -e "${GREEN}✅ 监控服务已启动${NC}"
@@ -149,7 +149,7 @@ start_services() {
         
         # 检查服务状态
         echo -e "${BLUE}📊 服务状态:${NC}"
-        docker-compose -f $COMPOSE_FILE ps prometheus grafana
+        docker compose -f $COMPOSE_FILE ps prometheus grafana
         
         # 显示访问信息
         echo ""
@@ -170,7 +170,7 @@ start_services() {
         # 显示日志（如果请求）
         if [[ $SHOW_LOGS == true ]]; then
             echo -e "${BLUE}📋 实时日志 (Ctrl+C 退出):${NC}"
-            docker-compose -f $COMPOSE_FILE logs -f prometheus grafana
+            docker compose -f $COMPOSE_FILE logs -f prometheus grafana
         fi
     fi
 }

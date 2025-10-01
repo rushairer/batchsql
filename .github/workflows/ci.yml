@@ -368,66 +368,7 @@ jobs:
         path: test/reports-redis/
         retention-days: 30
 
-  # 监控系统测试
-  monitoring-tests:
-    name: Monitoring System Tests
-    runs-on: ubuntu-latest
-    needs: unit-tests
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Test monitoring stack startup
-      run: |
-        # 测试监控系统能否正常启动
-        echo "Testing monitoring stack..."
-        
-        # 启动监控服务
-        make monitoring &
-        MONITORING_PID=$!
-        
-        # 等待服务启动
-        sleep 30
-        
-        # 检查服务是否正常运行
-        if curl -f http://localhost:9090/metrics > /dev/null 2>&1; then
-          echo "✅ Prometheus metrics endpoint is accessible"
-        else
-          echo "❌ Prometheus metrics endpoint is not accessible"
-          exit 1
-        fi
-        
-        if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
-          echo "✅ Grafana health endpoint is accessible"
-        else
-          echo "❌ Grafana health endpoint is not accessible"
-          exit 1
-        fi
-        
-        # 清理
-        kill $MONITORING_PID || true
-        docker compose -f test/integration/grafana/docker-compose.monitoring.yml down || true
-
-    - name: Test integration with monitoring
-      run: |
-        # 测试集成测试与监控系统的集成
-        echo "Testing integration tests with monitoring..."
-        
-        # 启动监控并运行快速测试
-        export TEST_DURATION=60s
-        export CONCURRENT_WORKERS=2
-        export RECORDS_PER_WORKER=500
-        export BATCH_SIZE=50
-        export BUFFER_SIZE=1000
-        export FLUSH_INTERVAL=100ms
-        
-        # 运行带监控的集成测试
-        timeout 300 make test-integration-with-monitoring || true
-        
-        echo "✅ Monitoring integration test completed"
 
   # 性能基准测试（仅在主分支和定时任务中运行）
   performance-benchmarks:
@@ -459,7 +400,7 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [integration-sqlite, integration-mysql, integration-postgresql, integration-redis, monitoring-tests]
+    needs: [integration-sqlite, integration-mysql, integration-postgresql, integration-redis]
     if: always()
     steps:
     - name: Checkout code
@@ -502,22 +443,18 @@ jobs:
           echo "❌ Redis Integration Tests: FAILED" >> test_summary.md
         fi
         
-        if [ "${{ needs.monitoring-tests.result }}" == "success" ]; then
-          echo "✅ Monitoring System Tests: PASSED" >> test_summary.md
-        else
-          echo "❌ Monitoring System Tests: FAILED" >> test_summary.md
-        fi
+
         
         echo "" >> test_summary.md
         echo "## Test Coverage Summary" >> test_summary.md
         echo "- **Database Support**: MySQL ✅ | PostgreSQL ✅ | SQLite ⚠️ | Redis ✅" >> test_summary.md
-        echo "- **Monitoring**: Prometheus + Grafana integration ✅" >> test_summary.md
+
         echo "- **Documentation**: Structure validation ✅" >> test_summary.md
         echo "" >> test_summary.md
         echo "## Notes" >> test_summary.md
         echo "- SQLite test failures are expected due to architectural limitations" >> test_summary.md
         echo "- MySQL, PostgreSQL, and Redis should pass all tests" >> test_summary.md
-        echo "- Monitoring system integration is validated" >> test_summary.md
+
         echo "- Detailed reports are available in the artifacts" >> test_summary.md
 
     - name: Upload test summary

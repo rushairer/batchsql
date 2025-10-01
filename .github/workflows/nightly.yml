@@ -77,7 +77,7 @@ jobs:
 
     - name: Build test image
       run: |
-        docker-compose -f docker-compose.${{ matrix.database }}.yml build --no-cache
+        docker compose -f docker-compose.${{ matrix.database }}.yml build --no-cache
 
     - name: Run long performance tests
       run: |
@@ -99,7 +99,7 @@ jobs:
         fi
         
         # 运行测试
-        timeout 7200 docker-compose -f docker-compose.${{ matrix.database }}.yml up --abort-on-container-exit --exit-code-from ${{ matrix.database }}-test || true
+        timeout 7200 docker compose -f docker-compose.${{ matrix.database }}.yml up --abort-on-container-exit --exit-code-from ${{ matrix.database }}-test || true
 
     - name: Extract performance reports
       run: |
@@ -134,7 +134,7 @@ jobs:
 
     - name: Build SQLite test image
       run: |
-        docker-compose -f docker-compose.sqlite.yml build --no-cache
+        docker compose -f docker-compose.sqlite.yml build --no-cache
 
     - name: Run SQLite stress tests
       run: |
@@ -147,7 +147,7 @@ jobs:
         export FLUSH_INTERVAL=50ms
         
         # 运行测试并忽略退出码（SQLite 预期会有失败）
-        docker-compose -f docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test || true
+        docker compose -f docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test || true
 
     - name: Extract SQLite stress reports
       run: |

@@ -151,7 +151,7 @@ jobs:
 
     - name: Build SQLite test image
       run: |
-        docker-compose -f docker-compose.sqlite.yml build --no-cache
+        docker compose -f docker-compose.sqlite.yml build --no-cache
 
     - name: Run SQLite integration tests
       run: |
@@ -164,7 +164,7 @@ jobs:
         export FLUSH_INTERVAL=100ms
         
         # 运行测试并捕获退出码
-        docker-compose -f docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test || true
+        docker compose -f docker-compose.sqlite.yml up --abort-on-container-exit --exit-code-from sqlite-test || true
 
     - name: Extract test reports
       run: |
@@ -221,7 +221,7 @@ jobs:
 
     - name: Build MySQL test image
       run: |
-        docker-compose -f docker-compose.mysql.yml build --no-cache
+        docker compose -f docker-compose.mysql.yml build --no-cache
 
     - name: Run MySQL integration tests
       run: |
@@ -236,7 +236,7 @@ jobs:
         # 更新 MySQL DSN 以连接到 GitHub Actions 的 MySQL 服务
         export MYSQL_DSN="testuser:testpass123@tcp(host.docker.internal:3306)/batchsql_test?parseTime=true&multiStatements=true"
         
-        docker-compose -f docker-compose.mysql.yml up --abort-on-container-exit --exit-code-from mysql-test
+        docker compose -f docker-compose.mysql.yml up --abort-on-container-exit --exit-code-from mysql-test
 
     - name: Extract test reports
       run: |
@@ -281,7 +281,7 @@ jobs:
 
     - name: Build PostgreSQL test image
       run: |
-        docker-compose -f docker-compose.postgres.yml build --no-cache
+        docker compose -f docker-compose.postgres.yml build --no-cache
 
     - name: Run PostgreSQL integration tests
       run: |
@@ -296,7 +296,7 @@ jobs:
         # 更新 PostgreSQL DSN 以连接到 GitHub Actions 的 PostgreSQL 服务
         export POSTGRES_DSN="postgres://testuser:testpass123@host.docker.internal:5432/batchsql_test?sslmode=disable"
         
-        docker-compose -f docker-compose.postgres.yml up --abort-on-container-exit --exit-code-from postgres-test
+        docker compose -f docker-compose.postgres.yml up --abort-on-container-exit --exit-code-from postgres-test
 
     - name: Extract test reports
       run: |
@@ -337,7 +337,7 @@ jobs:
 
     - name: Build Redis test image
       run: |
-        docker-compose -f docker-compose.redis.yml build --no-cache
+        docker compose -f docker-compose.redis.yml build --no-cache
 
     - name: Run Redis integration tests
       run: |
@@ -352,7 +352,7 @@ jobs:
         # 更新 Redis DSN 以连接到 GitHub Actions 的 Redis 服务
         export REDIS_ADDR="host.docker.internal:6379"
         
-        docker-compose -f docker-compose.redis.yml up --abort-on-container-exit --exit-code-from redis-test
+        docker compose -f docker-compose.redis.yml up --abort-on-container-exit --exit-code-from redis-test
 
     - name: Extract test reports
       run: |
@@ -409,7 +409,7 @@ jobs:
         
         # 清理
         kill $MONITORING_PID || true
-        docker-compose -f test/integration/grafana/docker-compose.monitoring.yml down || true
+        docker compose -f test/integration/grafana/docker-compose.monitoring.yml down || true
 
     - name: Test integration with monitoring
       run: |

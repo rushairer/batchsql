@@ -127,7 +127,7 @@ func (m *MockExecutor) GetProcessedCount() int {
 }
 ```
 
-### 并发安全与快照断言（v1.1.0 起）
+### 并发安全与快照断言（v1.1.1 起）
 
 - MockExecutor 现在对内部批次写入加锁，新增 SnapshotExecutedBatches() 以提供一次性拷贝快照，避免并发读写竞态。
 - 在并发测试或异步断言中，推荐使用快照方法而非直接读取内部切片。

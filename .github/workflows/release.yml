@@ -76,8 +76,8 @@ jobs:
         export FLUSH_INTERVAL=100ms
         
         # 只测试 SQLite（最快）进行发布前验证
-        docker compose -f docker-compose.integration.yml build sqlite sqlite-test --no-cache
-        docker compose -f docker-compose.integration.yml up sqlite sqlite-test --abort-on-container-exit --exit-code-from sqlite-test || true
+        docker compose -f docker-compose.ci.yml build sqlite sqlite-test --no-cache
+        docker compose -f docker-compose.ci.yml up sqlite sqlite-test --abort-on-container-exit --exit-code-from sqlite-test || true
 
   # 完整集成测试
   full-integration-tests:
@@ -150,8 +150,8 @@ jobs:
           export REDIS_ADDR="host.docker.internal:6379"
         fi
         
-        docker compose -f docker-compose.integration.yml build ${{ matrix.database }} ${{ matrix.database }}-test --no-cache
-        docker compose -f docker-compose.integration.yml up ${{ matrix.database }} ${{ matrix.database }}-test --abort-on-container-exit --exit-code-from ${{ matrix.database }}-test
+        docker compose -f docker-compose.ci.yml build ${{ matrix.database }} ${{ matrix.database }}-test --no-cache
+        docker compose -f docker-compose.ci.yml up ${{ matrix.database }} ${{ matrix.database }}-test --abort-on-container-exit --exit-code-from ${{ matrix.database }}-test
 
     - name: Extract test reports
       run: |

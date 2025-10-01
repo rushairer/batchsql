@@ -782,6 +782,115 @@ batchsql/
 - 代码覆盖率 ≥ 60%
 - 通过 golangci-lint 检查
 
+## 🗺️ 项目架构图 (Mermaid)
+
+### 系统架构总览
+```mermaid
+graph TD
+  A[Apps / Benchmarks / cmd/*] --> C[BatchSQL Core]
+  subgraph Core
+    C[BatchSQL Core]
+    C1[Config & Env\n(.env.test / .env.sqlite.test)]
+    C2[Buffer & Batching\n(batch size, flush interval, buffer size)]
+    C3[Workers\n(concurrency)]
+    C4[Metrics Hooks]
+  end
+
+  C --> D1[Driver: MySQL]
+  C --> D2[Driver: Postgres]
+  C --> D3[Driver: SQLite]
+  C --> D4[Driver: Redis]
+
+  subgraph Storage Backends
+    DB1[(MySQL)]
+    DB2[(Postgres)]
+    DB3[(SQLite File)]
+    DB4[(Redis)]
+  end
+
+  D1 --> DB1
+  D2 --> DB2
+  D3 --> DB3
+  D4 --> DB4
+
+  subgraph Tests
+    T1[Unit Tests\n(go test ./...)]
+    T2[Int Tests via Docker\nsqlite/mysql/postgres/redis -test]
+    SQL[Init SQL\n(test/sql/*)]
+  end
+  SQL -. mounted .-> T2
+  T1 --> C
+  T2 --> C
+
+  subgraph Docker
+    DCi[docker-compose.ci.yml\n(no host ports)]
+    DInt[docker-compose.integration.yml\n(with ports, local dev)]
+    Images[Dockerfile.integration\nDockerfile.sqlite.integration]
+  end
+  Images --> T2
+  DCi --> T2
+  DInt --> T2
+
+  subgraph Docs
+    DOCS[docs/*\n(api, guides, reports, development)]
+    README[README.md]
+  end
+  DOCS --> A
+  README --> A
+```
+
+### CI/CD 流程（GitHub Actions）
+```mermaid
+flowchart TD
+  subgraph Triggers
+    P1[push: main/develop]
+    PR[pull_request]
+    SCH[schedule (cron)]
+    TAG[tag: v*]
+    WD[workflow_dispatch]
+  end
+
+  P1 --> CI[.github/workflows/ci.yml]
+  PR --> CI
+  SCH --> CI
+
+  TAG --> REL[.github/workflows/release.yml]
+  WD --> REL
+  SCH --> NTL[.github/workflows/nightly.yml]
+  WD --> NTL
+
+  subgraph CI Pipeline
+    CQ[Code Quality\nfmt/vet/golangci-lint + docs/Makefile checks]
+    UT[Unit Tests\ncoverage]
+    IS[Integration - SQLite\ncompose.ci.yml up sqlite/sqlite-test]
+    IM[Integration - MySQL\ncompose.ci.yml up mysql/mysql-test]
+    IP[Integration - Postgres\ncompose.ci.yml up postgres/postgres-test]
+    IR[Integration - Redis\ncompose.ci.yml up redis/redis-test]
+    PB[Performance Benchmarks\n-go test -bench]
+    SUM[Test Summary\nartifact]
+  end
+  CI --> CQ --> UT --> IS --> IM --> IP --> IR --> PB --> SUM
+
+  subgraph Release
+    PRV[Pre-release Validation\nunit + quick sqlite int]
+    FIT[Full Integration Matrix\nmysql/postgres/redis]
+    BR[Build Release Artifacts]
+    CH[Generate Changelog]
+    GR[Create GitHub Release]
+    PN[Post-Release Notification]
+  end
+  REL --> PRV --> FIT --> BR --> CH --> GR --> PN
+
+  subgraph Nightly
+    LRT[Long Running Tests\nmatrix: mysql/postgres/redis]
+    SST[SQLite Stress Test]
+    PA[Performance Analysis]
+    NR[Notify (optional)]
+  end
+  NTL --> LRT --> PA --> NR
+  NTL --> SST --> PA
+```
+
 ## 📄 许可证
 
 MIT License

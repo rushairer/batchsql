@@ -44,7 +44,7 @@ func TestBatchSQLBasicOperations(t *testing.T) {
     batchSQL := batchsql.NewBatchSQL(ctx, 100, 10, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
-    schema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
+    schema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
     
     // 提交测试数据
     for i := 0; i < 50; i++ {
@@ -71,7 +71,7 @@ func TestMySQLDriver(t *testing.T) {
     executor := mysql.NewBatchExecutor(db)
     
     // 测试批量插入
-    schema := batchsql.NewSchema("test_users", drivers.ConflictIgnore, 
+    schema := batchsql.NewSchema("test_users", batchsql.ConflictIgnore, 
         "id", "name", "email")
     
     data := []map[string]any{
@@ -219,7 +219,7 @@ func TestRedisSpecificFeatures(t *testing.T) {
     defer batchSQL.Close()
     
     // 测试TTL设置
-    schema := batchsql.NewSchema("redis_test", drivers.ConflictReplace,
+    schema := batchsql.NewSchema("redis_test", batchsql.ConflictReplace,
         "cmd", "key", "value", "ex_flag", "ttl")
     
     request := batchsql.NewRequest(schema).
@@ -255,7 +255,7 @@ func BenchmarkRedisBatchInsert(b *testing.B) {
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 500, 50*time.Millisecond, executor)
     defer batchSQL.Close()
     
-    schema := batchsql.NewSchema("benchmark", drivers.ConflictReplace,
+    schema := batchsql.NewSchema("benchmark", batchsql.ConflictReplace,
         "cmd", "key", "value")
     
     b.ResetTimer()
@@ -303,7 +303,7 @@ func TestStressTest(t *testing.T) {
     batchSQL := batchsql.NewBatchSQL(ctx, 10000, 500, 50*time.Millisecond, executor)
     defer batchSQL.Close()
     
-    schema := batchsql.NewSchema("stress_test", drivers.ConflictIgnore, "id", "data")
+    schema := batchsql.NewSchema("stress_test", batchsql.ConflictIgnore, "id", "data")
     
     const totalRecords = 1000000
     startTime := time.Now()
@@ -341,13 +341,13 @@ func TestPrometheusMetrics(t *testing.T) {
     // 创建带监控的执行器
     executor := mysql.NewBatchExecutor(db)
     metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "mysql", "test")
-    executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+    executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.CommonExecutor)
     
     batchSQL := batchsql.NewBatchSQL(ctx, 1000, 100, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
     // 执行一些操作
-    schema := batchsql.NewSchema("metrics_test", drivers.ConflictIgnore, "id", "data")
+    schema := batchsql.NewSchema("metrics_test", batchsql.ConflictIgnore, "id", "data")
     for i := 0; i < 500; i++ {
         request := batchsql.NewRequest(schema).
             SetInt64("id", int64(i)).

@@ -10,10 +10,6 @@ import (
 	"time"
 
 	"github.com/rushairer/batchsql"
-	"github.com/rushairer/batchsql/drivers"
-	"github.com/rushairer/batchsql/drivers/mysql"
-	"github.com/rushairer/batchsql/drivers/postgresql"
-	"github.com/rushairer/batchsql/drivers/sqlite"
 )
 
 func runDatabaseTests(dbType, dsn string, config TestConfig, prometheusMetrics *PrometheusMetrics) []TestResult {
@@ -217,29 +213,29 @@ func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig, prometh
 	var batchSQL *batchsql.BatchSQL
 	switch dbType {
 	case "mysql":
-		executor := mysql.NewBatchExecutor(db)
+		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "高吞吐量测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "postgres":
-		executor := postgresql.NewBatchExecutor(db)
+		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultPostgreSQLDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "高吞吐量测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "sqlite3":
-		executor := sqlite.NewBatchExecutor(db)
+		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultSQLiteDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "高吞吐量测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	}
 
-	schema := batchsql.NewSchema("integration_test", drivers.ConflictIgnore,
+	schema := batchsql.NewSchema("integration_test", batchsql.ConflictIgnore,
 		"id", "name", "email", "data", "value", "is_active", "created_at")
 
 	startTime := time.Now()
@@ -386,29 +382,29 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig, prom
 	var batchSQL *batchsql.BatchSQL
 	switch dbType {
 	case "mysql":
-		executor := mysql.NewBatchExecutor(db)
+		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "并发工作线程测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "postgres":
-		executor := postgresql.NewBatchExecutor(db)
+		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultPostgreSQLDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "并发工作线程测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "sqlite3":
-		executor := sqlite.NewBatchExecutor(db)
+		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultSQLiteDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "并发工作线程测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	}
 
-	schema := batchsql.NewSchema("integration_test", drivers.ConflictIgnore,
+	schema := batchsql.NewSchema("integration_test", batchsql.ConflictIgnore,
 		"id", "name", "email", "data", "value", "is_active", "created_at")
 
 	startTime := time.Now()

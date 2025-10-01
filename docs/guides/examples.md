@@ -34,7 +34,7 @@ func main() {
     defer batchSQL.Close()
     
     // 定义表结构
-    schema := batchsql.NewSchema("users", drivers.ConflictIgnore,
+    schema := batchsql.NewSchema("users", batchsql.ConflictIgnore,
         "id", "name", "email", "age", "created_at")
     
     // 批量插入10000条记录
@@ -74,7 +74,7 @@ func postgresqlExample() {
     defer batchSQL.Close()
     
     // PostgreSQL特定Schema
-    schema := batchsql.NewSchema("products", drivers.ConflictUpdate,
+    schema := batchsql.NewSchema("products", batchsql.ConflictUpdate,
         "id", "name", "price", "category", "updated_at")
     
     // 批量更新产品信息
@@ -114,7 +114,7 @@ func sqliteExample() {
     defer batchSQL.Close()
     
     // 创建日志表
-    schema := batchsql.NewSchema("logs", drivers.ConflictIgnore,
+    schema := batchsql.NewSchema("logs", batchsql.ConflictIgnore,
         "id", "level", "message", "timestamp")
     
     // 批量插入日志
@@ -149,7 +149,7 @@ func redisExample() {
     defer batchSQL.Close()
     
     // Redis命令Schema
-    schema := batchsql.NewSchema("cache", drivers.ConflictReplace,
+    schema := batchsql.NewSchema("cache", batchsql.ConflictReplace,
         "cmd", "key", "value", "ex_flag", "ttl")
     
     // 批量缓存用户会话
@@ -189,13 +189,13 @@ func withPrometheusMonitoring() {
     // 创建带监控的执行器
     executor := mysql.NewBatchExecutor(db)
     metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "mysql", "user_batch")
-    executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+    executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.CommonExecutor)
     
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
     // 执行批量操作（自动收集指标）
-    schema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email")
+    schema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
     
     for i := 0; i < 50000; i++ {
         request := batchsql.NewRequest(schema).
@@ -361,7 +361,7 @@ func concurrentInsert() {
     batchSQL := batchsql.NewBatchSQL(ctx, 10000, 500, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
-    schema := batchsql.NewSchema("concurrent_test", drivers.ConflictIgnore,
+    schema := batchsql.NewSchema("concurrent_test", batchsql.ConflictIgnore,
         "id", "worker_id", "data", "created_at")
     
     var wg sync.WaitGroup
@@ -432,7 +432,7 @@ func batchInsertUsers() {
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
-    schema := batchsql.NewSchema("users", drivers.ConflictIgnore,
+    schema := batchsql.NewSchema("users", batchsql.ConflictIgnore,
         "id", "name", "email", "phone", "address", "birthday")
     
     for _, user := range users {
@@ -490,7 +490,7 @@ func withProgressMonitoring() {
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
-    schema := batchsql.NewSchema("progress_test", drivers.ConflictIgnore, "id", "data")
+    schema := batchsql.NewSchema("progress_test", batchsql.ConflictIgnore, "id", "data")
     
     for i := 0; i < totalRecords; i++ {
         request := batchsql.NewRequest(schema).
@@ -513,7 +513,7 @@ func withRetryMechanism() {
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
-    schema := batchsql.NewSchema("retry_test", drivers.ConflictIgnore, "id", "data")
+    schema := batchsql.NewSchema("retry_test", batchsql.ConflictIgnore, "id", "data")
     
     for i := 0; i < 10000; i++ {
         request := batchsql.NewRequest(schema).

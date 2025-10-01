@@ -136,7 +136,7 @@ Database Client
 ```go
 type TiDBDriver struct{}
 
-func (d *TiDBDriver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
+func (d *TiDBDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
     // TiDB特定的SQL生成逻辑
     return sql, args, nil
 }
@@ -145,7 +145,7 @@ func (d *TiDBDriver) GenerateInsertSQL(schema *drivers.Schema, data []map[string
 2. **创建工厂方法**
 ```go
 func NewTiDBBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
-    executor := drivers.NewSQLExecutor(db, &TiDBDriver{})
+    executor := batchsql.NewSQLExecutor(db, &TiDBDriver{})
     return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 ```
@@ -156,12 +156,12 @@ func NewTiDBBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *Ba
 ```go
 type MongoExecutor struct {
     client          *mongo.Client
-    metricsReporter drivers.MetricsReporter
+    metricsReporter batchsql.MetricsReporter
 }
 
-func (e *MongoExecutor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
+func (e *MongoExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.Schema, data []map[string]any) error {
     // MongoDB特定的批量操作逻辑
-    collection := e.client.Database("mydb").Collection(schema.TableName)
+    collection := e.client.Database("mydb").Collection(schema.Name)
     docs := make([]interface{}, len(data))
     for i, row := range data {
         docs[i] = row
@@ -170,7 +170,7 @@ func (e *MongoExecutor) ExecuteBatch(ctx context.Context, schema *drivers.Schema
     return err
 }
 
-func (e *MongoExecutor) WithMetricsReporter(reporter drivers.MetricsReporter) drivers.BatchExecutor {
+func (e *MongoExecutor) WithMetricsReporter(reporter batchsql.MetricsReporter) batchsql.BatchExecutor {
     e.metricsReporter = reporter
     return e
 }

@@ -6,12 +6,6 @@ import (
 	"time"
 
 	redisV9 "github.com/redis/go-redis/v9"
-	"github.com/rushairer/batchsql/drivers"
-	"github.com/rushairer/batchsql/drivers/mock"
-	"github.com/rushairer/batchsql/drivers/mysql"
-	"github.com/rushairer/batchsql/drivers/postgresql"
-	"github.com/rushairer/batchsql/drivers/redis"
-	"github.com/rushairer/batchsql/drivers/sqlite"
 	gopipeline "github.com/rushairer/go-pipeline/v2"
 )
 
@@ -27,13 +21,13 @@ import (
 // - 测试环境：MockExecutor
 type BatchSQL struct {
 	pipeline *gopipeline.StandardPipeline[*Request] // 异步批量处理管道
-	executor drivers.BatchExecutor                  // 批量执行器（数据库特定）
+	executor BatchExecutor                          // 批量执行器（数据库特定）
 }
 
 // NewBatchSQL 创建 BatchSQL 实例
 // 这是最底层的构造函数，接受任何实现了BatchExecutor接口的执行器
 // 通常不直接使用，而是通过具体数据库的工厂方法创建
-func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushInterval time.Duration, executor drivers.BatchExecutor) *BatchSQL {
+func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushInterval time.Duration, executor BatchExecutor) *BatchSQL {
 	batchSQL := &BatchSQL{
 		executor: executor,
 	}
@@ -41,7 +35,7 @@ func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushIn
 	// 创建 flush 函数，使用批量执行器处理数据
 	flushFunc := func(ctx context.Context, batchData []*Request) error {
 		// 按schema分组处理
-		schemaGroups := make(map[*drivers.Schema][]*Request)
+		schemaGroups := make(map[*Schema][]*Request)
 		for _, request := range batchData {
 			schema := request.Schema()
 			schemaGroups[schema] = append(schemaGroups[schema], request)
@@ -111,33 +105,39 @@ type PipelineConfig struct {
 // 内部架构：BatchSQL -> CommonExecutor -> SQLBatchProcessor -> MySQLDriver -> MySQL
 // 这是推荐的使用方式，使用MySQL优化的默认配置
 func NewMySQLBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
-	executor := mysql.NewBatchExecutor(db)
+	executor := NewSQLThrottledBatchExecutorWithDriver(db, DefaultMySQLDriver)
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 // NewMySQLBatchSQLWithDriver 创建MySQL BatchSQL实例（使用自定义Driver）
 // 内部架构：BatchSQL -> CommonExecutor -> SQLBatchProcessor -> CustomDriver -> MySQL
 // 适用于需要自定义SQL生成逻辑的场景（如TiDB优化）
-func NewMySQLBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver drivers.SQLDriver) *BatchSQL {
-	executor := mysql.NewBatchExecutorWithDriver(db, driver)
+func NewMySQLBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver SQLDriver) *BatchSQL {
+	executor := NewSQLThrottledBatchExecutorWithDriver(db, driver)
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 // NewPostgreSQLBatchSQL 创建PostgreSQL BatchSQL实例（使用默认Driver）
 func NewPostgreSQLBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
-	executor := postgresql.NewBatchExecutor(db)
+	executor := NewSQLThrottledBatchExecutorWithDriver(db, DefaultPostgreSQLDriver)
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 // NewPostgreSQLBatchSQLWithDriver 创建PostgreSQL BatchSQL实例（使用自定义Driver）
-func NewPostgreSQLBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver drivers.SQLDriver) *BatchSQL {
-	executor := postgresql.NewBatchExecutorWithDriver(db, driver)
+func NewPostgreSQLBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver SQLDriver) *BatchSQL {
+	executor := NewSQLThrottledBatchExecutorWithDriver(db, driver)
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 // NewSQLiteBatchSQL 创建SQLite BatchSQL实例（使用默认Driver）
 func NewSQLiteBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
-	executor := sqlite.NewBatchExecutor(db)
+	executor := NewSQLThrottledBatchExecutorWithDriver(db, DefaultSQLiteDriver)
+	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
+}
+
+// NewSQLiteBatchSQLWithDriver 创建SQLite BatchSQL实例（使用自定义Driver）
+func NewSQLiteBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver SQLDriver) *BatchSQL {
+	executor := NewSQLThrottledBatchExecutorWithDriver(db, driver)
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
@@ -145,21 +145,20 @@ func NewSQLiteBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *
 // 内部架构：BatchSQL -> RedisExecutor -> Redis Client（直接实现，无BatchProcessor层）
 // Redis作为NoSQL数据库，跳过SQL相关的抽象层，直接实现BatchExecutor接口
 func NewRedisBatchSQL(ctx context.Context, db *redisV9.Client, config PipelineConfig) *BatchSQL {
-	executor := redis.NewBatchExecutor(db)
+	executor := NewThrottledBatchExecutor(NewRedisBatchProcessor(db, DefaultRedisPipelineDriver))
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
-// NewSQLiteBatchSQLWithDriver 创建SQLite BatchSQL实例（使用自定义Driver）
-func NewSQLiteBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver drivers.SQLDriver) *BatchSQL {
-	executor := sqlite.NewBatchExecutorWithDriver(db, driver)
+func NewRedisBatchSQLWithDriver(ctx context.Context, db *redisV9.Client, config PipelineConfig, driver RedisDriver) *BatchSQL {
+	executor := NewThrottledBatchExecutor(NewRedisBatchProcessor(db, driver))
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 // NewBatchSQLWithMock 使用模拟执行器创建 BatchSQL 实例（用于测试）
 // 内部架构：BatchSQL -> MockExecutor（直接实现BatchExecutor，无真实数据库操作）
 // 适用于单元测试，不依赖真实数据库连接
-func NewBatchSQLWithMock(ctx context.Context, config PipelineConfig) (*BatchSQL, *mock.MockExecutor) {
-	mockExecutor := mock.NewBatchExecutor()
+func NewBatchSQLWithMock(ctx context.Context, config PipelineConfig) (*BatchSQL, *MockExecutor) {
+	mockExecutor := NewMockExecutor()
 	batchSQL := NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, mockExecutor)
 	return batchSQL, mockExecutor
 }
@@ -167,8 +166,8 @@ func NewBatchSQLWithMock(ctx context.Context, config PipelineConfig) (*BatchSQL,
 // NewBatchSQLWithMockDriver 使用模拟执行器创建 BatchSQL 实例（测试特定SQLDriver）
 // 内部架构：BatchSQL -> MockExecutor（模拟CommonExecutor行为，测试SQLDriver逻辑）
 // 适用于测试自定义SQLDriver的SQL生成逻辑
-func NewBatchSQLWithMockDriver(ctx context.Context, config PipelineConfig, sqlDriver drivers.SQLDriver) (*BatchSQL, *mock.MockExecutor) {
-	mockExecutor := mock.NewBatchExecutorWithDriver(sqlDriver)
+func NewBatchSQLWithMockDriver(ctx context.Context, config PipelineConfig, sqlDriver SQLDriver) (*BatchSQL, *MockExecutor) {
+	mockExecutor := NewMockExecutorWithDriver(sqlDriver)
 	batchSQL := NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, mockExecutor)
 	return batchSQL, mockExecutor
 }

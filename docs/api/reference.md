@@ -19,7 +19,7 @@ func NewBatchSQL(
     bufferSize int,
     batchSize int,
     flushInterval time.Duration,
-    executor drivers.BatchExecutor,
+    executor batchsql.BatchExecutor,
 ) *BatchSQL
 ```
 
@@ -34,7 +34,7 @@ func NewBatchSQL(
 
 ```go
 type Schema struct {
-    TableName     string
+    Name     string
     ConflictMode  ConflictMode
     Fields        []string
 }
@@ -81,7 +81,7 @@ func (r *Request) SetAny(field string, value any) *Request
 import "github.com/rushairer/batchsql/drivers/mysql"
 
 // 创建MySQL执行器
-func NewBatchExecutor(db *sql.DB) drivers.BatchExecutor
+func NewBatchExecutor(db *sql.DB) batchsql.BatchExecutor
 
 // 使用示例
 db, _ := sql.Open("mysql", dsn)
@@ -95,7 +95,7 @@ batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
 import "github.com/rushairer/batchsql/drivers/postgresql"
 
 // 创建PostgreSQL执行器
-func NewBatchExecutor(db *sql.DB) drivers.BatchExecutor
+func NewBatchExecutor(db *sql.DB) batchsql.BatchExecutor
 
 // 使用示例
 db, _ := sql.Open("postgres", dsn)
@@ -109,7 +109,7 @@ batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
 import "github.com/rushairer/batchsql/drivers/sqlite"
 
 // 创建SQLite执行器
-func NewBatchExecutor(db *sql.DB) drivers.BatchExecutor
+func NewBatchExecutor(db *sql.DB) batchsql.BatchExecutor
 
 // 使用示例
 db, _ := sql.Open("sqlite3", dsn)
@@ -123,7 +123,7 @@ batchSQL := batchsql.NewBatchSQL(ctx, 1000, 100, 200*time.Millisecond, executor)
 import "github.com/rushairer/batchsql/drivers/redis"
 
 // 创建Redis执行器
-func NewBatchExecutor(rdb *redis.Client) drivers.BatchExecutor
+func NewBatchExecutor(rdb *redis.Client) batchsql.BatchExecutor
 
 // 使用示例
 rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
@@ -167,7 +167,7 @@ metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "mysql", "bat
 // 应用到执行器
 executor := mysql.NewBatchExecutor(db)
 if prometheusMetrics != nil {
-    executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+    executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.CommonExecutor)
 }
 
 batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
@@ -200,8 +200,8 @@ executor = executor.WithMetricsReporter(metricsReporter)
 #### 4. 多数据库监控模式
 
 ```go
-func setupExecutorWithMetrics(dbType string, db interface{}, prometheusMetrics *PrometheusMetrics, testName string) drivers.BatchExecutor {
-    var executor drivers.BatchExecutor
+func setupExecutorWithMetrics(dbType string, db interface{}, prometheusMetrics *PrometheusMetrics, testName string) batchsql.BatchExecutor {
+    var executor batchsql.BatchExecutor
     
     switch dbType {
     case "mysql":
@@ -260,7 +260,7 @@ func main() {
     defer batchSQL.Close()
     
     // 4. 定义Schema
-    schema := batchsql.NewSchema("users", drivers.ConflictIgnore,
+    schema := batchsql.NewSchema("users", batchsql.ConflictIgnore,
         "id", "name", "email", "created_at")
     
     // 5. 批量提交数据
@@ -297,7 +297,7 @@ func advancedBatchInsert() {
     // 添加Prometheus监控
     if prometheusEnabled {
         metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "mysql", "high_performance")
-        executor = executor.WithMetricsReporter(metricsReporter).(*drivers.CommonExecutor)
+        executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.CommonExecutor)
     }
     
     batchSQL := batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
@@ -326,7 +326,7 @@ func redisBatchExample() {
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 500, 50*time.Millisecond, executor)
     
     // Redis Schema（使用命令格式）
-    schema := batchsql.NewSchema("redis_cache", drivers.ConflictReplace,
+    schema := batchsql.NewSchema("redis_cache", batchsql.ConflictReplace,
         "cmd", "key", "value", "ex_flag", "ttl")
     
     // 批量SET操作

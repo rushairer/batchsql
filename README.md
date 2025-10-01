@@ -93,7 +93,7 @@ func main() {
     // 3. 定义 schema（表结构定义，与数据库类型解耦）
     userSchema := batchsql.NewSchema(
         "users",                    // 表名
-        drivers.ConflictIgnore,     // 冲突策略
+        batchsql.ConflictIgnore,     // 冲突策略
         "id", "name", "email",      // 列名
     )
 
@@ -152,7 +152,7 @@ func main() {
     // 3. 定义 Redis schema（使用 SETEX 命令格式）
     cacheSchema := batchsql.NewSchema(
         "cache",                    // 逻辑表名
-        drivers.ConflictReplace,    // Redis默认覆盖
+        batchsql.ConflictReplace,    // Redis默认覆盖
         "cmd", "key", "ttl", "value", // SETEX 命令参数顺序
     )
 
@@ -193,7 +193,7 @@ func TestBatchSQL(t *testing.T) {
     batch, mockExecutor := batchsql.NewBatchSQLWithMock(ctx, config)
     
     // 定义测试schema
-    testSchema := batchsql.NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
+    testSchema := batchsql.NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
     
     // 提交测试数据
     request := batchsql.NewRequest(testSchema).
@@ -249,12 +249,12 @@ type MyExecutor struct {
     // 自定义字段
 }
 
-func (e *MyExecutor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
+func (e *MyExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.Schema, data []map[string]any) error {
     // 自定义实现
     return nil
 }
 
-func (e *MyExecutor) WithMetricsReporter(reporter drivers.MetricsReporter) drivers.BatchExecutor {
+func (e *MyExecutor) WithMetricsReporter(reporter batchsql.MetricsReporter) batchsql.BatchExecutor {
     // 设置指标报告器
     return e
 }
@@ -278,8 +278,8 @@ const (
 ### Schema 设计
 ```go
 // Schema专注于表结构定义，与数据库类型解耦
-userSchema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email")
-productSchema := batchsql.NewSchema("products", drivers.ConflictUpdate, "id", "name", "price")
+userSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
+productSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")
 
 // 同一个Schema可以在不同数据库类型间复用
 ```
@@ -368,11 +368,11 @@ func main() {
     redisBatch := batchsql.NewRedisBatchSQL(ctx, redisClient, config)
     
     // 定义通用schema（可在不同数据库间复用）
-    userSchema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name")
-    productSchema := batchsql.NewSchema("products", drivers.ConflictUpdate, "id", "name", "price")
+    userSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name")
+    productSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")
     
     // Redis专用schema（SETEX命令格式）
-    cacheSchema := batchsql.NewSchema("cache", drivers.ConflictReplace, "cmd", "key", "ttl", "value")
+    cacheSchema := batchsql.NewSchema("cache", batchsql.ConflictReplace, "cmd", "key", "ttl", "value")
     
     // 每个BatchSQL处理对应数据库的多个表
     
@@ -399,7 +399,7 @@ func main() {
 // 实现SQLDriver接口
 type TiDBDriver struct{}
 
-func (d *TiDBDriver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
+func (d *TiDBDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
     // TiDB特定的批量插入优化
     // 可以使用TiDB的特殊语法或优化
     return sql, args, nil
@@ -415,20 +415,20 @@ batch := batchsql.NewMySQLBatchSQLWithDriver(ctx, tidbDB, config, tidbDriver)
 // 直接实现BatchExecutor接口
 type MongoExecutor struct {
     client          *mongo.Client
-    metricsReporter drivers.MetricsReporter
+    metricsReporter batchsql.MetricsReporter
 }
 
 func NewMongoBatchExecutor(client *mongo.Client) *MongoExecutor {
     return &MongoExecutor{client: client}
 }
 
-func (e *MongoExecutor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
+func (e *MongoExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.Schema, data []map[string]any) error {
     if len(data) == 0 {
         return nil
     }
     
     // MongoDB特定的批量插入逻辑
-    collection := e.client.Database("mydb").Collection(schema.TableName)
+    collection := e.client.Database("mydb").Collection(schema.Name)
     
     // 转换数据格式
     docs := make([]interface{}, len(data))
@@ -441,7 +441,7 @@ func (e *MongoExecutor) ExecuteBatch(ctx context.Context, schema *drivers.Schema
     return err
 }
 
-func (e *MongoExecutor) WithMetricsReporter(reporter drivers.MetricsReporter) drivers.BatchExecutor {
+func (e *MongoExecutor) WithMetricsReporter(reporter batchsql.MetricsReporter) batchsql.BatchExecutor {
     e.metricsReporter = reporter
     return e
 }

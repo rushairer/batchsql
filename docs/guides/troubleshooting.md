@@ -297,9 +297,9 @@ SHOW ENGINE INNODB STATUS; -- MySQL
 1. **检查冲突处理模式**：
 ```go
 // 确保使用正确的冲突模式
-schema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email")
+schema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
 // 或
-schema := batchsql.NewSchema("users", drivers.ConflictReplace, "id", "name", "email")
+schema := batchsql.NewSchema("users", batchsql.ConflictReplace, "id", "name", "email")
 ```
 
 2. **添加重试机制**：
@@ -346,10 +346,10 @@ func (r *LoggingMetricsReporter) RecordBatchExecution(tableName string, batchSiz
 1. **使用正确的冲突处理**：
 ```go
 // 对于可能重复的数据，使用 IGNORE 模式
-schema := batchsql.NewSchema("users", drivers.ConflictIgnore, "id", "name", "email")
+schema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
 
 // 或使用 REPLACE 模式更新重复数据
-schema := batchsql.NewSchema("users", drivers.ConflictReplace, "id", "name", "email")
+schema := batchsql.NewSchema("users", batchsql.ConflictReplace, "id", "name", "email")
 ```
 
 2. **添加唯一性检查**：
@@ -488,13 +488,13 @@ logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 // 在关键位置添加日志
 func (bs *BatchSQL) Submit(ctx context.Context, request *Request) error {
     logger.Debug("提交请求", 
-        "table", request.schema.TableName,
+        "table", request.schema.Name,
         "fields", len(request.data))
     
     // ... 处理逻辑
     
     logger.Debug("请求处理完成",
-        "table", request.schema.TableName,
+        "table", request.schema.Name,
         "success", err == nil)
     
     return err

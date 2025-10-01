@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/rushairer/batchsql"
-	"github.com/rushairer/batchsql/drivers"
 )
 
 func TestLargeData_MillionRecords(t *testing.T) {
@@ -26,7 +25,7 @@ func TestLargeData_MillionRecords(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("large_table", drivers.ConflictIgnore, "id", "name", "email", "created_at")
+	schema := batchsql.NewSchema("large_table", batchsql.ConflictIgnore, "id", "name", "email", "created_at")
 
 	const totalRecords = 1000000 // 100万条记录
 	startTime := time.Now()
@@ -100,7 +99,7 @@ func TestLargeData_WideTable(t *testing.T) {
 		columns[i] = fmt.Sprintf("col_%d", i)
 	}
 
-	schema := batchsql.NewSchema("wide_table", drivers.ConflictIgnore, columns...)
+	schema := batchsql.NewSchema("wide_table", batchsql.ConflictIgnore, columns...)
 
 	const numRecords = 10000
 	startTime := time.Now()
@@ -159,7 +158,7 @@ func TestLargeData_LargeStrings(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("large_strings_table", drivers.ConflictIgnore, "id", "small_text", "medium_text", "large_text")
+	schema := batchsql.NewSchema("large_strings_table", batchsql.ConflictIgnore, "id", "small_text", "medium_text", "large_text")
 
 	const numRecords = 1000
 	startTime := time.Now()
@@ -218,7 +217,7 @@ func TestLargeData_MemoryPressure(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("memory_pressure_table", drivers.ConflictIgnore, "id", "data", "timestamp")
+	schema := batchsql.NewSchema("memory_pressure_table", batchsql.ConflictIgnore, "id", "data", "timestamp")
 
 	const numRecords = 100000
 	const dataSize = 1024 // 1KB per record (减小数据量)
@@ -293,7 +292,7 @@ func TestLargeData_HighThroughput(t *testing.T) {
 
 	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
 
-	schema := batchsql.NewSchema("high_throughput_table", drivers.ConflictIgnore, "id", "value", "timestamp")
+	schema := batchsql.NewSchema("high_throughput_table", batchsql.ConflictIgnore, "id", "value", "timestamp")
 
 	const numRecords = 500000             // 50万条记录
 	const testDuration = 30 * time.Second // 30秒测试
@@ -362,7 +361,7 @@ func TestLargeData_BatchSizeOptimization(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	schema := batchsql.NewSchema("batch_optimization_table", drivers.ConflictIgnore, "id", "data")
+	schema := batchsql.NewSchema("batch_optimization_table", batchsql.ConflictIgnore, "id", "data")
 
 	// 测试不同的批次大小
 	batchSizes := []uint32{10, 50, 100, 500, 1000, 5000}

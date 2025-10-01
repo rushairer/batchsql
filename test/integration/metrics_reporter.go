@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/rushairer/batchsql/drivers"
+	"github.com/rushairer/batchsql"
 )
 
 // PrometheusMetricsReporter 实现 MetricsReporter 接口，将批处理指标报告给 Prometheus
@@ -14,7 +14,7 @@ type PrometheusMetricsReporter struct {
 }
 
 // NewPrometheusMetricsReporter 创建 Prometheus 指标报告器
-func NewPrometheusMetricsReporter(prometheusMetrics *PrometheusMetrics, database, testName string) drivers.MetricsReporter {
+func NewPrometheusMetricsReporter(prometheusMetrics *PrometheusMetrics, database, testName string) batchsql.MetricsReporter {
 	return &PrometheusMetricsReporter{
 		prometheusMetrics: prometheusMetrics,
 		database:          database,

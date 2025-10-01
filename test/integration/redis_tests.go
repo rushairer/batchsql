@@ -10,8 +10,6 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/rushairer/batchsql"
-	"github.com/rushairer/batchsql/drivers"
-	redisDriver "github.com/rushairer/batchsql/drivers/redis"
 )
 
 // runRedisTests 运行 Redis 数据库测试
@@ -82,15 +80,15 @@ func runRedisTests(dsn string, config TestConfig, prometheusMetrics *PrometheusM
 func runRedisHighThroughputTest(rdb *redis.Client, config TestConfig, prometheusMetrics *PrometheusMetrics) TestResult {
 	ctx := context.Background()
 
-	executor := redisDriver.NewBatchExecutor(rdb)
+	executor := batchsql.NewRedisThrottledBatchExecutor(rdb)
 	if prometheusMetrics != nil {
 		metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "redis", "高吞吐量测试")
-		executor = executor.WithMetricsReporter(metricsReporter)
+		executor.WithMetricsReporter(metricsReporter)
 	}
 	batchSQL := batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 
 	// Redis 使用简单的 key-value schema
-	schema := batchsql.NewSchema("redis_test", drivers.ConflictIgnore,
+	schema := batchsql.NewSchema("redis_test", batchsql.ConflictIgnore,
 		"cmd", "key", "value", "ex_flag", "ttl")
 
 	startTime := time.Now()
@@ -235,7 +233,7 @@ func runRedisConcurrentWorkersTest(rdb *redis.Client, config TestConfig, prometh
 		FlushInterval: config.FlushInterval,
 	})
 
-	schema := batchsql.NewSchema("redis_test", drivers.ConflictIgnore,
+	schema := batchsql.NewSchema("redis_test", batchsql.ConflictIgnore,
 		"cmd", "key", "value", "ex_flag", "ttl")
 
 	startTime := time.Now()

@@ -1,15 +1,29 @@
 package batchsql
 
-import "github.com/rushairer/batchsql/drivers"
+// ConflictStrategy 冲突处理策略
+type ConflictStrategy uint8
 
-// NewSchema 创建新的Schema实例，保持向后兼容
+const (
+	ConflictIgnore ConflictStrategy = iota
+	ConflictReplace
+	ConflictUpdate
+)
+
+// Schema 表结构定义
+type Schema struct {
+	Name             string
+	Columns          []string
+	ConflictStrategy ConflictStrategy
+}
+
+// NewSchema 创建新的Schema实例
 func NewSchema(
-	tableName string,
-	conflictStrategy drivers.ConflictStrategy,
+	name string,
+	conflictStrategy ConflictStrategy,
 	columns ...string,
-) *drivers.Schema {
-	return &drivers.Schema{
-		TableName:        tableName,
+) *Schema {
+	return &Schema{
+		Name:             name,
 		ConflictStrategy: conflictStrategy,
 		Columns:          columns,
 	}

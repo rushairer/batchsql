@@ -186,7 +186,7 @@ BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支
    // drivers/newdb/driver.go
    type NewDBDriver struct{}
    
-   func (d *NewDBDriver) GenerateInsertSQL(schema *drivers.Schema, data []map[string]any) (string, []any, error) {
+   func (d *NewDBDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
        // 生成数据库特定的SQL语句
        // 处理冲突策略：ConflictIgnore, ConflictReplace, ConflictUpdate
        return sql, args, nil
@@ -196,12 +196,12 @@ BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支
 2. **创建执行器工厂**:
    ```go
    // drivers/newdb/executor.go
-   func NewBatchExecutor(db *sql.DB) *drivers.CommonExecutor {
-       return drivers.NewSQLExecutor(db, &NewDBDriver{})
+   func NewBatchExecutor(db *sql.DB) *batchsql.CommonExecutor {
+       return batchsql.NewSQLExecutor(db, &NewDBDriver{})
    }
    
-   func NewBatchExecutorWithDriver(db *sql.DB, driver drivers.SQLDriver) *drivers.CommonExecutor {
-       return drivers.NewSQLExecutor(db, driver)
+   func NewBatchExecutorWithDriver(db *sql.DB, driver batchsql.SQLDriver) *batchsql.CommonExecutor {
+       return batchsql.NewSQLExecutor(db, driver)
    }
    ```
 
@@ -221,16 +221,16 @@ BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支
    // drivers/newnosql/executor.go
    type Executor struct {
        client          *NewNoSQLClient
-       metricsReporter drivers.MetricsReporter
+       metricsReporter batchsql.MetricsReporter
    }
    
-   func (e *Executor) ExecuteBatch(ctx context.Context, schema *drivers.Schema, data []map[string]any) error {
+   func (e *Executor) ExecuteBatch(ctx context.Context, schema *batchsql.Schema, data []map[string]any) error {
        // 直接实现数据库特定的批量操作
        // 无需经过BatchProcessor层
        return nil
    }
    
-   func (e *Executor) WithMetricsReporter(reporter drivers.MetricsReporter) drivers.BatchExecutor {
+   func (e *Executor) WithMetricsReporter(reporter batchsql.MetricsReporter) batchsql.BatchExecutor {
        e.metricsReporter = reporter
        return e
    }
@@ -257,10 +257,10 @@ BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支
    ```go
    func TestNewDBDriver_GenerateInsertSQL(t *testing.T) {
        driver := &NewDBDriver{}
-       schema := &drivers.Schema{
-           TableName: "test_table",
+       schema := &batchsql.Schema{
+           Name: "test_table",
            Columns:   []string{"id", "name"},
-           ConflictStrategy: drivers.ConflictIgnore,
+           ConflictStrategy: batchsql.ConflictIgnore,
        }
        data := []map[string]any{
            {"id": 1, "name": "test"},
@@ -287,7 +287,7 @@ BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支
        batch := NewNewDBBatchSQL(ctx, db, config)
        
        // 测试批量插入
-       schema := NewSchema("test_table", drivers.ConflictIgnore, "id", "name")
+       schema := NewSchema("test_table", batchsql.ConflictIgnore, "id", "name")
        request := NewRequest(schema).SetInt64("id", 1).SetString("name", "test")
        
        err := batch.Submit(ctx, request)

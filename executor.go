@@ -71,7 +71,6 @@ func (e *ThrottledBatchExecutor) ExecuteBatch(ctx context.Context, schema *Schem
 	}
 
 	startTime := time.Now()
-
 	status := "success"
 
 	operations, err := e.processor.GenerateOperations(ctx, schema, data)
@@ -83,12 +82,7 @@ func (e *ThrottledBatchExecutor) ExecuteBatch(ctx context.Context, schema *Schem
 		status = "fail"
 	}
 	if e.metricsReporter != nil {
-		e.metricsReporter.RecordBatchExecution(
-			schema.Name,
-			len(data),
-			time.Since(startTime).Milliseconds(),
-			status,
-		)
+		e.metricsReporter.ObserveExecuteDuration(schema.Name, len(data), time.Since(startTime), status)
 	}
 	return err
 }

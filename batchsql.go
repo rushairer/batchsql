@@ -24,16 +24,21 @@ import (
 - WithConcurrencyLimit：通过信号量限制 ExecuteBatch 并发，避免攒批后同时冲击数据库（limit <= 0 等价于不限流）
 */
 type BatchSQL struct {
-	pipeline *gopipeline.StandardPipeline[*Request] // 异步批量处理管道
-	executor BatchExecutor                          // 批量执行器（数据库特定）
+	pipeline        *gopipeline.StandardPipeline[*Request] // 异步批量处理管道
+	executor        BatchExecutor                          // 批量执行器（数据库特定）
+	metricsReporter MetricsReporter                        // 指标上报器（默认 Noop）
 }
 
 // NewBatchSQL 创建 BatchSQL 实例
 // 这是最底层的构造函数，接受任何实现了BatchExecutor接口的执行器
 // 通常不直接使用，而是通过具体数据库的工厂方法创建
 func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushInterval time.Duration, executor BatchExecutor) *BatchSQL {
+	// 默认使用 Noop 上报器，保持未启用时零采样
+	reporter := NewNoopMetricsReporter()
+
 	batchSQL := &BatchSQL{
-		executor: executor,
+		executor:        executor.WithMetricsReporter(reporter),
+		metricsReporter: reporter,
 	}
 
 	// 创建 flush 函数，使用批量执行器处理数据
@@ -47,6 +52,7 @@ func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushIn
 
 		// 处理每个schema组
 		for schema, requests := range schemaGroups {
+			assembleStart := time.Now()
 			// 在开始耗时操作前快速检查
 			if err := ctx.Err(); err != nil {
 				return err
@@ -72,6 +78,10 @@ func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushIn
 				}
 				data[i] = rowData
 			}
+
+			// 组装完成指标（批大小 + 组装耗时）
+			batchSQL.metricsReporter.ObserveBatchSize(len(requests))
+			batchSQL.metricsReporter.ObserveBatchAssemble(time.Since(assembleStart))
 
 			// 执行批量操作
 			if err := batchSQL.executor.ExecuteBatch(ctx, schema, data); err != nil {
@@ -213,6 +223,11 @@ func (b *BatchSQL) Submit(ctx context.Context, request *Request) error {
 
 	select {
 	case dataChan <- request:
+		// 入队成功后记录入队耗时与队列长度
+		// 注意：len(dataChan) 是近似观测，仅用于指标参考
+		// 这里将耗时统计放在调用方路径内，默认 Noop 不引入开销
+		b.metricsReporter.ObserveEnqueueLatency(0) // 提供占位，详细耗时见下
+		b.metricsReporter.SetQueueLength(len(dataChan))
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()

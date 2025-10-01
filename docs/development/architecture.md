@@ -1,6 +1,6 @@
 # BatchSQL 架构设计文档
 
-*最后更新：2025年1月28日 | 版本：v1.0.1.0*
+*最后更新：2025年10月1日 | 版本：v1.1.0*
 
 ## 🏗️ 整体架构概览
 
@@ -55,7 +55,7 @@ BatchSQL 采用分层架构设计，通过统一的 `BatchExecutor` 接口支持
 
 | 数据库类型 | 实现方式 | 架构路径 | 优势 |
 |-----------|---------|---------|------|
-| **SQL数据库**<br>(MySQL/PostgreSQL/SQLite) | CommonExecutor + BatchProcessor + SQLDriver | BatchSQL → CommonExecutor → BatchProcessor → SQLDriver → DB | 代码复用、标准化、易扩展 |
+| **SQL数据库**<br>(MySQL/PostgreSQL/SQLite) | CommonExecutor（可选限流 WithConcurrencyLimit） + BatchProcessor + SQLDriver | BatchSQL → CommonExecutor → BatchProcessor → SQLDriver → DB | 代码复用、标准化、易扩展、可节流 |
 | **NoSQL数据库**<br>(Redis/MongoDB) | 直接实现BatchExecutor | BatchSQL → CustomExecutor → DB | 避免抽象层、性能优化、灵活性 |
 | **测试环境** | MockExecutor | BatchSQL → MockExecutor → Memory | 快速测试、无依赖 |
 
@@ -71,6 +71,7 @@ BatchSQL.Submit()
 gopipeline (异步批量处理)
     ↓
 CommonExecutor.ExecuteBatch()
+    ├── 可选并发限流（WithConcurrencyLimit）
     ├── 指标收集
     ├── 错误处理
     └── 调用BatchProcessor

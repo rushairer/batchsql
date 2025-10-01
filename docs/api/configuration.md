@@ -1,6 +1,6 @@
 # BatchSQL 集成测试配置说明
 
-*最后更新：2025年1月28日 | 版本：v1.0.1.0*
+*最后更新：2025年10月1日 | 版本：v1.1.0*
 
 ## 🎯 统一配置原则
 
@@ -12,7 +12,7 @@
 ## 🏗️ 架构配置说明
 
 ### BatchExecutor 实现方式
-- **SQL数据库** (MySQL/PostgreSQL/SQLite): 使用 `CommonExecutor` + `BatchProcessor` + `SQLDriver`
+- **SQL数据库** (MySQL/PostgreSQL/SQLite): 使用 `CommonExecutor` (+ 可选并发限流 `WithConcurrencyLimit`) + `BatchProcessor` + `SQLDriver`
 - **NoSQL数据库** (Redis): 直接实现 `BatchExecutor` 接口
 - **测试环境**: 使用 `MockExecutor` 直接实现 `BatchExecutor` 接口
 

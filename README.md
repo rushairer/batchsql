@@ -2,7 +2,7 @@
 
 一个高性能的 Go 批量 SQL 处理库，基于 `go-pipeline` 实现，支持多种数据库类型和冲突处理策略。
 
-*最后更新：2025年9月30日 | 版本：v1.0.3*
+*最后更新：2025年10月1日 | 版本：v1.1.0*
 
 ## 🏗️ 架构设计
 
@@ -67,7 +67,7 @@ import (
     "log"
     "time"
     "github.com/rushairer/batchsql"
-    "github.com/rushairer/batchsql/drivers"
+
     _ "github.com/go-sql-driver/mysql"
 )
 
@@ -82,7 +82,7 @@ func main() {
     defer db.Close()
     
     // 2. 创建MySQL BatchSQL实例
-    // 内部使用 CommonExecutor + SQLBatchProcessor + MySQLDriver
+    // 内部架构：ThrottledBatchExecutor -> SQLBatchProcessor -> MySQLDriver
     config := batchsql.PipelineConfig{
         BufferSize:    1000,        // 缓冲区大小
         FlushSize:     100,         // 批量刷新大小
@@ -128,7 +128,7 @@ import (
     "time"
     "github.com/redis/go-redis/v9"
     "github.com/rushairer/batchsql"
-    "github.com/rushairer/batchsql/drivers"
+
 )
 
 func main() {
@@ -141,7 +141,7 @@ func main() {
     defer rdb.Close()
     
     // 2. 创建Redis BatchSQL实例
-    // 内部架构：CommonExecutor -> RedisBatchProcessor -> RedisDriver
+    // 内部架构：ThrottledBatchExecutor -> RedisBatchProcessor -> RedisDriver
     config := batchsql.PipelineConfig{
         BufferSize:    1000,
         FlushSize:     100,
@@ -457,6 +457,25 @@ mongoClient, _ := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localh
 mongoBatch := NewMongoBatchSQL(ctx, mongoClient, config)
 ```
 
+### 可选并发限流示例
+
+```go
+// 高级用法：自行构造可限流的执行器，再创建 BatchSQL
+db, _ := sql.Open("mysql", dsn)
+// 构造 SQL 执行器，并限制同时执行的批次数为 8
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver).
+    WithConcurrencyLimit(8)
+
+// 创建 BatchSQL（管道配置）
+cfg := batchsql.PipelineConfig{BufferSize: 5000, FlushSize: 200, FlushInterval: 100 * time.Millisecond}
+batch := batchsql.NewBatchSQL(ctx, cfg.BufferSize, cfg.FlushSize, cfg.FlushInterval, executor)
+```
+
+说明：
+- limit <= 0 时不启用限流，行为等价于默认
+- 限流发生在 ExecuteBatch 入口，避免攒批后过度并发压垮数据库
+- 指标上报与错误处理逻辑保持一致
+
 ### 框架集成示例
 
 ```go
@@ -636,78 +655,76 @@ make test-integration-with-monitoring     # 启动监控后运行测试
 
 ```
 batchsql/
-├── README.md                # 项目文档
-├── go.mod                   # Go模块定义
-├── go.sum                   # 依赖校验文件
-├── Makefile                 # 构建和测试命令
-├── .golangci.yml            # Go代码检查配置
-├── .env.test                # 统一测试配置
-├── .env.sqlite.test         # SQLite 专用测试配置
-├── docker-compose.*.yml     # Docker 测试配置文件
-├── Dockerfile.*             # Docker 构建文件
-├── batchsql.go              # 主入口和工厂方法
-├── schema.go                # Schema定义（表结构）
-├── request.go               # Request定义（类型安全的数据操作）
-├── batch_processor.go       # 批量处理核心逻辑
-├── interfaces.go            # 主要接口定义
+├── README.md
+├── go.mod
+├── go.sum
+├── Makefile
+├── .golangci.yml
+├── .env.test
+├── .env.sqlite.test
+├── docker-compose.integration.yml
+├── Dockerfile.integration
+├── Dockerfile.sqlite.integration
+├── batchsql.go              # 主入口与管道工厂
+├── driver.go                # 驱动接口与实现入口（SQL/Redis等）
+├── executor.go              # 执行器（含可选并发限流：WithConcurrencyLimit）
+├── processor.go             # 处理器（SQL/Redis等各自批处理实现）
+├── metrics_reporter.go      # 指标上报接口与默认实现
+├── schema.go                # Schema 定义
+├── request.go               # Request 定义
 ├── error.go                 # 错误定义
-├── batchsql_test.go         # 测试文件
-├── docs/                    # 📚 文档目录
-│   ├── index.md             # 文档索引
-│   ├── api/                 # API 文档
-│   │   ├── reference.md     # API 参考
-│   │   └── configuration.md # 配置指南
-│   ├── guides/              # 用户指南
-│   │   ├── examples.md      # 使用示例
-│   │   ├── testing.md       # 测试指南
-│   │   ├── monitoring.md    # 监控指南
-│   │   ├── troubleshooting.md # 故障排除
-│   │   └── integration-tests.md # 集成测试
-│   ├── development/         # 开发文档
-│   │   ├── architecture.md  # 架构设计
-│   │   ├── contributing.md  # 贡献指南
-│   │   ├── changelog.md     # 修复记录
-│   │   ├── quality.md       # 质量评估
-│   │   └── release.md       # 发布清单
-│   └── reports/             # 测试报告
+├── batchsql_test.go
+├── benchmark_test.go
+├── boundary_test.go
+├── concurrency_test.go
+├── db_connection_test.go
+├── error_handling_test.go
+├── large_data_test.go
+├── docs/
+│   ├── index.md
+│   ├── api/
+│   │   ├── reference.md
+│   │   └── configuration.md
+│   ├── guides/
+│   │   ├── examples.md
+│   │   ├── testing.md
+│   │   ├── monitoring.md
+│   │   ├── troubleshooting.md
+│   │   └── integration-tests.md
+│   ├── development/
+│   │   ├── architecture.md
+│   │   ├── contributing.md
+│   │   ├── changelog.md
+│   │   ├── quality.md
+│   │   └── release.md
+│   └── reports/
 │       ├── PERFORMANCE_ANALYSIS.md
 │       ├── SQLITE_OPTIMIZATION.md
 │       ├── TEST_REPORT_ANALYSIS.md
 │       └── sqlite-tools.md
-├── scripts/                 # 🔧 脚本目录
-│   └── start-monitoring.sh  # 监控启动脚本
-├── drivers/                 # 数据库驱动目录
-│   ├── interfaces.go        # 核心接口定义
-│   ├── common_executor.go   # 通用执行器实现
-│   ├── batch_processor.go   # SQL批量处理器实现
-│   ├── mock/                # 模拟驱动（用于测试）
-│   │   ├── driver.go        # Mock SQL驱动实现
-│   │   └── executor.go      # Mock批量执行器实现
-│   ├── mysql/               # MySQL驱动
-│   │   ├── driver.go        # MySQL SQL驱动实现
-│   │   └── executor.go      # MySQL执行器工厂
-│   ├── postgresql/          # PostgreSQL驱动
-│   │   ├── driver.go        # PostgreSQL SQL驱动实现
-│   │   └── executor.go      # PostgreSQL执行器工厂
-│   ├── sqlite/              # SQLite驱动
-│   │   ├── driver.go        # SQLite SQL驱动实现
-│   │   └── executor.go      # SQLite执行器工厂
-│   └── redis/               # Redis驱动
-│       ├── driver.go        # Redis操作生成器实现
-│       ├── processor.go     # Redis批量处理器实现
-│       └── executor.go      # Redis执行器工厂
-└── test/                    # 测试目录
-    ├── integration/         # 集成测试
-    │   ├── main.go          # 集成测试主程序
-    │   ├── prometheus.go    # Prometheus 指标集成
-    │   ├── grafana/         # Grafana 配置
-    │   └── run-single-db-test.sh # 单数据库测试脚本
-    ├── sql/                 # 数据库初始化脚本
-    │   ├── mysql/           # MySQL 初始化脚本
-    │   ├── postgres/        # PostgreSQL 初始化脚本
-    │   └── sqlite/          # SQLite 初始化脚本
-    └── sqlite/              # SQLite 测试相关文件
-        └── tools/           # SQLite 测试工具集
+├── scripts/
+│   └── start-monitoring.sh
+└── test/
+    ├── integration/
+    │   ├── config.go
+    │   ├── main.go
+    │   ├── metrics_reporter.go
+    │   ├── prometheus.go
+    │   ├── prometheus.yml
+    │   ├── redis_tests.go
+    │   ├── reports.go
+    │   ├── run-single-db-test.sh
+    │   ├── sql_tests.go
+    │   ├── types.go
+    │   ├── utils.go
+    │   └── grafana/
+    │       └── provisioning/...
+    ├── sql/
+    │   ├── mysql/init.sql
+    │   ├── postgres/init.sql
+    │   └── sqlite/init.sql
+    └── sqlite/
+        └── tools/...
 ```
 
 ## 🔧 架构图

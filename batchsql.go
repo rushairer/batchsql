@@ -15,10 +15,14 @@ import (
 // 架构层次：
 // Application -> BatchSQL -> gopipeline -> BatchExecutor -> Database
 //
-// 支持的BatchExecutor实现：
-// - SQL数据库：CommonExecutor + BatchProcessor + SQLDriver
-// - NoSQL数据库：直接实现BatchExecutor（如Redis）
-// - 测试环境：MockExecutor
+/*
+支持的 BatchExecutor 实现：
+- SQL 数据库：ThrottledBatchExecutor + SQLBatchProcessor + SQLDriver
+- NoSQL 数据库：ThrottledBatchExecutor + RedisBatchProcessor + RedisDriver（直接生成/执行命令）
+- 测试环境：MockExecutor（直接实现 BatchExecutor）
+可选能力：
+- WithConcurrencyLimit：通过信号量限制 ExecuteBatch 并发，避免攒批后同时冲击数据库（limit <= 0 等价于不限流）
+*/
 type BatchSQL struct {
 	pipeline *gopipeline.StandardPipeline[*Request] // 异步批量处理管道
 	executor BatchExecutor                          // 批量执行器（数据库特定）
@@ -102,7 +106,9 @@ type PipelineConfig struct {
 }
 
 // NewMySQLBatchSQL 创建MySQL BatchSQL实例（使用默认Driver）
-// 内部架构：BatchSQL -> CommonExecutor -> SQLBatchProcessor -> MySQLDriver -> MySQL
+/*
+内部架构：BatchSQL -> ThrottledBatchExecutor -> SQLBatchProcessor -> MySQLDriver -> MySQL
+*/
 // 这是推荐的使用方式，使用MySQL优化的默认配置
 func NewMySQLBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
 	executor := NewSQLThrottledBatchExecutorWithDriver(db, DefaultMySQLDriver)
@@ -110,7 +116,9 @@ func NewMySQLBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *B
 }
 
 // NewMySQLBatchSQLWithDriver 创建MySQL BatchSQL实例（使用自定义Driver）
-// 内部架构：BatchSQL -> CommonExecutor -> SQLBatchProcessor -> CustomDriver -> MySQL
+/*
+内部架构：BatchSQL -> ThrottledBatchExecutor -> SQLBatchProcessor -> CustomDriver -> MySQL
+*/
 // 适用于需要自定义SQL生成逻辑的场景（如TiDB优化）
 func NewMySQLBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver SQLDriver) *BatchSQL {
 	executor := NewSQLThrottledBatchExecutorWithDriver(db, driver)
@@ -142,8 +150,10 @@ func NewSQLiteBatchSQLWithDriver(ctx context.Context, db *sql.DB, config Pipelin
 }
 
 // NewRedisBatchSQL 创建Redis BatchSQL实例
-// 内部架构：BatchSQL -> RedisExecutor -> Redis Client（直接实现，无BatchProcessor层）
-// Redis作为NoSQL数据库，跳过SQL相关的抽象层，直接实现BatchExecutor接口
+/*
+内部架构（NoSQL）：BatchSQL -> ThrottledBatchExecutor -> RedisBatchProcessor -> RedisDriver -> Redis
+说明：NoSQL 路径不使用 SQL 抽象层，直接生成并执行 Redis 命令；仍可启用 WithConcurrencyLimit 控制批次并发。
+*/
 func NewRedisBatchSQL(ctx context.Context, db *redisV9.Client, config PipelineConfig) *BatchSQL {
 	executor := NewThrottledBatchExecutor(NewRedisBatchProcessor(db, DefaultRedisPipelineDriver))
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)

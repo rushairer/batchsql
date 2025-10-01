@@ -38,6 +38,23 @@ type Schema struct {
     ConflictMode  ConflictMode
     Fields        []string
 }
+```
+
+### 可选并发限流（WithConcurrencyLimit）
+
+```go
+// 直接在执行器上启用限流（示例：MySQL）
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver).
+    WithConcurrencyLimit(8)
+
+// 创建 BatchSQL
+batch := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
+```
+
+说明：
+- limit <= 0 不启用限流（默认行为）
+- 限流在 ExecuteBatch 入口，避免攒批后同时触发高并发
+- 指标上报与错误处理与不限流路径一致
 
 // 创建Schema
 func NewSchema(tableName string, conflictMode ConflictMode, fields ...string) *Schema

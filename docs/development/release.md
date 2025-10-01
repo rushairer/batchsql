@@ -1,4 +1,4 @@
-# 🚀 BatchSQL v1.0.0-beta 发布检查清单
+# ✅ BatchSQL v1.1.0 发布检查清单
 
 ## ✅ 已完成项目
 

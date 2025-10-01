@@ -207,7 +207,7 @@ func TestConcurrency_ContextCancellation(t *testing.T) {
 
 	// 在短时间后取消上下文
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(time.Nanosecond)
 		cancel()
 	}()
 

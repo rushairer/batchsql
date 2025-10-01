@@ -71,10 +71,13 @@ func (e *ThrottledBatchExecutor) ExecuteBatch(ctx context.Context, schema *Schem
 
 	startTime := time.Now()
 
-	operations, err := e.processor.GenerateOperations(ctx, schema, data)
-	e.processor.ExecuteOperations(ctx, operations)
-
 	status := "success"
+
+	operations, err := e.processor.GenerateOperations(ctx, schema, data)
+	if err != nil {
+		return err
+	}
+	err = e.processor.ExecuteOperations(ctx, operations)
 	if err != nil {
 		status = "fail"
 	}
@@ -132,11 +135,11 @@ func NewMockExecutorWithDriver(driver SQLDriver) *MockExecutor {
 }
 
 // ExecuteBatch 模拟执行批量操作
-func (e *MockExecutor) ExecuteBatch(_ context.Context, schema *Schema, data []map[string]any) error {
+func (e *MockExecutor) ExecuteBatch(ctx context.Context, schema *Schema, data []map[string]any) error {
 	e.ExecutedBatches = append(e.ExecutedBatches, data)
 
 	// 生成SQL信息（不输出大参数）
-	_, args, err := e.driver.GenerateInsertSQL(schema, data)
+	_, args, err := e.driver.GenerateInsertSQL(ctx, schema, data)
 	if err != nil {
 		return err
 	}

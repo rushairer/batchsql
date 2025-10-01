@@ -161,10 +161,12 @@ func TestSQLGeneration(t *testing.T) {
 		"SQLite INSERT OR IGNORE":           batchsql.DefaultSQLiteDriver,
 	}
 
+	ctx := context.Background()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			driver := drivers[tt.name]
-			sql, args, err := driver.GenerateInsertSQL(tt.schema, []map[string]any{
+			sql, args, err := driver.GenerateInsertSQL(ctx, tt.schema, []map[string]any{
 				{"id": 1, "name": "test1"},
 				{"id": 2, "name": "test2"},
 			})

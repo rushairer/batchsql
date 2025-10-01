@@ -179,6 +179,21 @@ func (b *BatchSQL) ErrorChan(size int) <-chan error {
 
 // Submit 提交请求到批量处理管道
 func (b *BatchSQL) Submit(ctx context.Context, request *Request) error {
+	if request == nil {
+		return ErrEmptyRequest
+	}
+
+	schema := request.Schema()
+	if schema == nil {
+		return ErrInvalidSchema
+	}
+	if schema.Columns == nil {
+		return ErrMissingColumn
+	}
+	if len(schema.Name) == 0 {
+		return ErrEmptySchemaName
+	}
+
 	dataChan := b.pipeline.DataChan()
 
 	select {

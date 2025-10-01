@@ -118,12 +118,10 @@ docker-redis-test-with-monitoring: ## Redis Docker 测试 + 监控
 	docker-compose -f ./docker-compose.integration.yml build redis redis-test --no-cache
 	docker-compose -f ./docker-compose.integration.yml up redis redis-test prometheus grafana --abort-on-container-exit --exit-code-from redis-test
 
-docker-all-tests-with-monitoring: ## 所有数据库 Docker 测试 + 监控
-	@echo "🐳📊 Starting all database pressure tests with monitoring..."
-	docker-compose -f ./docker-compose.integration.yml down -v --remove-orphans
-	docker-compose -f ./docker-compose.integration.yml build mysql postgres sqlite redis mysql-test postgres-test sqlite-test redis-test --no-cache
-	docker-compose -f ./docker-compose.integration.yml up mysql postgres sqlite redis mysql-test postgres-test sqlite-test redis-test prometheus grafana --abort-on-container-exit
-
+docker-all-tests-with-monitoring: docker-mysql-test-with-monitoring docker-postgres-test-with-monitoring docker-sqlite-test-with-monitoring docker-redis-test-with-monitoring## 所有数据库 Docker 测试 + 监控
+	@echo "🎉 All pressure tests completed!"
+	@echo "📊 Check ./test/reports/ for detailed performance reports"
+	
 # 依赖管理
 deps: ## 安装/更新依赖
 	@echo "📦 安装依赖..."

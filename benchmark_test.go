@@ -111,10 +111,12 @@ func BenchmarkSQLGeneration(b *testing.B) {
 		"SQLite":     &sqliteDriver{},
 	}
 
+	ctx := context.Background()
+
 	for name, driver := range drivers {
 		b.Run(name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, _, err := driver.GenerateInsertSQL(schema, data)
+				_, _, err := driver.GenerateInsertSQL(ctx, schema, data)
 				if err != nil {
 					b.Errorf("GenerateInsertSQL failed: %v", err)
 				}
@@ -126,19 +128,19 @@ func BenchmarkSQLGeneration(b *testing.B) {
 // 简化的驱动实现用于基准测试
 type mysqlDriver struct{}
 
-func (d *mysqlDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
+func (d *mysqlDriver) GenerateInsertSQL(ctx context.Context, schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
 	// 简化实现
 	return "INSERT IGNORE INTO users (id, name, email) VALUES (?, ?, ?)", []any{1, "test", "test@example.com"}, nil
 }
 
 type postgresDriver struct{}
 
-func (d *postgresDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
+func (d *postgresDriver) GenerateInsertSQL(ctx context.Context, schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
 	return "INSERT INTO users (id, name, email) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", []any{1, "test", "test@example.com"}, nil
 }
 
 type sqliteDriver struct{}
 
-func (d *sqliteDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
+func (d *sqliteDriver) GenerateInsertSQL(ctx context.Context, schema *batchsql.Schema, data []map[string]any) (string, []any, error) {
 	return "INSERT OR IGNORE INTO users (id, name, email) VALUES (?, ?, ?)", []any{1, "test", "test@example.com"}, nil
 }

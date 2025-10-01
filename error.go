@@ -20,4 +20,7 @@ var (
 
 	// ErrEmptyBatch 空批次错误
 	ErrEmptyBatch = errors.New("empty batch")
+
+	// ErrEmptySchemaName 空表名错误
+	ErrEmptySchemaName = errors.New("empty schema name")
 )

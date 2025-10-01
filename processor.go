@@ -38,7 +38,7 @@ func NewSQLBatchProcessor(db *sql.DB, driver SQLDriver) *SQLBatchProcessor {
 }
 
 func (bp *SQLBatchProcessor) GenerateOperations(ctx context.Context, schema *Schema, data []map[string]any) (operations Operations, err error) {
-	sql, args, innerErr := bp.driver.GenerateInsertSQL(schema, data)
+	sql, args, innerErr := bp.driver.GenerateInsertSQL(ctx, schema, data)
 	if innerErr != nil {
 		return nil, innerErr
 	}
@@ -76,7 +76,7 @@ func NewRedisBatchProcessor(client *redis.Client, driver RedisDriver) *RedisBatc
 
 // GenerateOperations 执行批量操作
 func (rp *RedisBatchProcessor) GenerateOperations(ctx context.Context, schema *Schema, data []map[string]any) (operations Operations, err error) {
-	cmds, innerErr := rp.driver.GenerateCmds(schema, data)
+	cmds, innerErr := rp.driver.GenerateCmds(ctx, schema, data)
 	if innerErr != nil {
 		return nil, innerErr
 	}

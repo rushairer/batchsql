@@ -1,6 +1,7 @@
 package batchsql
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -8,7 +9,7 @@ import (
 
 // SQLDriver 数据库特定的SQL生成器接口
 type SQLDriver interface {
-	GenerateInsertSQL(schema *Schema, data []map[string]any) (sql string, args []any, err error)
+	GenerateInsertSQL(ctx context.Context, schema *Schema, data []map[string]any) (sql string, args []any, err error)
 }
 
 var DefaultMySQLDriver = NewMySQLDriver()
@@ -20,7 +21,7 @@ func NewMySQLDriver() *MySQLDriver {
 }
 
 // GenerateInsertSQL 生成MySQL批量插入SQL
-func (d *MySQLDriver) GenerateInsertSQL(schema *Schema, data []map[string]any) (string, []any, error) {
+func (d *MySQLDriver) GenerateInsertSQL(ctx context.Context, schema *Schema, data []map[string]any) (string, []any, error) {
 	if len(data) == 0 {
 		return "", nil, nil
 	}
@@ -36,6 +37,10 @@ func (d *MySQLDriver) GenerateInsertSQL(schema *Schema, data []map[string]any) (
 	// 构建参数数组
 	args := make([]any, 0, len(data)*len(columns))
 	for _, row := range data {
+		// 忽略超时或取消的请求
+		if ctx.Err() != nil {
+			return "", nil, ctx.Err()
+		}
 		for _, col := range columns {
 			args = append(args, row[col])
 		}
@@ -80,7 +85,7 @@ func NewPostgreSQLDriver() *PostgreSQLDriver {
 }
 
 // GenerateInsertSQL 生成PostgreSQL批量插入SQL
-func (d *PostgreSQLDriver) GenerateInsertSQL(schema *Schema, data []map[string]any) (string, []any, error) {
+func (d *PostgreSQLDriver) GenerateInsertSQL(ctx context.Context, schema *Schema, data []map[string]any) (string, []any, error) {
 	if len(data) == 0 {
 		return "", nil, nil
 	}
@@ -96,6 +101,10 @@ func (d *PostgreSQLDriver) GenerateInsertSQL(schema *Schema, data []map[string]a
 	// 构建参数数组
 	args := make([]any, 0, len(data)*len(columns))
 	for _, row := range data {
+		// 忽略超时或取消的请求
+		if ctx.Err() != nil {
+			return "", nil, ctx.Err()
+		}
 		for _, col := range columns {
 			args = append(args, row[col])
 		}
@@ -141,7 +150,7 @@ func NewSQLiteDriver() *SQLiteDriver {
 }
 
 // GenerateInsertSQL 生成SQLite批量插入SQL
-func (d *SQLiteDriver) GenerateInsertSQL(schema *Schema, data []map[string]any) (string, []any, error) {
+func (d *SQLiteDriver) GenerateInsertSQL(ctx context.Context, schema *Schema, data []map[string]any) (string, []any, error) {
 	if len(data) == 0 {
 		return "", nil, nil
 	}
@@ -157,6 +166,10 @@ func (d *SQLiteDriver) GenerateInsertSQL(schema *Schema, data []map[string]any) 
 	// 构建参数数组
 	args := make([]any, 0, len(data)*len(columns))
 	for _, row := range data {
+		// 忽略超时或取消的请求
+		if ctx.Err() != nil {
+			return "", nil, ctx.Err()
+		}
 		for _, col := range columns {
 			args = append(args, row[col])
 		}
@@ -201,7 +214,7 @@ func NewMockDriver(databaseType string) *MockDriver {
 }
 
 // GenerateInsertSQL 生成模拟SQL（默认MySQL语法）
-func (d *MockDriver) GenerateInsertSQL(schema *Schema, data []map[string]any) (string, []any, error) {
+func (d *MockDriver) GenerateInsertSQL(ctx context.Context, schema *Schema, data []map[string]any) (string, []any, error) {
 	if len(data) == 0 {
 		return "", nil, nil
 	}
@@ -217,6 +230,10 @@ func (d *MockDriver) GenerateInsertSQL(schema *Schema, data []map[string]any) (s
 	// 构建参数数组
 	args := make([]any, 0, len(data)*len(columns))
 	for _, row := range data {
+		// 忽略超时或取消的请求
+		if ctx.Err() != nil {
+			return "", nil, ctx.Err()
+		}
 		for _, col := range columns {
 			args = append(args, row[col])
 		}
@@ -306,20 +323,18 @@ func (d *MockDriver) generatePlaceholders(columnCount, batchSize int) string {
 type RedisCmd []any
 
 type RedisDriver interface {
-	GenerateCmds(schema *Schema, data []map[string]any) ([]RedisCmd, error)
+	GenerateCmds(ctx context.Context, schema *Schema, data []map[string]any) ([]RedisCmd, error)
 }
 
 var DefaultRedisPipelineDriver = NewRedisPipelineDriver()
 
-type RedisPipelineDriver struct {
-}
+type RedisPipelineDriver struct{}
 
 func NewRedisPipelineDriver() *RedisPipelineDriver {
 	return &RedisPipelineDriver{}
 }
 
-func (d *RedisPipelineDriver) GenerateCmds(schema *Schema, data []map[string]any) ([]RedisCmd, error) {
-
+func (d *RedisPipelineDriver) GenerateCmds(ctx context.Context, schema *Schema, data []map[string]any) ([]RedisCmd, error) {
 	columns := schema.Columns
 
 	if len(columns) < 2 {
@@ -328,6 +343,11 @@ func (d *RedisPipelineDriver) GenerateCmds(schema *Schema, data []map[string]any
 
 	batchCmd := make([]RedisCmd, len(data))
 	for i, row := range data {
+		// 忽略超时或取消的请求
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
 		batchCmd[i] = make(RedisCmd, len(columns))
 		for j, col := range columns {
 			batchCmd[i][j] = row[col]

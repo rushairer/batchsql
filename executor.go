@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +32,13 @@ type ThrottledBatchExecutor struct {
 	processor       BatchProcessor  // 具体的批量处理逻辑
 	metricsReporter MetricsReporter // 性能指标报告器
 	semaphore       chan struct{}   // 可选信号量，用于限制 ExecuteBatch 并发
+
+	// Step 2: 重试配置（默认关闭）
+	retryEnabled     bool
+	retryMaxAttempts int
+	retryBackoffBase time.Duration
+	retryMaxBackoff  time.Duration
+	retryClassifier  func(error) (retryable bool, reason string)
 }
 
 // NewThrottledBatchExecutor 创建通用执行器（使用自定义BatchProcessor）
@@ -54,6 +62,65 @@ func NewRedisThrottledBatchExecutorWithDriver(client *redis.Client, driver Redis
 	return NewThrottledBatchExecutor(NewRedisBatchProcessor(client, driver))
 }
 
+// RetryConfig 可选重试配置（零值关闭）
+type RetryConfig struct {
+	Enabled     bool
+	MaxAttempts int           // 总尝试次数（含首轮），建议 2~3
+	BackoffBase time.Duration // 退避基值（指数退避起点）
+	MaxBackoff  time.Duration // 最大退避时长（上限）
+	// 自定义错误分类（可选）；返回是否可重试与原因标签
+	Classifier func(error) (retryable bool, reason string)
+}
+
+// WithRetryConfig 启用/配置重试（仅对 ThrottledBatchExecutor 可用）
+func (e *ThrottledBatchExecutor) WithRetryConfig(cfg RetryConfig) *ThrottledBatchExecutor {
+	if cfg.MaxAttempts <= 0 {
+		cfg.MaxAttempts = 1
+	}
+	if cfg.BackoffBase <= 0 {
+		cfg.BackoffBase = 20 * time.Millisecond
+	}
+	if cfg.MaxBackoff <= 0 {
+		cfg.MaxBackoff = 2 * time.Second
+	}
+	e.retryEnabled = cfg.Enabled
+	e.retryMaxAttempts = cfg.MaxAttempts
+	e.retryBackoffBase = cfg.BackoffBase
+	e.retryMaxBackoff = cfg.MaxBackoff
+	if cfg.Classifier != nil {
+		e.retryClassifier = cfg.Classifier
+	} else {
+		e.retryClassifier = defaultRetryClassifier
+	}
+	return e
+}
+
+func defaultRetryClassifier(err error) (bool, string) {
+	if err == nil {
+		return false, ""
+	}
+	// 非可重试：上下文取消/超时
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return false, "context"
+	}
+	// 朴素字符串分类（MySQL/PG/Redis 常见瞬态错误）
+	s := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(s, "deadlock"):
+		return true, "deadlock"
+	case strings.Contains(s, "lock wait timeout"):
+		return true, "lock_timeout"
+	case strings.Contains(s, "timeout"):
+		return true, "timeout"
+	case strings.Contains(s, "connection") && (strings.Contains(s, "refused") || strings.Contains(s, "reset") || strings.Contains(s, "closed")):
+		return true, "connection"
+	case strings.Contains(s, "broken pipe") || strings.Contains(s, "eof"):
+		return true, "io"
+	default:
+		return false, "non_retryable"
+	}
+}
+
 // ExecuteBatch 执行批量操作
 func (e *ThrottledBatchExecutor) ExecuteBatch(ctx context.Context, schema *Schema, data []map[string]any) error {
 	if len(data) == 0 {
@@ -73,14 +140,65 @@ func (e *ThrottledBatchExecutor) ExecuteBatch(ctx context.Context, schema *Schem
 	startTime := time.Now()
 	status := "success"
 
-	operations, err := e.processor.GenerateOperations(ctx, schema, data)
-	if err != nil {
-		return err
+	var err error
+	attempts := 1
+	if e.retryEnabled && e.retryMaxAttempts > 1 {
+		attempts = e.retryMaxAttempts
 	}
-	err = e.processor.ExecuteOperations(ctx, operations)
-	if err != nil {
-		status = "fail"
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		// 生成与执行（一次尝试）
+		var operations Operations
+		operations, err = e.processor.GenerateOperations(ctx, schema, data)
+		if err == nil {
+			err = e.processor.ExecuteOperations(ctx, operations)
+		}
+
+		if err == nil {
+			status = "success"
+			break
+		}
+
+		// 错误分类与重试判定
+		retryable, reason := false, "unknown"
+		if e.retryClassifier != nil {
+			retryable, reason = e.retryClassifier(err)
+		}
+		if !e.retryEnabled || attempt == attempts || !retryable {
+			status = "fail"
+			if e.metricsReporter != nil {
+				e.metricsReporter.IncError(schema.Name, "final:"+reason)
+			}
+			break
+		}
+
+		// 记录一次重试指标
+		if e.metricsReporter != nil {
+			e.metricsReporter.IncError(schema.Name, "retry:"+reason)
+		}
+
+		// 指数退避 + 抖动
+		backoff := e.retryBackoffBase
+		for i := 1; i < attempt; i++ {
+			backoff *= 2
+			if backoff > e.retryMaxBackoff {
+				backoff = e.retryMaxBackoff
+				break
+			}
+		}
+		// 抖动 ±20%
+		jitter := time.Duration(int64(float64(backoff) * 0.2))
+		sleep := backoff - jitter + time.Duration(randInt63n(int64(2*jitter+1)))
+		timer := time.NewTimer(sleep)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			status = "fail"
+			break
+		case <-timer.C:
+		}
 	}
+
 	if e.metricsReporter != nil {
 		e.metricsReporter.ObserveExecuteDuration(schema.Name, len(data), time.Since(startTime), status)
 	}
@@ -104,6 +222,17 @@ func (e *ThrottledBatchExecutor) WithConcurrencyLimit(limit int) BatchExecutor {
 }
 
 // Executor 模拟批量执行器（用于测试）
+// randInt63n 返回 [0,n) 的随机数；避免额外依赖，用 time.Now 纳秒抖动
+func randInt63n(n int64) int64 {
+	if n <= 0 {
+		return 0
+	}
+	// LCG 简易随机（不要求强随机，仅用于退避抖动）
+	seed := time.Now().UnixNano()
+	seed = (seed*6364136223846793005 + 1) & 0x7fffffffffffffff
+	return int64(seed % n)
+}
+
 type MockExecutor struct {
 	ExecutedBatches [][]map[string]any
 	driver          SQLDriver

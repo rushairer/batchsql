@@ -113,6 +113,9 @@ type PipelineConfig struct {
 	BufferSize    uint32
 	FlushSize     uint32
 	FlushInterval time.Duration
+
+	// Step 2: 可选重试配置（零值=关闭，向后兼容）
+	Retry RetryConfig
 }
 
 // NewMySQLBatchSQL 创建MySQL BatchSQL实例（使用默认Driver）
@@ -122,6 +125,9 @@ type PipelineConfig struct {
 // 这是推荐的使用方式，使用MySQL优化的默认配置
 func NewMySQLBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
 	executor := NewSQLThrottledBatchExecutorWithDriver(db, DefaultMySQLDriver)
+	if config.Retry.Enabled {
+		executor.WithRetryConfig(config.Retry)
+	}
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
@@ -132,30 +138,45 @@ func NewMySQLBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *B
 // 适用于需要自定义SQL生成逻辑的场景（如TiDB优化）
 func NewMySQLBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver SQLDriver) *BatchSQL {
 	executor := NewSQLThrottledBatchExecutorWithDriver(db, driver)
+	if config.Retry.Enabled {
+		executor.WithRetryConfig(config.Retry)
+	}
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 // NewPostgreSQLBatchSQL 创建PostgreSQL BatchSQL实例（使用默认Driver）
 func NewPostgreSQLBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
 	executor := NewSQLThrottledBatchExecutorWithDriver(db, DefaultPostgreSQLDriver)
+	if config.Retry.Enabled {
+		executor.WithRetryConfig(config.Retry)
+	}
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 // NewPostgreSQLBatchSQLWithDriver 创建PostgreSQL BatchSQL实例（使用自定义Driver）
 func NewPostgreSQLBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver SQLDriver) *BatchSQL {
 	executor := NewSQLThrottledBatchExecutorWithDriver(db, driver)
+	if config.Retry.Enabled {
+		executor.WithRetryConfig(config.Retry)
+	}
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 // NewSQLiteBatchSQL 创建SQLite BatchSQL实例（使用默认Driver）
 func NewSQLiteBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
 	executor := NewSQLThrottledBatchExecutorWithDriver(db, DefaultSQLiteDriver)
+	if config.Retry.Enabled {
+		executor.WithRetryConfig(config.Retry)
+	}
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 // NewSQLiteBatchSQLWithDriver 创建SQLite BatchSQL实例（使用自定义Driver）
 func NewSQLiteBatchSQLWithDriver(ctx context.Context, db *sql.DB, config PipelineConfig, driver SQLDriver) *BatchSQL {
 	executor := NewSQLThrottledBatchExecutorWithDriver(db, driver)
+	if config.Retry.Enabled {
+		executor.WithRetryConfig(config.Retry)
+	}
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
@@ -166,11 +187,17 @@ func NewSQLiteBatchSQLWithDriver(ctx context.Context, db *sql.DB, config Pipelin
 */
 func NewRedisBatchSQL(ctx context.Context, db *redisV9.Client, config PipelineConfig) *BatchSQL {
 	executor := NewThrottledBatchExecutor(NewRedisBatchProcessor(db, DefaultRedisPipelineDriver))
+	if config.Retry.Enabled {
+		executor.WithRetryConfig(config.Retry)
+	}
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 
 func NewRedisBatchSQLWithDriver(ctx context.Context, db *redisV9.Client, config PipelineConfig, driver RedisDriver) *BatchSQL {
 	executor := NewThrottledBatchExecutor(NewRedisBatchProcessor(db, driver))
+	if config.Retry.Enabled {
+		executor.WithRetryConfig(config.Retry)
+	}
 	return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 

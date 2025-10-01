@@ -624,8 +624,8 @@ make monitoring                           # 启动监控环境
 make test-integration-with-monitoring     # 启动监控后运行测试
 
 # 或使用脚本
-./scripts/start-monitoring.sh            # 启动监控环境
-./scripts/start-monitoring.sh --stop     # 停止监控服务
+
+
 ```
 
 #### 访问监控界面
@@ -706,7 +706,7 @@ batchsql/
 │       ├── TEST_REPORT_ANALYSIS.md
 │       └── sqlite-tools.md
 ├── scripts/
-│   └── start-monitoring.sh
+
 └── test/
     ├── integration/
     │   ├── config.go
@@ -787,19 +787,19 @@ batchsql/
 ### 系统架构总览
 ```mermaid
 graph TD
-  A[Apps / Benchmarks / cmd/*] --> C[BatchSQL Core]
+  A["Apps / Benchmarks / cmd/*"] --> C["BatchSQL Core"]
   subgraph Core
-    C[BatchSQL Core]
-    C1[Config & Env\n(.env.test / .env.sqlite.test)]
-    C2[Buffer & Batching\n(batch size, flush interval, buffer size)]
-    C3[Workers\n(concurrency)]
-    C4[Metrics Hooks]
+    C["BatchSQL Core"]
+    C1["Config & Env<br/>.env.test / .env.sqlite.test"]
+    C2["Buffer & Batching<br/>batch size, flush interval, buffer size"]
+    C3["Workers<br/>concurrency"]
+    C4["Metrics Hooks"]
   end
 
-  C --> D1[Driver: MySQL]
-  C --> D2[Driver: Postgres]
-  C --> D3[Driver: SQLite]
-  C --> D4[Driver: Redis]
+  C --> D1["Driver: MySQL"]
+  C --> D2["Driver: Postgres"]
+  C --> D3["Driver: SQLite"]
+  C --> D4["Driver: Redis"]
 
   subgraph Storage Backends
     DB1[(MySQL)]
@@ -814,26 +814,26 @@ graph TD
   D4 --> DB4
 
   subgraph Tests
-    T1[Unit Tests\n(go test ./...)]
-    T2[Int Tests via Docker\nsqlite/mysql/postgres/redis -test]
-    SQL[Init SQL\n(test/sql/*)]
+    T1["Unit Tests<br/>go test ./..."]
+    T2["Int Tests via Docker<br/>sqlite/mysql/postgres/redis -test"]
+    SQL["Init SQL<br/>test/sql/*"]
   end
   SQL -. mounted .-> T2
   T1 --> C
   T2 --> C
 
   subgraph Docker
-    DCi[docker-compose.ci.yml\n(no host ports)]
-    DInt[docker-compose.integration.yml\n(with ports, local dev)]
-    Images[Dockerfile.integration\nDockerfile.sqlite.integration]
+    DCi["docker-compose.ci.yml<br/>no host ports"]
+    DInt["docker-compose.integration.yml<br/>with ports, local dev"]
+    Images["Dockerfile.integration<br/>Dockerfile.sqlite.integration"]
   end
   Images --> T2
   DCi --> T2
   DInt --> T2
 
   subgraph Docs
-    DOCS[docs/*\n(api, guides, reports, development)]
-    README[README.md]
+    DOCS["docs/*<br/>api, guides, reports, development"]
+    README["README.md"]
   end
   DOCS --> A
   README --> A
@@ -843,11 +843,11 @@ graph TD
 ```mermaid
 flowchart TD
   subgraph Triggers
-    P1[push: main/develop]
-    PR[pull_request]
-    SCH[schedule (cron)]
-    TAG[tag: v*]
-    WD[workflow_dispatch]
+    P1["push: main/develop"]
+    PR["pull_request"]
+    SCH["schedule (cron)"]
+    TAG["tag: v*"]
+    WD["workflow_dispatch"]
   end
 
   P1 --> CI[.github/workflows/ci.yml]
@@ -860,32 +860,32 @@ flowchart TD
   WD --> NTL
 
   subgraph CI Pipeline
-    CQ[Code Quality\nfmt/vet/golangci-lint + docs/Makefile checks]
-    UT[Unit Tests\ncoverage]
-    IS[Integration - SQLite\ncompose.ci.yml up sqlite/sqlite-test]
-    IM[Integration - MySQL\ncompose.ci.yml up mysql/mysql-test]
-    IP[Integration - Postgres\ncompose.ci.yml up postgres/postgres-test]
-    IR[Integration - Redis\ncompose.ci.yml up redis/redis-test]
-    PB[Performance Benchmarks\n-go test -bench]
-    SUM[Test Summary\nartifact]
+    CQ["Code Quality<br/>fmt/vet/golangci-lint + docs/Makefile checks"]
+    UT["Unit Tests<br/>coverage"]
+    IS["Integration - SQLite<br/>compose.ci.yml up sqlite/sqlite-test"]
+    IM["Integration - MySQL<br/>compose.ci.yml up mysql/mysql-test"]
+    IP["Integration - Postgres<br/>compose.ci.yml up postgres/postgres-test"]
+    IR["Integration - Redis<br/>compose.ci.yml up redis/redis-test"]
+    PB["Performance Benchmarks<br/>go test -bench"]
+    SUM["Test Summary<br/>artifact"]
   end
   CI --> CQ --> UT --> IS --> IM --> IP --> IR --> PB --> SUM
 
   subgraph Release
-    PRV[Pre-release Validation\nunit + quick sqlite int]
-    FIT[Full Integration Matrix\nmysql/postgres/redis]
-    BR[Build Release Artifacts]
-    CH[Generate Changelog]
-    GR[Create GitHub Release]
-    PN[Post-Release Notification]
+    PRV["Pre-release Validation<br/>unit + quick sqlite int"]
+    FIT["Full Integration Matrix<br/>mysql/postgres/redis"]
+    BR["Build Release Artifacts"]
+    CH["Generate Changelog"]
+    GR["Create GitHub Release"]
+    PN["Post-Release Notification"]
   end
   REL --> PRV --> FIT --> BR --> CH --> GR --> PN
 
   subgraph Nightly
-    LRT[Long Running Tests\nmatrix: mysql/postgres/redis]
-    SST[SQLite Stress Test]
-    PA[Performance Analysis]
-    NR[Notify (optional)]
+    LRT["Long Running Tests<br/>matrix: mysql/postgres/redis"]
+    SST["SQLite Stress Test"]
+    PA["Performance Analysis"]
+    NR["Notify (optional)"]
   end
   NTL --> LRT --> PA --> NR
   NTL --> SST --> PA

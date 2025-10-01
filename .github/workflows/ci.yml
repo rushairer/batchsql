@@ -387,7 +387,8 @@ jobs:
 
     - name: Run Go benchmarks
       run: |
-        go test -bench=. -benchmem -count=3 ./... > benchmark_results.txt
+        set -o pipefail
+        go test -run=^$ -bench=. -benchmem -count=3 ./... | tee benchmark_results.txt
 
     - name: Upload benchmark results
       uses: actions/upload-artifact@v4

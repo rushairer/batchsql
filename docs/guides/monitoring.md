@@ -126,6 +126,21 @@ histogram_quantile(0.95, rate(batchsql_batch_execution_duration_ms_bucket[5m]))
 - stat：近5分钟最终失败率
 - timeseries：P95 执行耗时，结合队列/并发变化观察退避影响
 
+## 🚀 开箱即用 Prometheus（示例）
+- 示例代码：examples/metrics/prometheus
+- 提供：
+  - 指标注册与 HTTP /metrics 服务（prometheus_metrics.go）
+  - 执行器/BatchSQL 对接的 Reporter（prometheus_reporter.go）
+  - 单一 Grafana Dashboard（test/integration/grafana/provisioning/dashboards/batchsql-performance.json）
+- 适用场景：希望“快速可视化 + 按需裁剪”的团队
+- 使用步骤：
+  1) NewMetrics + StartServer(2112)
+  2) NewReporter(metrics, database, testName)
+  3) executor.WithMetricsReporter(reporter) 并传入 NewBatchSQL
+  4) 导入上述 Dashboard
+
+提示：生产中建议按需配置 Namespace/ConstLabels/Buckets，并谨慎开启 table 维度，避免标签基数膨胀。
+
 ## 🎛️ Grafana 面板配置
 
 ### Retry 指标仪表板（可直接导入）

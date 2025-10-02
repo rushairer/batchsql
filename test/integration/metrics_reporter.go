@@ -22,36 +22,6 @@ func NewPrometheusMetricsReporter(prometheusMetrics *PrometheusMetrics, database
 	}
 }
 
-// 兼容旧接口：映射到新接口
-func (r *PrometheusMetricsReporter) RecordBatchExecution(tableName string, batchSize int, durationMS int64, status string) {
-	if r.prometheusMetrics == nil {
-		return
-	}
-	d := time.Duration(durationMS) * time.Millisecond
-	// 记录执行耗时与批大小
-	r.prometheusMetrics.RecordExecuteDuration(r.database, tableName, status, d)
-	r.prometheusMetrics.RecordBatchSize(r.database, batchSize)
-	// 维持原有集成测试指标
-	r.prometheusMetrics.RecordBatchProcessTime(r.database, uint32(batchSize), d)
-	r.prometheusMetrics.RecordResponseTime(r.database, "batch_insert", d)
-	if status == "success" {
-		r.prometheusMetrics.totalRecordsProcessed.WithLabelValues(r.database, r.testName, "success").Add(float64(batchSize))
-		// 用本批次近似 RPS（仅用于可视化提示）
-		if s := d.Seconds(); s > 0 {
-			r.prometheusMetrics.currentRPS.WithLabelValues(r.database, r.testName).Set(float64(batchSize) / s)
-		}
-		r.prometheusMetrics.dataIntegrityRate.WithLabelValues(r.database, r.testName).Set(1.0)
-	} else {
-		r.prometheusMetrics.totalErrors.WithLabelValues(r.database, r.testName, "batch_execution").Inc()
-		r.prometheusMetrics.dataIntegrityRate.WithLabelValues(r.database, r.testName).Set(0.0)
-	}
-	r.prometheusMetrics.totalTestsRun.WithLabelValues(r.database, r.testName, status).Inc()
-	r.prometheusMetrics.testDuration.WithLabelValues(r.database, r.testName).Observe(d.Seconds())
-	if s := d.Seconds(); s > 0 {
-		r.prometheusMetrics.recordsPerSecond.WithLabelValues(r.database, r.testName).Observe(float64(batchSize) / s)
-	}
-}
-
 // 以下为新接口适配
 
 func (r *PrometheusMetricsReporter) ObserveEnqueueLatency(d time.Duration) {

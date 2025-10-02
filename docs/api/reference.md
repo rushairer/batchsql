@@ -171,7 +171,7 @@ batchSQL := batchsql.NewBatchSQL(ctx, 5000, 500, 50*time.Millisecond, executor)
 
 ```go
 type MetricsReporter interface {
-    RecordBatchExecution(tableName string, batchSize int, duration int64, status string)
+    // 已更新：请使用 ObserveExecuteDuration/ObserveBatchAssemble/ObserveEnqueueLatency/ObserveBatchSize 等新接口
 }
 ```
 
@@ -215,7 +215,7 @@ type CustomMetricsReporter struct {
     stats  *Stats
 }
 
-func (r *CustomMetricsReporter) RecordBatchExecution(tableName string, batchSize int, duration int64, status string) {
+func (r *CustomMetricsReporter) ObserveExecuteDuration(tableName string, batchSize int, d time.Duration, status string) {
     r.logger.Printf("Batch executed: table=%s, size=%d, duration=%dms, status=%s", 
         tableName, batchSize, duration, status)
     

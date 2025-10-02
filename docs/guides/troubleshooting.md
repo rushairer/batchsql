@@ -327,7 +327,7 @@ type LoggingMetricsReporter struct {
     logger *log.Logger
 }
 
-func (r *LoggingMetricsReporter) RecordBatchExecution(tableName string, batchSize int, duration int64, status string) {
+func (r *LoggingMetricsReporter) ObserveExecuteDuration(tableName string, batchSize int, d time.Duration, status string) {
     if status != "success" {
         r.logger.Printf("批次执行失败: table=%s, size=%d, duration=%dms, status=%s",
             tableName, batchSize, duration, status)

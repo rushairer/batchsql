@@ -232,9 +232,9 @@ func NewCustomMetricsReporter() *CustomMetricsReporter {
     }
 }
 
-func (r *CustomMetricsReporter) RecordBatchExecution(tableName string, batchSize int, duration int64, status string) {
+func (r *CustomMetricsReporter) ObserveExecuteDuration(tableName string, batchSize int, d time.Duration, status string) {
     r.totalRecords += int64(batchSize)
-    r.totalDuration += time.Duration(duration) * time.Millisecond
+    r.totalDuration += d
     
     if status == "success" {
         r.successRecords += int64(batchSize)

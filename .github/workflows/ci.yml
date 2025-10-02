@@ -166,12 +166,14 @@ jobs:
         # 运行测试并捕获退出码
         docker compose -f docker-compose.ci.yml up sqlite sqlite-test --abort-on-container-exit --exit-code-from sqlite-test || true
 
-    - name: Extract test reports
+    - name: Prepare SQLite test reports
       run: |
-        # 创建临时容器以提取报告
-        docker create --name temp-sqlite batchsql-sqlite-test:latest
-        docker cp temp-sqlite:/app/reports ./test/reports-sqlite || true
-        docker rm temp-sqlite || true
+        mkdir -p ./test/reports-sqlite
+        if [ -d ./test/reports ] && [ "$(ls -A ./test/reports)" ]; then
+          cp -R ./test/reports/* ./test/reports-sqlite/ || true
+        else
+          echo "No reports found in ./test/reports"
+        fi
 
     - name: Upload SQLite test reports
       uses: actions/upload-artifact@v4
@@ -238,11 +240,14 @@ jobs:
         
         docker compose -f docker-compose.ci.yml up mysql mysql-test --abort-on-container-exit --exit-code-from mysql-test
 
-    - name: Extract test reports
+    - name: Prepare MySQL test reports
       run: |
-        docker create --name temp-mysql batchsql-mysql-test:latest
-        docker cp temp-mysql:/app/reports ./test/reports-mysql || true
-        docker rm temp-mysql || true
+        mkdir -p ./test/reports-mysql
+        if [ -d ./test/reports ] && [ "$(ls -A ./test/reports)" ]; then
+          cp -R ./test/reports/* ./test/reports-mysql/ || true
+        else
+          echo "No reports found in ./test/reports"
+        fi
 
     - name: Upload MySQL test reports
       uses: actions/upload-artifact@v4
@@ -298,11 +303,14 @@ jobs:
         
         docker compose -f docker-compose.ci.yml up postgres postgres-test --abort-on-container-exit --exit-code-from postgres-test
 
-    - name: Extract test reports
+    - name: Prepare PostgreSQL test reports
       run: |
-        docker create --name temp-postgres batchsql-postgres-test:latest
-        docker cp temp-postgres:/app/reports ./test/reports-postgres || true
-        docker rm temp-postgres || true
+        mkdir -p ./test/reports-postgres
+        if [ -d ./test/reports ] && [ "$(ls -A ./test/reports)" ]; then
+          cp -R ./test/reports/* ./test/reports-postgres/ || true
+        else
+          echo "No reports found in ./test/reports"
+        fi
 
     - name: Upload PostgreSQL test reports
       uses: actions/upload-artifact@v4
@@ -354,11 +362,14 @@ jobs:
         
         docker compose -f docker-compose.ci.yml up redis redis-test --abort-on-container-exit --exit-code-from redis-test
 
-    - name: Extract test reports
+    - name: Prepare Redis test reports
       run: |
-        docker create --name temp-redis batchsql-redis-test:latest
-        docker cp temp-redis:/app/reports ./test/reports-redis || true
-        docker rm temp-redis || true
+        mkdir -p ./test/reports-redis
+        if [ -d ./test/reports ] && [ "$(ls -A ./test/reports)" ]; then
+          cp -R ./test/reports/* ./test/reports-redis/ || true
+        else
+          echo "No reports found in ./test/reports"
+        fi
 
     - name: Upload Redis test reports
       uses: actions/upload-artifact@v4

@@ -6,6 +6,9 @@
 
 ## 🏗️ 架构设计
 
+延伸阅读
+- [架构设计详解](docs/development/architecture.md)
+
 ### 核心组件
 ```mermaid
 flowchart TB
@@ -71,6 +74,11 @@ flowchart TB
 - **灵活配置**：支持自定义缓冲区大小、刷新大小和刷新间隔
 - **混合API设计**：默认方式简单易用，自定义方式支持第三方扩展
 - **框架无关**：支持原生 `sql.DB`、GORM、sqlx 等任何数据库框架
+
+延伸阅读
+- [API 参考](docs/api/reference.md)
+- [配置指南](docs/api/configuration.md)
+- [使用示例](docs/guides/examples.md)
 
 ## 🚀 快速开始
 
@@ -144,6 +152,10 @@ func main() {
 注意：
 - 自 v1.1.1 起，Submit 会在尝试入队前优先检查 ctx.Err()（取消/超时将立即返回，不会进入内部批处理通道）。请在提交前妥善管理 context 生命周期，避免无效提交。
 
+延伸阅读
+- [使用示例](docs/guides/examples.md)
+- [配置指南](docs/api/configuration.md)
+
 ### Redis 使用示例
 
 ```go
@@ -206,6 +218,10 @@ func main() {
 
 ### 测试使用
 
+延伸阅读
+- [测试指南](docs/guides/testing.md)
+- [集成测试指南](docs/guides/integration-tests.md)
+
 ```go
 func TestBatchSQL(t *testing.T) {
     ctx := context.Background()
@@ -266,9 +282,9 @@ defer bs.Close()
 ```
 
 延伸阅读
-- docs/guides/monitoring-quickstart.md
-- docs/guides/custom-metrics-reporter.md
-- docs/api/reference.md（MetricsReporter 小节）
+- [监控快速上手（Prometheus + Grafana）](docs/guides/monitoring-quickstart.md)
+- [自定义 MetricsReporter 指南](docs/guides/custom-metrics-reporter.md)
+- [API 参考（MetricsReporter 小节）](docs/api/reference.md)
 
 #### Prometheus + Grafana 快速监控
 
@@ -294,6 +310,10 @@ make test-integration-with-monitoring     # 启动监控后运行测试
 详细使用说明请参考：[监控指南](docs/guides/monitoring.md)
 
 ## 📋 详细功能
+
+延伸阅读
+- [API 参考](docs/api/reference.md)
+- [使用示例](docs/guides/examples.md)
 
 ### API 设计模式
 
@@ -558,6 +578,10 @@ batch := batchsql.NewBatchSQL(ctx, cfg.BufferSize, cfg.FlushSize, cfg.FlushInter
 
 ### 框架集成示例
 
+延伸阅读
+- [使用示例](docs/guides/examples.md)
+- [API 参考](docs/api/reference.md)
+
 ```go
 // 与GORM集成
 gormDB, _ := gorm.Open(mysql.Open(dsn), &gorm.Config{})
@@ -589,8 +613,17 @@ batch := batchsql.NewMySQLBatchSQL(ctx, sqlxDB.DB, config)
 - **连接复用**：用户自己管理连接池，支持连接复用
 - **SQL优化**：针对不同数据库生成最优的SQL语法
 
+延伸阅读
+- [调优最佳实践](docs/guides/tuning.md)
+- [性能分析报告](docs/reports/PERFORMANCE_ANALYSIS.md)
+- [SQLite 优化建议](docs/reports/SQLITE_OPTIMIZATION.md)
+
 
 ## 📊 质量评估
+
+延伸阅读
+- [质量评估方法](docs/development/quality.md)
+- [测试报告分析](docs/reports/TEST_REPORT_ANALYSIS.md)
 
 基于最新集成测试报告的项目质量状态评估：
 
@@ -660,6 +693,9 @@ BatchSQL 提供完整的文档体系，按使用场景分类：
 
 ## 🐛 重要修复记录
 
+延伸阅读
+- [修复与改进记录](docs/development/changelog.md)
+
 ### 数据完整性监控指标修复 (2025-09-30)
 - **问题**：Grafana 监控面板显示数据完整性为 10000% 而非正常的 100%
 - **原因**：Prometheus 指标范围定义不一致（0-1 vs 0-100）
@@ -668,6 +704,10 @@ BatchSQL 提供完整的文档体系，按使用场景分类：
 - **详情**：[修复日志](docs/development/changelog.md)
 
 ## 📋 测试
+
+延伸阅读
+- [测试指南](docs/guides/testing.md)
+- [集成测试指南](docs/guides/integration-tests.md)
 
 ### 单元测试
 ```bash
@@ -790,6 +830,10 @@ batchsql/
 
 
 ## 🤝 贡献
+
+延伸阅读
+- [贡献指南](docs/development/contributing.md)
+- [发布流程](docs/development/release.md)
 
 欢迎提交 Issue 和 Pull Request！
 

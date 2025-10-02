@@ -1476,6 +1476,99 @@
           "legendFormat": "{{database}}"
         }
       ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 80 },
+      "id": 300,
+      "panels": [],
+      "title": "🔁 重试与最终失败",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "timeseries",
+      "title": "重试速率（retry:*）",
+      "id": 301,
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 81 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull","max"] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(batchsql_errors_total{error_type=~\"retry:.*\",database=~\"$database\",test_name=~\"$test_name\"}[5m])) by (database, error_type)",
+          "legendFormat": "{{database}} {{error_type}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "timeseries",
+      "title": "最终失败速率（final:*）",
+      "id": 302,
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 81 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull","max"] },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(batchsql_errors_total{error_type=~\"final:.*\",database=~\"$database\",test_name=~\"$test_name\"}[5m])) by (database, error_type)",
+          "legendFormat": "{{database}} {{error_type}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "stat",
+      "title": "重试占比（近5m）",
+      "id": 303,
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 88 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(batchsql_errors_total{error_type=~\"retry:.*\",database=~\"$database\",test_name=~\"$test_name\"}[5m])) / sum(rate(batchsql_errors_total{error_type=~\"(retry:|final:).*\",database=~\"$database\",test_name=~\"$test_name\"}[5m]))",
+          "legendFormat": "retry_ratio"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0.2},
+              {"color": "red", "value": 0.5}
+            ]
+          }
+        },
+        "overrides": []
+      }
     }
   ],
   "refresh": "5s",

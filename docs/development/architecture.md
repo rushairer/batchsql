@@ -6,31 +6,13 @@
 
 BatchSQL 采用分层架构设计，通过统一的 `BatchExecutor` 接口支持多种数据库类型，同时为不同类型的数据库提供最适合的实现方式。
 
-```
-┌─────────────────┐
-│   Application   │
-└─────────┬───────┘
-          │
-          ▼
-┌─────────────────┐
-│    BatchSQL     │ ◄─── 用户API层
-└─────────┬───────┘
-          │
-          ▼
-┌─────────────────┐
-│   gopipeline    │ ◄─── 异步批量处理
-└─────────┬───────┘
-          │
-          ▼
-┌─────────────────┐
-│ BatchExecutor   │ ◄─── 统一执行接口
-└─────────┬───────┘
-          │
-    ┌─────┴─────┐
-    ▼           ▼
-┌─────────┐ ┌─────────┐
-│SQL数据库│ │NoSQL数据库│
-└─────────┘ └─────────┘
+```mermaid
+flowchart TB
+  A[Application] --> B["BatchSQL<br/><span style='font-size:12px;color:#888'>用户API层</span>"]
+  B --> C["gopipeline<br/><span style='font-size:12px;color:#888'>异步批量处理</span>"]
+  C --> D["BatchExecutor<br/><span style='font-size:12px;color:#888'>统一执行接口</span>"]
+  D --> E[SQL数据库]
+  D --> F[NoSQL数据库]
 ```
 
 ## 🎯 核心设计原则

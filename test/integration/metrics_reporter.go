@@ -57,12 +57,9 @@ func (r *PrometheusMetricsReporter) IncError(table string, reason string) {
 	if r.prometheusMetrics == nil {
 		return
 	}
-	// 复用 totalErrors，标签使用 test_name + error_type；table 信息可拼入 reason 以便检索
-	label := reason
-	if table != "" {
-		label = table + ":" + reason
-	}
-	r.prometheusMetrics.totalErrors.WithLabelValues(r.database, r.testName, label).Inc()
+	// 与核心库约定对齐：error_type 必须以 "retry:" 或 "final:" 等前缀开头，便于 PromQL 正确匹配
+	// 此处不再拼接 table，避免将标签值从 "retry:xxx" 变成 "table:retry:xxx" 导致查询失配
+	r.prometheusMetrics.totalErrors.WithLabelValues(r.database, r.testName, reason).Inc()
 }
 
 func (r *PrometheusMetricsReporter) SetConcurrency(n int) {

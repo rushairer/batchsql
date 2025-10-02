@@ -94,7 +94,163 @@ func main() {
 | `batchsql_active_connections` | Gauge | 活跃连接数 | `database` |
 | `batchsql_buffer_utilization` | Gauge | 缓冲区利用率 (0-1) | `database`, `test_name` |
 
+## 🔁 Retry 指标与查询示例
+
+### 指标语义
+- 可重试错误（retry:*）：当执行器将错误分类为可重试时计数递增（每次重试前一次）
+- 最终失败（final:*）：达到最大尝试次数或被判定为不可重试时计数递增一次
+- 执行耗时：批次执行耗时直方图包含所有尝试与退避时间（status=success/fail）
+
+常见原因标签（reason）
+- deadlock、lock_timeout、timeout、connection、io、context、non_retryable
+
+### PromQL 示例
+```promql
+# 重试速率（按表和原因）
+sum(rate(batchsql_errors_total{type=~"retry:.*"}[5m])) by (table, type)
+
+# 最终失败速率（按表和原因）
+sum(rate(batchsql_errors_total{type=~"final:.*"}[5m])) by (table, type)
+
+# 重试占比（近5分钟窗口）
+sum(rate(batchsql_errors_total{type=~"retry:.*"}[5m]))
+/
+sum(rate(batchsql_errors_total{type=~"(retry:|final:).*"}[5m]))
+
+# 95分位执行耗时（含重试与退避）
+histogram_quantile(0.95, rate(batchsql_batch_execution_duration_ms_bucket[5m]))
+```
+
+### 可视化建议
+- timeseries：retry:* 与 final:* 分别曲线，按 table/type 分组
+- stat：近5分钟最终失败率
+- timeseries：P95 执行耗时，结合队列/并发变化观察退避影响
+
 ## 🎛️ Grafana 面板配置
+
+### Retry 指标仪表板（可直接导入）
+
+将以下 JSON 保存为 dashboards/batchsql-retry.json 并在 Grafana 中导入。该面板包含：
+- 重试速率（retry:*）与最终失败速率（final:*）
+- 近 5 分钟重试占比（retry / (retry+final)）
+- P95 执行耗时（含重试与退避）
+- 可选变量：database 与 table
+
+```json
+{
+  "title": "BatchSQL Retry 与执行耗时",
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "10s",
+  "tags": ["batchsql", "retry"],
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "query",
+        "datasource": null,
+        "query": "label_values(batchsql_errors_total, database)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      },
+      {
+        "name": "table",
+        "label": "Table",
+        "type": "query",
+        "datasource": null,
+        "query": "label_values(batchsql_errors_total, table)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "重试速率（retry:*）",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(batchsql_errors_total{type=~\"retry:.*\",database=~\"$database\",table=~\"$table\"}[5m])) by (table, type)",
+          "legendFormat": "{{table}} {{type}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "最终失败速率（final:*）",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(batchsql_errors_total{type=~\"final:.*\",database=~\"$database\",table=~\"$table\"}[5m])) by (table, type)",
+          "legendFormat": "{{table}} {{type}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "重试占比（近5m）",
+      "gridPos": {"x": 0, "y": 8, "w": 6, "h": 6},
+      "targets": [
+        {
+          "expr": "sum(rate(batchsql_errors_total{type=~\"retry:.*\",database=~\"$database\",table=~\"$table\"}[5m])) / sum(rate(batchsql_errors_total{type=~\"(retry:|final:).*\",database=~\"$database\",table=~\"$table\"}[5m]))",
+          "legendFormat": "retry_ratio"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "yellow", "value": 0.2},
+              {"color": "red", "value": 0.5}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "P95 执行耗时（含重试与退避）",
+      "gridPos": {"x": 6, "y": 8, "w": 18, "h": 6},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(batchsql_batch_execution_duration_ms_bucket{database=~\"$database\"}[5m]))",
+          "legendFormat": "P95 {{database}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      }
+    }
+  ]
+}
+```
+
+导入方式
+```bash
+curl -X POST \
+  http://admin:admin@localhost:3000/api/dashboards/db \
+  -H 'Content-Type: application/json' \
+  -d @dashboards/batchsql-retry.json
+```
 
 ### 主要面板
 

@@ -156,6 +156,7 @@ func (e *ThrottledBatchExecutor) ExecuteBatch(ctx context.Context, schema *Schem
 		attempts = e.retryMaxAttempts
 	}
 
+RETRY:
 	for attempt := 1; attempt <= attempts; attempt++ {
 		// 生成与执行（一次尝试）
 		var operations Operations
@@ -202,9 +203,16 @@ func (e *ThrottledBatchExecutor) ExecuteBatch(ctx context.Context, schema *Schem
 		timer := time.NewTimer(sleep)
 		select {
 		case <-ctx.Done():
-			timer.Stop()
+			// 安全停止/清理定时器并终止整个重试流程
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
 			status = "fail"
-			break
+			err = ctx.Err()
+			break RETRY
 		case <-timer.C:
 		}
 	}

@@ -309,6 +309,102 @@ make test-integration-with-monitoring     # 启动监控后运行测试
 
 详细使用说明请参考：[监控指南](docs/guides/monitoring.md)
 
+#### Retry 指标
+
+- 指标设计
+  - 每次判定为“可重试”都会上报一次：IncError(schema.Name, "retry:"+reason)
+  - 最终失败（达到最大次数或不可重试）会上报：IncError(schema.Name, "final:"+reason)
+  - 执行耗时统计（包含重试与退避）：ObserveExecuteDuration(schema.Name, len(data), duration, status)
+- 常见原因标签（reason）
+  - deadlock、lock_timeout、timeout、connection、io、context、non_retryable
+- PromQL 示例
+  - 各表重试速率：sum(rate(batchsql_errors_total{type=~"retry:.*"}[5m])) by (table,type)
+  - 最终失败速率：sum(rate(batchsql_errors_total{type=~"final:.*"}[5m])) by (table,type)
+  - 重试占比（近5分钟）：sum(rate(batchsql_errors_total{type=~"retry:.*"}[5m])) / sum(rate(batchsql_errors_total{type=~"(retry:|final:).*"}[5m]))
+- 实践建议
+  - 观察“retry:*”与“final:*”的比值，若“final:*”持续升高需关注数据库稳定性与退避配置
+  - ObserveExecuteDuration 已包含重试与退避时间，P95/99 将反映重试导致的尾部放大
+
+#### 可选接口：MetricsProvider
+
+- 功能定位：为执行器（BatchExecutor 实现者）提供一种“可选能力”以暴露其当前 MetricsReporter；NewBatchSQL 会基于该能力安全决定是否注入默认的 NoopMetricsReporter，从而避免误覆盖自定义执行器的监控实现。
+- 适用场景：
+  - 你实现了自定义执行器，希望显式告知框架“我已有/没有 MetricsReporter”；
+  - 希望 NewBatchSQL 能在“reporter 为空时自动注入 Noop”，“不为空时完全复用现有 reporter”，而不对未知执行器做强行覆盖。
+
+接口定义
+```go
+// MetricsProvider 可选能力：执行器可暴露其当前 MetricsReporter（若未设置则返回 nil）
+type MetricsProvider interface {
+    MetricsReporter() MetricsReporter
+}
+```
+
+参数与返回值
+- 返回值
+  - MetricsReporter：当前执行器使用的指标上报器实例；当执行器尚未配置 reporter 时，应返回 nil。
+- 约定
+  - 返回 nil 表示“未设置任何 reporter”，框架可注入 NewNoopMetricsReporter 作为默认实现；
+  - 返回非 nil 表示“已自行设置 reporter”，框架将尊重现有实现，绝不覆盖。
+
+典型用法示例
+
+1) 执行器实现 MetricsProvider
+```go
+type MyExecutor struct {
+    reporter batchsql.MetricsReporter
+}
+func (e *MyExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.Schema, data []map[string]any) error {
+    // ...
+    return nil
+}
+func (e *MyExecutor) WithMetricsReporter(r batchsql.MetricsReporter) batchsql.BatchExecutor {
+    e.reporter = r
+    return e
+}
+// 实现可选能力
+func (e *MyExecutor) MetricsReporter() batchsql.MetricsReporter { return e.reporter }
+
+// 组合到 BatchSQL
+exec := &MyExecutor{}
+// 若未设置 reporter，NewBatchSQL 将自动注入 Noop（不覆盖已有实现）
+bs := batchsql.NewBatchSQL(ctx, cfg.BufferSize, cfg.FlushSize, cfg.FlushInterval, exec)
+```
+
+2) 显式注入自定义 Reporter（推荐）
+```go
+exec := &MyExecutor{}
+prom := integration.NewPrometheusMetricsReporter(pm, "mysql", "user_batch")
+exec = exec.WithMetricsReporter(prom).(batchsql.BatchExecutor)
+// NewBatchSQL 发现 MetricsProvider 返回非 nil，将复用 prom，不会覆盖
+bs := batchsql.NewBatchSQL(ctx, cfg.BufferSize, cfg.FlushSize, cfg.FlushInterval, exec)
+```
+
+与 NewBatchSQL 的交互逻辑（简述）
+- 若执行器实现了 MetricsProvider：
+  - MetricsReporter() 返回非 nil：直接复用该 reporter；
+  - 返回 nil：NewBatchSQL 注入 NoopMetricsReporter，并写回到执行器（确保后续有观测点可用，且零开销）。
+- 若执行器未实现 MetricsProvider：
+  - 不会强制覆盖执行器内部状态；NewBatchSQL 仅在内部使用本地 Noop 进行自有观测，保持外部行为稳定。
+
+异常处理机制
+- ctx 取消与超时：执行器自身应优先处理上下文取消；框架不会因 reporter 缺失而改变取消语义。
+- reporter 为空：
+  - 对实现 MetricsProvider 的执行器：返回 nil 即可，框架会自动注入 Noop；
+  - 对未实现 MetricsProvider 的执行器：框架不会修改执行器，只在 BatchSQL 内部使用本地 Noop，避免 panic 或 nil 调用。
+- 执行器忽略 WithMetricsReporter：
+  - 若执行器实现 MetricsProvider 且始终返回 nil，将被注入 Noop；若未实现 MetricsProvider，则由执行器自行负责内部调用安全（框架内部仍使用本地 Noop，避免外泄）。
+
+性能考量
+- 零额外开销：仅一次类型断言与空值判断；NoopMetricsReporter 方法为空实现，分支预测友好，基本为零成本。
+- 无锁设计：建议执行器缓存 reporter 指针，不在热点路径加锁；NewBatchSQL 注入在构造期完成，不进入热路径。
+- 重试与限流：引入 MetricsProvider 不改变 ExecuteBatch 的重试/限流与指标上报路径；在 ctx.Done() 场景下仍能保证统一上报。
+
+最佳实践
+- 在构造期（NewXxx 或 NewBatchSQL 之前）通过 WithMetricsReporter 显式注入自定义 reporter；
+- 若短期无监控接入需求，无需实现 MetricsProvider，框架会在内部使用本地 Noop 保持行为稳定；
+- 实现 MetricsProvider 时，确保返回值与 WithMetricsReporter 设置同步，避免出现“返回 nil 但内部已使用非空 reporter”的不一致状态。
+
 ## 📋 详细功能
 
 延伸阅读

@@ -323,9 +323,9 @@ make test-integration-with-monitoring     # 启动监控后运行测试
 - 常见原因标签（reason）
   - deadlock、lock_timeout、timeout、connection、io、context、non_retryable
 - PromQL 示例
-  - 各表重试速率：sum(rate(batchsql_errors_total{type=~"retry:.*"}[5m])) by (table,type)
-  - 最终失败速率：sum(rate(batchsql_errors_total{type=~"final:.*"}[5m])) by (table,type)
-  - 重试占比（近5分钟）：sum(rate(batchsql_errors_total{type=~"retry:.*"}[5m])) / sum(rate(batchsql_errors_total{type=~"(retry:|final:).*"}[5m]))
+  - 各表重试速率：`sum(rate(batchsql_errors_total{type=~"retry:.*"}[5m])) by (table,type)`
+  - 最终失败速率：`sum(rate(batchsql_errors_total{type=~"final:.*"}[5m])) by (table,type)`
+  - 重试占比（近5分钟）：`sum(rate(batchsql_errors_total{type=~"retry:.*"}[5m])) / sum(rate(batchsql_errors_total{type=~"(retry:|final:).*"}[5m]))`
 - 实践建议
   - 观察“retry:*”与“final:*”的比值，若“final:*”持续升高需关注数据库稳定性与退避配置
   - ObserveExecuteDuration 已包含重试与退避时间，P95/99 将反映重试导致的尾部放大

@@ -1,8 +1,14 @@
 # BatchSQL
+[![Release](https://img.shields.io/github/v/release/rushairer/batchsql?display_name=tag&include_prereleases&sort=semver)](https://github.com/rushairer/batchsql/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/rushairer/batchsql.svg)](https://pkg.go.dev/github.com/rushairer/batchsql)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rushairer/batchsql)](https://goreportcard.com/report/github.com/rushairer/batchsql)
+[![License](https://img.shields.io/github/license/rushairer/batchsql)](https://github.com/rushairer/batchsql/blob/main/LICENSE)
+![Coverage](https://img.shields.io/badge/coverage-75%25-brightgreen)
+![GitHub Stars](https://img.shields.io/github/stars/rushairer/batchsql?style=social)
 
 一个高性能的 Go 批量 SQL 处理库，基于 `go-pipeline` 实现，支持多种数据库类型和冲突处理策略。
 
-*最后更新：2025年10月2日 | 版本：v1.2.3*
+*最后更新：2025年10月2日 | 版本：v1.2.4*
 
 ## 🏗️ 架构设计
 

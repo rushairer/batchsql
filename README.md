@@ -270,6 +270,29 @@ defer bs.Close()
 - docs/guides/custom-metrics-reporter.md
 - docs/api/reference.md（MetricsReporter 小节）
 
+#### Prometheus + Grafana 快速监控
+
+BatchSQL 支持 Prometheus 指标收集和 Grafana 可视化，让你能够实时监控性能曲线变化。
+
+- 快速启动监控
+```bash
+# 使用 Make 命令（推荐）
+make monitoring                           # 启动监控环境
+make test-integration-with-monitoring     # 启动监控后运行测试
+```
+
+- 访问监控界面
+  - Grafana 仪表板: http://localhost:3000 (admin/admin)
+  - Prometheus 控制台: http://localhost:9091
+  - BatchSQL 指标: http://localhost:9090/metrics
+
+- 监控指标
+  - 性能指标: RPS、响应时间、批处理时间
+  - 资源指标: 内存使用、并发工作线程、活跃连接
+  - 质量指标: 数据完整性率、错误率
+
+详细使用说明请参考：[监控指南](docs/guides/monitoring.md)
+
 ## 📋 详细功能
 
 ### API 设计模式
@@ -668,29 +691,7 @@ make docker-sqlite-test     # SQLite 测试
 make docker-redis-test      # Redis 测试
 ```
 
-### 📊 性能监控（Prometheus + Grafana）
-
-BatchSQL 支持 Prometheus 指标收集和 Grafana 可视化，让你能够实时监控性能曲线变化。
-
-#### 快速启动监控
-```bash
-# 使用 Make 命令（推荐）
-make monitoring                           # 启动监控环境
-make test-integration-with-monitoring     # 启动监控后运行测试
-
-```
-
-#### 访问监控界面
-- **Grafana 仪表板**: http://localhost:3000 (admin/admin)
-- **Prometheus 控制台**: http://localhost:9091  
-- **BatchSQL 指标**: http://localhost:9090/metrics
-
-#### 监控指标
-- **性能指标**: RPS、响应时间、批处理时间
-- **资源指标**: 内存使用、并发工作线程、活跃连接
-- **质量指标**: 数据完整性率、错误率
-
-详细使用说明请参考：[监控指南](docs/guides/monitoring.md)
+> 提示：性能观测请参见上文“📡 监控与指标（MetricsReporter）”章节的「Prometheus + Grafana 快速监控」小节。
 
 ### 测试覆盖范围
 - ✅ 基本批量处理功能

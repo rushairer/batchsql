@@ -84,11 +84,12 @@ test-race: ## 运行竞态检测测试
 	@go test -race ./...
 
 # 覆盖率（排除 test/ 包）
-cover: ## 运行覆盖率并输出 coverage.txt（排除 github.com/rushairer/batchsql/test/）
-	@echo "🧪 运行覆盖率（排除 test/ 包）..."
-	@PKGS=$$(go list ./... | grep -v '^github.com/rushairer/batchsql/test/'); \
+cover: ## 运行覆盖率并输出 coverage.txt、coverage_total.txt（排除 test/ 与 examples/ 包）
+	@echo "🧪 运行覆盖率（排除 test/ 与 examples/ 包）..."
+	@PKGS=$$(go list ./... | grep -v '^github.com/rushairer/batchsql/test/' | grep -v '^github.com/rushairer/batchsql/examples/'); \
 	go test -v -cover -coverpkg="$$(echo $$PKGS | tr ' ' ',')" $$PKGS -coverprofile=coverage.out; \
-	go tool cover -func=coverage.out | tee coverage.txt
+	go tool cover -func=coverage.out | tee coverage.txt; \
+	awk '/total:/ {gsub("%","", $$3); print $$3}' coverage.txt > coverage_total.txt
 
 # 集成测试相关
 test-integration: ## 运行集成测试

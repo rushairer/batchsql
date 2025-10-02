@@ -54,12 +54,8 @@ jobs:
       run: |
         go mod download
         make cover
-        
-        # 从覆盖率报告读取总覆盖率（coverage.txt 由 make cover 生成）
-        COVERAGE=$(awk '/total:/ {gsub(\"%\",\"\", $3); print $3}' coverage.txt)
+        COVERAGE=$(cat coverage_total.txt)
         echo "Test coverage (main packages only): ${COVERAGE}%"
-        
-        # 要求至少 60% 的测试覆盖率
         if (( $(echo "$COVERAGE < 60" | bc -l) )); then
           echo "Test coverage ($COVERAGE%) is below required 60%"
           exit 1

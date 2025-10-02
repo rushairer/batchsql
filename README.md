@@ -2,7 +2,7 @@
 
 一个高性能的 Go 批量 SQL 处理库，基于 `go-pipeline` 实现，支持多种数据库类型和冲突处理策略。
 
-*最后更新：2025年10月1日 | 版本：v1.1.1*
+*最后更新：2025年10月2日 | 版本：v1.2.0*
 
 ## 🏗️ 架构设计
 
@@ -239,6 +239,36 @@ func TestBatchSQL(t *testing.T) {
     assert.Len(t, executedData, 1)
 }
 ```
+
+## 📡 监控与指标（MetricsReporter）
+
+- 功能：统一上报入队延迟、攒批耗时、执行耗时、批大小、错误计数、执行并发、队列长度、在途批次等关键阶段与状态
+- 使用场景：
+  - 开箱即用观测（Prometheus + Grafana）
+  - 接入自有监控体系（实现自定义 Reporter）
+- 配置要点：
+  - 默认 NoopMetricsReporter（零开销，未注入时不产生任何观测）
+  - 务必在 NewBatchSQL 之前对执行器注入 Reporter（WithMetricsReporter）
+  - NewBatchSQL 会尊重已注入的 Reporter，不会覆盖为 Noop
+
+最小示例（Prometheus 快速上手）
+```go
+pm := integration.NewPrometheusMetrics()
+go pm.StartServer(9090)
+defer pm.StopServer()
+
+exec := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, driver)
+reporter := integration.NewPrometheusMetricsReporter(pm, "postgres", "user_batch")
+exec = exec.WithMetricsReporter(reporter).(batchsql.BatchExecutor)
+
+bs := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, exec)
+defer bs.Close()
+```
+
+延伸阅读
+- docs/guides/monitoring-quickstart.md
+- docs/guides/custom-metrics-reporter.md
+- docs/api/reference.md（MetricsReporter 小节）
 
 ## 📋 详细功能
 
@@ -714,6 +744,9 @@ batchsql/
 │   │   ├── examples.md
 │   │   ├── testing.md
 │   │   ├── monitoring.md
+│   │   ├── monitoring-quickstart.md
+│   │   ├── custom-metrics-reporter.md
+│   │   ├── tuning.md
 │   │   ├── troubleshooting.md
 │   │   └── integration-tests.md
 │   ├── development/

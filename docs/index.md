@@ -65,34 +65,6 @@
 - 🔧 [故障排除](guides/troubleshooting.md)
 - 🏗️ [架构设计](development/architecture.md)
 
-## 📡 MetricsReporter 快速了解
-
-- 功能说明：统一的指标上报接口，覆盖入队延迟、攒批耗时、执行耗时、批大小、错误计数、执行并发、队列长度、在途批次等关键阶段与状态。
-- 使用场景：
-  - 开箱即用观测（Prometheus + Grafana）
-  - 接入自有监控体系（实现自定义 Reporter）
-  - 压测/调优时对各阶段瓶颈进行定位
-- 配置方法：
-  - 默认 NoopMetricsReporter（零开销，未注入时不产生观测）
-  - 在 NewBatchSQL 之前，先对执行器注入 Reporter（WithMetricsReporter）
-  - NewBatchSQL 会尊重已注入 Reporter，不会覆盖为 Noop
-- 最小示例（Prometheus 快速上手）：
-  ```go
-  pm := integration.NewPrometheusMetrics()
-  go pm.StartServer(9090)
-  defer pm.StopServer()
-
-  exec := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, driver)
-  reporter := integration.NewPrometheusMetricsReporter(pm, "postgres", "user_batch")
-  exec = exec.WithMetricsReporter(reporter).(batchsql.BatchExecutor)
-
-  bs := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, exec)
-  defer bs.Close()
-  ```
-- 延伸阅读：
-  - 监控快速上手：docs/guides/monitoring-quickstart.md
-  - 自定义 Reporter：docs/guides/custom-metrics-reporter.md
-  - API 接口定义：docs/api/reference.md（MetricsReporter 小节）
 
 ## 📞 获取帮助
 

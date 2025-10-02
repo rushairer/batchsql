@@ -332,18 +332,18 @@ make test-integration-with-monitoring     # 启动监控后运行测试
 
 #### 运行时只读探测：MetricsReporter()
 
+提示：无需实现专门的接口类型，只需让执行器类型暴露 MetricsReporter() 方法即可；框架会在构造期进行只读探测并在必要时内部使用 Noop 兜底，不会写回执行器。
+
 - 功能定位：为执行器（BatchExecutor 实现者）提供一种“可选能力”以暴露其当前 MetricsReporter；NewBatchSQL 会基于该能力安全决定是否注入默认的 NoopMetricsReporter，从而避免误覆盖自定义执行器的监控实现。
 - 适用场景：
   - 你实现了自定义执行器，希望显式告知框架“我已有/没有 MetricsReporter”；
   - 希望 NewBatchSQL 能在“reporter 为空时自动注入 Noop”，“不为空时完全复用现有 reporter”，而不对未知执行器做强行覆盖。
 
-接口定义
-```go
-// MetricsProvider 可选能力：执行器可暴露其当前 MetricsReporter（若未设置则返回 nil）
-type MetricsProvider interface {
-    MetricsReporter() MetricsReporter
-}
-```
+接口说明
+- 可选只读探测：若执行器类型暴露 MetricsReporter() 方法，NewBatchSQL 将在构造期读取该方法返回值。
+  - 返回非 nil：复用现有 Reporter，不做覆盖
+  - 返回 nil：在 BatchSQL 内部使用本地 NoopMetricsReporter 进行自有观测，不写回执行器
+- 建议：在具体类型（如 ThrottledBatchExecutor）上进行 reporter 注入（WithMetricsReporter），并在 NewBatchSQL 之前完成。
 
 参数与返回值
 - 返回值

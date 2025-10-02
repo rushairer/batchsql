@@ -1,3 +1,24 @@
+# ✅ BatchSQL v1.3.0 变更摘要（2025-10-03）
+
+- 工厂统一
+  - SQL：推荐使用 NewMySQLBatchSQL / NewPostgreSQLBatchSQL / NewSQLiteBatchSQL（或 WithDriver 变体）
+  - 高级构造：NewSQLThrottledBatchExecutorWithDriver 支持自定义 SQLDriver
+  - Redis：NewRedisBatchSQL（或 WithDriver 变体）
+- 指标策略
+  - 仅在具体类型上进行写配置（WithMetricsReporter）
+  - 运行时仅持有 BatchExecutor 时，采用 MetricsReporter() 只读探测；返回 nil 时在内部使用 Noop，不写回执行器
+- 能力接口与链式
+  - 保持 BatchExecutor 极简（仅 ExecuteBatch）
+  - 并发限流通过具体类型执行器 WithConcurrencyLimit 实现
+- 文档与示例
+  - 移除过时的 CommonExecutor/旧工厂示例
+  - 统一 README、Architecture、Configuration、Contributing 等文档到 v1.3.0
+- 兼容性
+  - 变更为非破坏性：旧路径仍可通过示例包内部工厂包装至 Throttled 架构
+- 其他
+  - 重试指标（retry:/final: 标签）与执行耗时统计（包含重试与退避）的说明完善
+
+---
 # ✅ BatchSQL v1.1.0 发布检查清单
 
 ## ✅ 已完成项目

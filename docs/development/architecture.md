@@ -1,7 +1,5 @@
 # BatchSQL 架构设计文档
 
-*最后更新：2025年10月1日 | 版本：v1.1.0*
-
 ## 🏗️ 整体架构概览
 
 BatchSQL 采用分层架构设计，通过统一的 `BatchExecutor` 接口支持多种数据库类型，同时为不同类型的数据库提供最适合的实现方式。
@@ -128,7 +126,7 @@ func (d *TiDBDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[strin
 2. **创建工厂方法**
 ```go
 func NewTiDBBatchSQL(ctx context.Context, db *sql.DB, config PipelineConfig) *BatchSQL {
-    executor := batchsql.NewSQLExecutor(db, &TiDBDriver{})
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, &TiDBDriver{})
     return NewBatchSQL(ctx, config.BufferSize, config.FlushSize, config.FlushInterval, executor)
 }
 ```
@@ -173,8 +171,9 @@ func NewMongoBatchSQL(ctx context.Context, client *mongo.Client, config Pipeline
 ```go
 type BatchExecutor interface {
     ExecuteBatch(ctx context.Context, schema *Schema, data []map[string]any) error
-    WithMetricsReporter(metricsReporter MetricsReporter) BatchExecutor
 }
+// 说明：指标配置应在具体类型或能力接口上进行（如在 ThrottledBatchExecutor 上调用 WithMetricsReporter）。
+// 在仅持有 BatchExecutor 的通用路径，框架通过只读探测 MetricsReporter() 判断是否已有 Reporter；若无，则内部使用 Noop 兜底，不写回执行器。
 ```
 
 **职责：**

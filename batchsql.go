@@ -231,7 +231,7 @@ func NewBatchSQLWithMock(ctx context.Context, config PipelineConfig) (*BatchSQL,
 }
 
 // NewBatchSQLWithMockDriver 使用模拟执行器创建 BatchSQL 实例（测试特定SQLDriver）
- // 内部架构：BatchSQL -> MockExecutor（模拟ThrottledBatchExecutor行为，测试SQLDriver逻辑）
+// 内部架构：BatchSQL -> MockExecutor（模拟ThrottledBatchExecutor行为，测试SQLDriver逻辑）
 // 适用于测试自定义SQLDriver的SQL生成逻辑
 func NewBatchSQLWithMockDriver(ctx context.Context, config PipelineConfig, sqlDriver SQLDriver) (*BatchSQL, *MockExecutor) {
 	mockExecutor := NewMockExecutorWithDriver(sqlDriver)

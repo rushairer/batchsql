@@ -1,6 +1,7 @@
 # 测试覆盖率文件
 coverage.out
 coverage.html
+coverage.txt
 *.cover
 *.coverprofile
 test/reports

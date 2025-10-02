@@ -20,6 +20,11 @@ type BatchExecutor interface {
 	WithMetricsReporter(metricsReporter MetricsReporter) BatchExecutor
 }
 
+// MetricsProvider 可选能力：执行器可暴露其当前 MetricsReporter（若未设置则返回 nil）
+type MetricsProvider interface {
+	MetricsReporter() MetricsReporter
+}
+
 // ThrottledBatchExecutor SQL数据库通用批量执行器
 // 实现 ThrottledBatchExecutor 接口，为SQL数据库提供统一的执行逻辑
 // 架构：ThrottledBatchExecutor -> BatchProcessor -> SQLDriver -> Database
@@ -225,6 +230,8 @@ func (e *ThrottledBatchExecutor) WithMetricsReporter(metricsReporter MetricsRepo
 }
 
 // WithConcurrencyLimit 设置并发上限（limit <= 0 表示不启用限流）
+func (e *ThrottledBatchExecutor) MetricsReporter() MetricsReporter { return e.metricsReporter }
+
 func (e *ThrottledBatchExecutor) WithConcurrencyLimit(limit int) BatchExecutor {
 	if limit > 0 {
 		e.semaphore = make(chan struct{}, limit)
@@ -336,6 +343,8 @@ func (e *MockExecutor) WithMetricsReporter(metricsReporter MetricsReporter) Batc
 	e.metricsReporter = metricsReporter
 	return e
 }
+
+func (e *MockExecutor) MetricsReporter() MetricsReporter { return e.metricsReporter }
 
 // SnapshotExecutedBatches 返回一次性快照，避免并发读写竞态
 func (e *MockExecutor) SnapshotExecutedBatches() [][]map[string]any {

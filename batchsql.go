@@ -35,27 +35,21 @@ type BatchSQL struct {
 // 这是最底层的构造函数，接受任何实现了BatchExecutor接口的执行器
 // 通常不直接使用，而是通过具体数据库的工厂方法创建
 func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushInterval time.Duration, executor BatchExecutor) *BatchSQL {
-	// 若执行器已配置 reporter，则沿用；否则使用 Noop，保证零成本默认值
+	// 确保 BatchSQL 始终拥有可用 reporter，但不误覆盖自定义执行器的已有配置
 	var reporter MetricsReporter
-	switch e := executor.(type) {
-	case *ThrottledBatchExecutor:
-		if e.metricsReporter != nil {
-			reporter = e.metricsReporter
+	if mp, ok := executor.(MetricsProvider); ok {
+		// 已实现可选能力接口，可安全探测
+		if mp.MetricsReporter() != nil {
+			reporter = mp.MetricsReporter()
 		} else {
+			// 明确为空时才注入 Noop，并回写到执行器中
 			reporter = NewNoopMetricsReporter()
-			executor = e.WithMetricsReporter(reporter)
+			executor = executor.WithMetricsReporter(reporter)
 		}
-	case *MockExecutor:
-		if e.metricsReporter != nil {
-			reporter = e.metricsReporter
-		} else {
-			reporter = NewNoopMetricsReporter()
-			executor = e.WithMetricsReporter(reporter)
-		}
-	default:
-		// 其他实现未知其内部状态，安全起见注入 Noop
+	} else {
+		// 未实现可选接口：不覆盖对方内部配置，仅在 BatchSQL 内部使用本地 Noop
 		reporter = NewNoopMetricsReporter()
-		executor = executor.WithMetricsReporter(reporter)
+		// 注意：不调用 executor.WithMetricsReporter(reporter)
 	}
 
 	batchSQL := &BatchSQL{

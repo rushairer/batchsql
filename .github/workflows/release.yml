@@ -53,11 +53,11 @@ jobs:
     - name: Run full test suite
       run: |
         go mod download
-        go test -v -race -coverprofile=coverage.out ./...
+        make cover
         
-        # 检查测试覆盖率
-        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-        echo "Test coverage: ${COVERAGE}%"
+        # 从覆盖率报告读取总覆盖率（coverage.txt 由 make cover 生成）
+        COVERAGE=$(awk '/total:/ {gsub(\"%\",\"\", $3); print $3}' coverage.txt)
+        echo "Test coverage (main packages only): ${COVERAGE}%"
         
         # 要求至少 60% 的测试覆盖率
         if (( $(echo "$COVERAGE < 60" | bc -l) )); then

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -249,6 +248,10 @@ type MockExecutor struct {
 	driver          SQLDriver
 	metricsReporter MetricsReporter
 	mu              sync.RWMutex
+
+	// 并发安全的统计聚合：按表名累计批次数、行数、参数数
+	statsMu sync.Mutex
+	stats   map[string]*mockStats
 }
 
 // NewMockExecutor 创建模拟批量执行器（使用默认Driver）
@@ -256,6 +259,7 @@ func NewMockExecutor() *MockExecutor {
 	return &MockExecutor{
 		ExecutedBatches: make([][]map[string]any, 0),
 		driver:          DefaultMySQLDriver,
+		stats:           make(map[string]*mockStats),
 	}
 }
 
@@ -267,7 +271,46 @@ func NewMockExecutorWithDriver(driver SQLDriver) *MockExecutor {
 	return &MockExecutor{
 		ExecutedBatches: make([][]map[string]any, 0),
 		driver:          driver,
+		stats:           make(map[string]*mockStats),
 	}
+}
+
+type mockStats struct {
+	Batches int64
+	Rows    int64
+	Args    int64
+}
+
+// addStats 并发安全地累计统计
+func (e *MockExecutor) addStats(table string, rows, args int) {
+	if table == "" {
+		table = "_unknown_"
+	}
+	e.statsMu.Lock()
+	s, ok := e.stats[table]
+	if !ok {
+		s = &mockStats{}
+		e.stats[table] = s
+	}
+	s.Batches++
+	s.Rows += int64(rows)
+	s.Args += int64(args)
+	e.statsMu.Unlock()
+}
+
+// SnapshotResults 返回只读快照（拷贝），用于测试收尾输出或断言
+func (e *MockExecutor) SnapshotResults() map[string]map[string]int64 {
+	out := make(map[string]map[string]int64)
+	e.statsMu.Lock()
+	for k, v := range e.stats {
+		out[k] = map[string]int64{
+			"batches": v.Batches,
+			"rows":    v.Rows,
+			"args":    v.Args,
+		}
+	}
+	e.statsMu.Unlock()
+	return out
 }
 
 // ExecuteBatch 模拟执行批量操作
@@ -282,9 +325,8 @@ func (e *MockExecutor) ExecuteBatch(ctx context.Context, schema *Schema, data []
 		return err
 	}
 
-	// 只显示参数数量，避免输出大字符串
-	log.Printf("Mock execution - Table: %s, Data count: %d, Args count: %d",
-		schema.Name, len(data), len(args))
+	// 统计聚合（避免每批次打印噪音日志）
+	e.addStats(schema.Name, len(data), len(args))
 
 	return nil
 }

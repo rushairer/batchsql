@@ -112,7 +112,8 @@ func (m *MockDBExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.Sche
 }
 
 func (m *MockDBExecutor) WithMetricsReporter(metricsReporter batchsql.MetricsReporter) batchsql.BatchExecutor {
-	return nil
+	// 测试用：直接返回自身，避免将执行器置空导致管道 nil 指针异常
+	return m
 }
 
 func TestDBConnection_ConnectionFailure(t *testing.T) {

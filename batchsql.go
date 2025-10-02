@@ -3,6 +3,7 @@ package batchsql
 import (
 	"context"
 	"database/sql"
+	"sync/atomic"
 	"time"
 
 	redisV9 "github.com/redis/go-redis/v9"
@@ -27,6 +28,7 @@ type BatchSQL struct {
 	pipeline        *gopipeline.StandardPipeline[*Request] // 异步批量处理管道
 	executor        BatchExecutor                          // 批量执行器（数据库特定）
 	metricsReporter MetricsReporter                        // 指标上报器（默认 Noop）
+	closed          atomic.Bool                            // 当创建时上下文被取消后置为 true，拒绝后续提交
 }
 
 // NewBatchSQL 创建 BatchSQL 实例
@@ -123,6 +125,11 @@ func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushIn
 	batchSQL.pipeline = pipeline
 	go func() {
 		_ = pipeline.AsyncPerform(ctx)
+	}()
+	// 标记管道生命周期：创建时 ctx 一旦取消，后续 Submit 均应拒绝
+	go func() {
+		<-ctx.Done()
+		batchSQL.closed.Store(true)
 	}()
 
 	return batchSQL
@@ -249,6 +256,10 @@ func (b *BatchSQL) Submit(ctx context.Context, request *Request) error {
 	// 优先尊重取消，避免 select 在多就绪时随机选择发送路径
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	// 若 BatchSQL 所属生命周期已结束（创建时的 ctx 已取消），直接拒绝提交
+	if b.closed.Load() {
+		return context.Canceled
 	}
 
 	if request == nil {

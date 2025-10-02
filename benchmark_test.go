@@ -15,7 +15,15 @@ func BenchmarkBatchSQL_Submit(b *testing.B) {
 		FlushSize:     1000,
 		FlushInterval: time.Second,
 	}
-	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
+	batch, mock := batchsql.NewBatchSQLWithMock(ctx, config)
+	b.Cleanup(func() {
+		if testing.Verbose() {
+			agg := mock.SnapshotResults()
+			for table, m := range agg {
+				b.Logf("[MockExec Summary] table=%s batches=%d rows=%d args=%d", table, m["batches"], m["rows"], m["args"])
+			}
+		}
+	})
 
 	schema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
 
@@ -43,7 +51,15 @@ func BenchmarkBatchSQL_MultiSchema(b *testing.B) {
 		FlushSize:     1000,
 		FlushInterval: time.Second,
 	}
-	batch, _ := batchsql.NewBatchSQLWithMock(ctx, config)
+	batch, mock := batchsql.NewBatchSQLWithMock(ctx, config)
+	b.Cleanup(func() {
+		if testing.Verbose() {
+			agg := mock.SnapshotResults()
+			for table, m := range agg {
+				b.Logf("[MockExec Summary] table=%s batches=%d rows=%d args=%d", table, m["batches"], m["rows"], m["args"])
+			}
+		}
+	})
 
 	userSchema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id", "name", "email")
 	productSchema := batchsql.NewSchema("products", batchsql.ConflictUpdate, "id", "name", "price")

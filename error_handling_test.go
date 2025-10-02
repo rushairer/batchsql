@@ -32,7 +32,8 @@ func (m *MockErrorExecutor) ExecuteBatch(ctx context.Context, schema *batchsql.S
 }
 
 func (m *MockErrorExecutor) WithMetricsReporter(metricsReporter batchsql.MetricsReporter) batchsql.BatchExecutor {
-	return nil
+	// 测试用：直接返回自身，避免将执行器置空导致管道 nil 指针异常
+	return m
 }
 
 func TestErrorHandling_ExecutionError(t *testing.T) {

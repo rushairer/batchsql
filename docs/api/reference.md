@@ -115,11 +115,11 @@ func (r *Request) SetAny(field string, value any) *Request
 import "github.com/rushairer/batchsql/drivers/mysql"
 
 // 创建MySQL执行器
-func NewBatchExecutor(db *sql.DB) batchsql.BatchExecutor
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
 
 // 使用示例
 db, _ := sql.Open("mysql", dsn)
-executor := mysql.NewBatchExecutor(db)
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
 batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
 ```
 
@@ -129,11 +129,11 @@ batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
 import "github.com/rushairer/batchsql/drivers/postgresql"
 
 // 创建PostgreSQL执行器
-func NewBatchExecutor(db *sql.DB) batchsql.BatchExecutor
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultPostgreSQLDriver)
 
 // 使用示例
 db, _ := sql.Open("postgres", dsn)
-executor := postgresql.NewBatchExecutor(db)
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultPostgreSQLDriver)
 batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
 ```
 
@@ -143,11 +143,11 @@ batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
 import "github.com/rushairer/batchsql/drivers/sqlite"
 
 // 创建SQLite执行器
-func NewBatchExecutor(db *sql.DB) batchsql.BatchExecutor
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultSQLiteDriver)
 
 // 使用示例
 db, _ := sql.Open("sqlite3", dsn)
-executor := sqlite.NewBatchExecutor(db)
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultSQLiteDriver)
 batchSQL := batchsql.NewBatchSQL(ctx, 1000, 100, 200*time.Millisecond, executor)
 ```
 
@@ -157,11 +157,11 @@ batchSQL := batchsql.NewBatchSQL(ctx, 1000, 100, 200*time.Millisecond, executor)
 import "github.com/rushairer/batchsql/drivers/redis"
 
 // 创建Redis执行器
-func NewBatchExecutor(rdb *redis.Client) batchsql.BatchExecutor
+executor := batchsql.NewRedisThrottledBatchExecutor(rdb)
 
 // 使用示例
 rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
-executor := redis.NewBatchExecutor(rdb)
+executor := batchsql.NewRedisThrottledBatchExecutor(rdb)
 batchSQL := batchsql.NewBatchSQL(ctx, 5000, 500, 50*time.Millisecond, executor)
 ```
 
@@ -213,7 +213,7 @@ type MetricsReporter interface {
 metricsReporter := NewCustomMetricsReporter()
 
 // 为执行器添加指标监控
-executor := mysql.NewBatchExecutor(db)
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
 executor = executor.WithMetricsReporter(metricsReporter)
 
 // 创建BatchSQL实例
@@ -228,7 +228,7 @@ prometheusMetrics := NewPrometheusMetrics()
 metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "mysql", "batch_insert")
 
 // 应用到执行器
-executor := mysql.NewBatchExecutor(db)
+executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
 if prometheusMetrics != nil {
     executor = executor.WithMetricsReporter(metricsReporter)
 }
@@ -268,13 +268,13 @@ func setupExecutorWithMetrics(dbType string, db interface{}, prometheusMetrics *
     
     switch dbType {
     case "mysql":
-        executor = mysql.NewBatchExecutor(db.(*sql.DB))
+        executor = batchsql.NewSQLThrottledBatchExecutorWithDriver(db.(*sql.DB), batchsql.DefaultMySQLDriver)
     case "postgres":
-        executor = postgresql.NewBatchExecutor(db.(*sql.DB))
+        executor = batchsql.NewSQLThrottledBatchExecutorWithDriver(db.(*sql.DB), batchsql.DefaultPostgreSQLDriver)
     case "sqlite3":
-        executor = sqlite.NewBatchExecutor(db.(*sql.DB))
+        executor = batchsql.NewSQLThrottledBatchExecutorWithDriver(db.(*sql.DB), batchsql.DefaultSQLiteDriver)
     case "redis":
-        executor = redis.NewBatchExecutor(db.(*redis.Client))
+        executor = batchsql.NewRedisThrottledBatchExecutor(db.(*redis.Client))
     }
     
     // 统一添加指标监控
@@ -315,7 +315,7 @@ func main() {
     defer db.Close()
     
     // 2. 创建执行器
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     
     // 3. 创建BatchSQL实例
     ctx := context.Background()
@@ -355,7 +355,7 @@ func advancedBatchInsert() {
     }
     
     // 创建带监控的执行器
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     
     // 添加Prometheus监控
     if prometheusEnabled {
@@ -385,7 +385,7 @@ func redisBatchExample() {
     })
     
     // 创建Redis执行器
-    executor := redis.NewBatchExecutor(rdb)
+    executor := batchsql.NewRedisThrottledBatchExecutor(rdb)
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 500, 50*time.Millisecond, executor)
     
     // Redis Schema（使用命令格式）

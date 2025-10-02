@@ -68,7 +68,7 @@ func TestMySQLDriver(t *testing.T) {
     db := setupTestDB(t, "mysql")
     defer db.Close()
     
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     
     // 测试批量插入
     schema := batchsql.NewSchema("test_users", batchsql.ConflictIgnore, 
@@ -238,7 +238,7 @@ func TestRedisSpecificFeatures(t *testing.T) {
     rdb := setupRedisClient(t)
     defer rdb.Close()
     
-    executor := redis.NewBatchExecutor(rdb)
+    executor := batchsql.NewRedisThrottledBatchExecutor(rdb)
     batchSQL := batchsql.NewBatchSQL(ctx, 1000, 100, 50*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -275,7 +275,7 @@ func BenchmarkRedisBatchInsert(b *testing.B) {
     rdb := setupRedisClient(b)
     defer rdb.Close()
     
-    executor := redis.NewBatchExecutor(rdb)
+    executor := batchsql.NewRedisThrottledBatchExecutor(rdb)
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 500, 50*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -323,7 +323,7 @@ func TestStressTest(t *testing.T) {
     db := setupTestDB(t, "mysql")
     defer db.Close()
     
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     batchSQL := batchsql.NewBatchSQL(ctx, 10000, 500, 50*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -363,9 +363,9 @@ func TestPrometheusMetrics(t *testing.T) {
     defer prometheusMetrics.StopServer()
     
     // 创建带监控的执行器
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "mysql", "test")
-    executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.CommonExecutor)
+    executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
     
     batchSQL := batchsql.NewBatchSQL(ctx, 1000, 100, 100*time.Millisecond, executor)
     defer batchSQL.Close()

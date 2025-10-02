@@ -37,7 +37,7 @@ flowchart TB
 
   %% 子图2：组件分层与驱动路径
   subgraph B0[组件分层与驱动路径]
-    B1["BatchExecutor"] --> B2["CommonExecutor<br/>(通用执行器)"]
+    B1["BatchExecutor"] --> B2["ThrottledBatchExecutor<br/>(可选限流执行器)"]
     B2 --> B3["BatchProcessor + Driver<br/>(操作生成和执行)"]
     B3 --> B4["Database Connection"]
 
@@ -606,7 +606,7 @@ func (d *TiDBDriver) GenerateInsertSQL(schema *batchsql.Schema, data []map[strin
     return sql, args, nil
 }
 
-// 使用自定义Driver，内部仍使用CommonExecutor架构
+ // 使用自定义Driver，内部仍沿用三层架构（ThrottledBatchExecutor → SQLBatchProcessor → SQLDriver）
 tidbDriver := &TiDBDriver{}
 batch := batchsql.NewMySQLBatchSQLWithDriver(ctx, tidbDB, config, tidbDriver)
 ```

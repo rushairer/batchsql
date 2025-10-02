@@ -12,7 +12,7 @@
 ## 🏗️ 架构配置说明
 
 ### BatchExecutor 实现方式
-- **SQL数据库** (MySQL/PostgreSQL/SQLite): 使用 `CommonExecutor` (+ 可选并发限流 `WithConcurrencyLimit`) + `BatchProcessor` + `SQLDriver`
+- **SQL数据库** (MySQL/PostgreSQL/SQLite): 使用 `ThrottledBatchExecutor` (+ 可选并发限流 `WithConcurrencyLimit`) + `BatchProcessor` + `SQLDriver`
 - **NoSQL数据库** (Redis): 直接实现 `BatchExecutor` 接口
 - **测试环境**: 使用 `MockExecutor` 直接实现 `BatchExecutor` 接口
 

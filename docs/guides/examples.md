@@ -29,7 +29,7 @@ func main() {
     
     // 创建BatchSQL
     ctx := context.Background()
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -69,7 +69,7 @@ func postgresqlExample() {
     defer db.Close()
     
     // 创建执行器
-    executor := postgresql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultPostgreSQLDriver)
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -109,7 +109,7 @@ func sqliteExample() {
     defer db.Close()
     
     // SQLite优化配置（较小的批次）
-    executor := sqlite.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultSQLiteDriver)
     batchSQL := batchsql.NewBatchSQL(ctx, 1000, 100, 200*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -144,7 +144,7 @@ func redisExample() {
     defer rdb.Close()
     
     // 创建Redis执行器
-    executor := redis.NewBatchExecutor(rdb)
+    executor := batchsql.NewRedisThrottledBatchExecutor(rdb)
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 500, 50*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -187,9 +187,9 @@ func withPrometheusMonitoring() {
     defer prometheusMetrics.StopServer()
     
     // 创建带监控的执行器
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "mysql", "user_batch")
-    executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.CommonExecutor)
+    executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
     
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
@@ -256,7 +256,7 @@ func withCustomMetrics() {
     // 使用自定义指标报告器
     metricsReporter := NewCustomMetricsReporter()
     
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     executor = executor.WithMetricsReporter(metricsReporter)
     
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
@@ -278,7 +278,7 @@ func highPerformanceConfig() {
     db.SetConnMaxLifetime(time.Hour) // 连接最大生存时间
     
     // 高性能BatchSQL配置
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     batchSQL := batchsql.NewBatchSQL(
         ctx,
         10000,                    // 大缓冲区
@@ -309,7 +309,7 @@ func highPerformanceConfig() {
 ```go
 func memoryOptimizedConfig() {
     // 内存优化配置
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     batchSQL := batchsql.NewBatchSQL(
         ctx,
         1000,                     // 小缓冲区
@@ -357,7 +357,7 @@ func concurrentInsert() {
     const recordsPerWorker = 10000
     
     // 创建共享的BatchSQL实例
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     batchSQL := batchsql.NewBatchSQL(ctx, 10000, 500, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -428,7 +428,7 @@ func batchInsertUsers() {
     generator := NewDataGenerator()
     users := generator.GenerateUsers(100000)
     
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -486,7 +486,7 @@ func withProgressMonitoring() {
     const totalRecords = 100000
     monitor := NewProgressMonitor(totalRecords)
     
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     
@@ -509,7 +509,7 @@ func withProgressMonitoring() {
 
 ```go
 func withRetryMechanism() {
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
     defer batchSQL.Close()
     

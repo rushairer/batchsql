@@ -52,7 +52,7 @@ func main() {
     defer prometheusMetrics.StopServer()
     
     // 3. 创建带监控的执行器
-    executor := mysql.NewBatchExecutor(db)
+    executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
     metricsReporter := integration.NewPrometheusMetricsReporter(
         prometheusMetrics, "mysql", "production")
     executor = executor.WithMetricsReporter(metricsReporter)

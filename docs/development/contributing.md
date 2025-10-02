@@ -54,6 +54,7 @@ make lint
 make docker-sqlite-test
 make docker-mysql-test
 make docker-postgres-test
+make docker-redis-test
 ```
 
 ### 4. Commit Changes
@@ -170,12 +171,12 @@ if err := validateRequest(req); err != nil {
 
 ## 🏗️ Architecture Guidelines
 
-*基于重构后的架构设计 - 版本 v1.0.1.0*
+*基于重构后的架构设计 - 版本 v1.3.0*
 
 ### 架构概览
 BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支持不同类型的数据库：
 
-- **SQL数据库**: 使用 `CommonExecutor` + `BatchProcessor` + `SQLDriver`
+- **SQL数据库**: 使用 `ThrottledBatchExecutor` + `BatchProcessor` + `SQLDriver`
 - **NoSQL数据库**: 直接实现 `BatchExecutor` 接口
 - **测试环境**: 使用 `MockExecutor` 直接实现
 
@@ -196,12 +197,12 @@ BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支
 2. **创建执行器工厂**:
    ```go
    // drivers/newdb/executor.go
-   func NewBatchExecutor(db *sql.DB) *batchsql.CommonExecutor {
-       return batchsql.NewSQLExecutor(db, &NewDBDriver{})
+   func NewBatchExecutor(db *sql.DB) *batchsql.ThrottledBatchExecutor {
+       return batchsql.NewSQLThrottledBatchExecutorWithDriver(db, &NewDBDriver{})
    }
    
-   func NewBatchExecutorWithDriver(db *sql.DB, driver batchsql.SQLDriver) *batchsql.CommonExecutor {
-       return batchsql.NewSQLExecutor(db, driver)
+   func NewBatchExecutorWithDriver(db *sql.DB, driver batchsql.SQLDriver) *batchsql.ThrottledBatchExecutor {
+       return batchsql.NewSQLThrottledBatchExecutorWithDriver(db, driver)
    }
    ```
 
@@ -221,7 +222,6 @@ BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支
    // drivers/newnosql/executor.go
    type Executor struct {
        client          *NewNoSQLClient
-       metricsReporter batchsql.MetricsReporter
    }
    
    func (e *Executor) ExecuteBatch(ctx context.Context, schema *batchsql.Schema, data []map[string]any) error {
@@ -230,10 +230,7 @@ BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支
        return nil
    }
    
-   func (e *Executor) WithMetricsReporter(reporter batchsql.MetricsReporter) batchsql.BatchExecutor {
-       e.metricsReporter = reporter
-       return e
-   }
+   
    ```
 
 2. **创建工厂方法**:
@@ -301,7 +298,7 @@ BatchSQL 采用灵活的分层架构，通过统一的 `BatchExecutor` 接口支
 ### 架构最佳实践
 
 1. **选择合适的实现方式**:
-   - SQL数据库：使用CommonExecutor架构，复用通用逻辑
+   - SQL数据库：使用 ThrottledBatchExecutor 架构，复用通用逻辑
    - NoSQL数据库：直接实现BatchExecutor，避免不必要的抽象
 
 2. **性能优化**:

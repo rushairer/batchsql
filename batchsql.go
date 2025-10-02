@@ -33,11 +33,31 @@ type BatchSQL struct {
 // 这是最底层的构造函数，接受任何实现了BatchExecutor接口的执行器
 // 通常不直接使用，而是通过具体数据库的工厂方法创建
 func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushInterval time.Duration, executor BatchExecutor) *BatchSQL {
-	// 默认使用 Noop 上报器，保持未启用时零采样
-	reporter := NewNoopMetricsReporter()
+	// 若执行器已配置 reporter，则沿用；否则使用 Noop，保证零成本默认值
+	var reporter MetricsReporter
+	switch e := executor.(type) {
+	case *ThrottledBatchExecutor:
+		if e.metricsReporter != nil {
+			reporter = e.metricsReporter
+		} else {
+			reporter = NewNoopMetricsReporter()
+			executor = e.WithMetricsReporter(reporter)
+		}
+	case *MockExecutor:
+		if e.metricsReporter != nil {
+			reporter = e.metricsReporter
+		} else {
+			reporter = NewNoopMetricsReporter()
+			executor = e.WithMetricsReporter(reporter)
+		}
+	default:
+		// 其他实现未知其内部状态，安全起见注入 Noop
+		reporter = NewNoopMetricsReporter()
+		executor = executor.WithMetricsReporter(reporter)
+	}
 
 	batchSQL := &BatchSQL{
-		executor:        executor.WithMetricsReporter(reporter),
+		executor:        executor,
 		metricsReporter: reporter,
 	}
 
@@ -247,13 +267,14 @@ func (b *BatchSQL) Submit(ctx context.Context, request *Request) error {
 	}
 
 	dataChan := b.pipeline.DataChan()
+	enqueueStart := time.Now()
 
 	select {
 	case dataChan <- request:
 		// 入队成功后记录入队耗时与队列长度
 		// 注意：len(dataChan) 是近似观测，仅用于指标参考
 		// 这里将耗时统计放在调用方路径内，默认 Noop 不引入开销
-		b.metricsReporter.ObserveEnqueueLatency(0) // 提供占位，详细耗时见下
+		b.metricsReporter.ObserveEnqueueLatency(time.Since(enqueueStart))
 		b.metricsReporter.SetQueueLength(len(dataChan))
 		return nil
 	case <-ctx.Done():

@@ -6,7 +6,7 @@ import (
 	"github.com/rushairer/batchsql"
 )
 
-// PrometheusMetricsReporter 实现 MetricsReporter 接口，将批处理指标报告给 Prometheus
+// PrometheusMetricsReporter 实现 batchsql.MetricsReporter，将批处理指标上报至 Prometheus
 type PrometheusMetricsReporter struct {
 	prometheusMetrics *PrometheusMetrics
 	database          string
@@ -22,48 +22,103 @@ func NewPrometheusMetricsReporter(prometheusMetrics *PrometheusMetrics, database
 	}
 }
 
-// RecordBatchExecution 记录批处理执行指标
-// 这个方法会在每次批处理执行时被 CommonExecutor 调用
-func (r *PrometheusMetricsReporter) RecordBatchExecution(tableName string, batchSize int, duration int64, status string) {
+// 兼容旧接口：映射到新接口
+func (r *PrometheusMetricsReporter) RecordBatchExecution(tableName string, batchSize int, durationMS int64, status string) {
 	if r.prometheusMetrics == nil {
 		return
 	}
-
-	// 记录批处理时间（转换毫秒到秒）
-	durationSeconds := time.Duration(duration) * time.Millisecond
-	r.prometheusMetrics.RecordBatchProcessTime(r.database, uint32(batchSize), durationSeconds)
-
-	// 记录响应时间
-	r.prometheusMetrics.RecordResponseTime(r.database, "batch_insert", durationSeconds)
-
-	// 记录处理的记录数
+	d := time.Duration(durationMS) * time.Millisecond
+	// 记录执行耗时与批大小
+	r.prometheusMetrics.RecordExecuteDuration(r.database, tableName, status, d)
+	r.prometheusMetrics.RecordBatchSize(r.database, batchSize)
+	// 维持原有集成测试指标
+	r.prometheusMetrics.RecordBatchProcessTime(r.database, uint32(batchSize), d)
+	r.prometheusMetrics.RecordResponseTime(r.database, "batch_insert", d)
 	if status == "success" {
 		r.prometheusMetrics.totalRecordsProcessed.WithLabelValues(r.database, r.testName, "success").Add(float64(batchSize))
-
-		// 计算并更新当前 RPS（基于批次大小和持续时间）
-		if durationSeconds.Seconds() > 0 {
-			currentRPS := float64(batchSize) / durationSeconds.Seconds()
-			r.prometheusMetrics.currentRPS.WithLabelValues(r.database, r.testName).Set(currentRPS)
+		// 用本批次近似 RPS（仅用于可视化提示）
+		if s := d.Seconds(); s > 0 {
+			r.prometheusMetrics.currentRPS.WithLabelValues(r.database, r.testName).Set(float64(batchSize) / s)
 		}
-
-		// 假设数据完整性为 100%（成功的批次）
 		r.prometheusMetrics.dataIntegrityRate.WithLabelValues(r.database, r.testName).Set(1.0)
 	} else {
 		r.prometheusMetrics.totalErrors.WithLabelValues(r.database, r.testName, "batch_execution").Inc()
-
-		// 失败时设置数据完整性为 0
 		r.prometheusMetrics.dataIntegrityRate.WithLabelValues(r.database, r.testName).Set(0.0)
 	}
-
-	// 记录批处理操作计数
 	r.prometheusMetrics.totalTestsRun.WithLabelValues(r.database, r.testName, status).Inc()
-
-	// 记录测试持续时间到直方图
-	r.prometheusMetrics.testDuration.WithLabelValues(r.database, r.testName).Observe(durationSeconds.Seconds())
-
-	// 记录每秒记录数到直方图
-	if durationSeconds.Seconds() > 0 {
-		rps := float64(batchSize) / durationSeconds.Seconds()
-		r.prometheusMetrics.recordsPerSecond.WithLabelValues(r.database, r.testName).Observe(rps)
+	r.prometheusMetrics.testDuration.WithLabelValues(r.database, r.testName).Observe(d.Seconds())
+	if s := d.Seconds(); s > 0 {
+		r.prometheusMetrics.recordsPerSecond.WithLabelValues(r.database, r.testName).Observe(float64(batchSize) / s)
 	}
+}
+
+// 以下为新接口适配
+
+func (r *PrometheusMetricsReporter) ObserveEnqueueLatency(d time.Duration) {
+	if r.prometheusMetrics == nil {
+		return
+	}
+	r.prometheusMetrics.RecordEnqueueLatency(r.database, d)
+}
+
+func (r *PrometheusMetricsReporter) ObserveBatchAssemble(d time.Duration) {
+	if r.prometheusMetrics == nil {
+		return
+	}
+	r.prometheusMetrics.RecordAssembleDuration(r.database, d)
+}
+
+func (r *PrometheusMetricsReporter) ObserveExecuteDuration(table string, n int, d time.Duration, status string) {
+	if r.prometheusMetrics == nil {
+		return
+	}
+	r.prometheusMetrics.RecordExecuteDuration(r.database, table, status, d)
+	r.prometheusMetrics.RecordBatchSize(r.database, n)
+}
+
+func (r *PrometheusMetricsReporter) ObserveBatchSize(n int) {
+	if r.prometheusMetrics == nil {
+		return
+	}
+	r.prometheusMetrics.RecordBatchSize(r.database, n)
+}
+
+func (r *PrometheusMetricsReporter) IncError(table string, reason string) {
+	if r.prometheusMetrics == nil {
+		return
+	}
+	// 复用 totalErrors，标签使用 test_name + error_type；table 信息可拼入 reason 以便检索
+	label := reason
+	if table != "" {
+		label = table + ":" + reason
+	}
+	r.prometheusMetrics.totalErrors.WithLabelValues(r.database, r.testName, label).Inc()
+}
+
+func (r *PrometheusMetricsReporter) SetConcurrency(n int) {
+	if r.prometheusMetrics == nil {
+		return
+	}
+	r.prometheusMetrics.SetExecutorConcurrency(r.database, n)
+}
+
+func (r *PrometheusMetricsReporter) SetQueueLength(n int) {
+	if r.prometheusMetrics == nil {
+		return
+	}
+	r.prometheusMetrics.SetQueueLength(r.database, n)
+}
+
+func (r *PrometheusMetricsReporter) IncInflight() {
+	if r.prometheusMetrics == nil {
+		return
+	}
+	r.prometheusMetrics.IncInflight(r.database)
+}
+
+func (r *PrometheusMetricsReporter) DecInflight() {
+	if r.prometheusMetrics == nil {
+		return
+	}
+	r.prometheusMetrics.DecInflight(r.database)
 }

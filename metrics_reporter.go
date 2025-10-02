@@ -19,6 +19,9 @@ type MetricsReporter interface {
 	IncError(table string, typ string)
 	SetConcurrency(n int)
 	SetQueueLength(n int)
+	// 在途批次数（不限流也可观察执行压力）
+	IncInflight()
+	DecInflight()
 
 	// 兼容旧接口（已废弃，内部转发到 ObserveExecuteDuration）
 	RecordBatchExecution(tableName string, batchSize int, duration int64, status string)
@@ -36,6 +39,8 @@ func (*NoopMetricsReporter) ObserveBatchSize(int)                               
 func (*NoopMetricsReporter) IncError(string, string)                                   {}
 func (*NoopMetricsReporter) SetConcurrency(int)                                        {}
 func (*NoopMetricsReporter) SetQueueLength(int)                                        {}
+func (*NoopMetricsReporter) IncInflight()                                              {}
+func (*NoopMetricsReporter) DecInflight()                                              {}
 func (r *NoopMetricsReporter) RecordBatchExecution(table string, n int, ms int64, status string) {
 	// 旧接口向新接口的适配
 	r.ObserveExecuteDuration(table, n, time.Duration(ms)*time.Millisecond, status)

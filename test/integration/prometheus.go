@@ -33,6 +33,17 @@ type PrometheusMetrics struct {
 	concurrentWorkers *prometheus.GaugeVec
 	activeConnections *prometheus.GaugeVec
 
+	// 新增：与核心库对齐的 Gauge
+	executorConcurrency *prometheus.GaugeVec
+	queueLength         *prometheus.GaugeVec
+	inflightBatches     *prometheus.GaugeVec
+
+	// 新增：与核心库对齐的 Histogram
+	enqueueLatency   *prometheus.HistogramVec
+	assembleDuration *prometheus.HistogramVec
+	executeDuration  *prometheus.HistogramVec
+	batchSize        *prometheus.HistogramVec
+
 	// 摘要指标
 	responseTime *prometheus.SummaryVec
 
@@ -140,6 +151,64 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			[]string{"database"},
 		),
 
+		// 新增：核心库对齐的 Gauge
+		executorConcurrency: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "batchsql_executor_concurrency",
+				Help: "Current executor concurrency",
+			},
+			[]string{"database"},
+		),
+		queueLength: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "batchsql_pipeline_queue_length",
+				Help: "Current pipeline queue length",
+			},
+			[]string{"database"},
+		),
+
+		inflightBatches: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "batchsql_inflight_batches",
+				Help: "Current in-flight batch count (executing now)",
+			},
+			[]string{"database"},
+		),
+
+		// 新增：核心库对齐的 Histogram
+		enqueueLatency: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "batchsql_enqueue_latency_seconds",
+				Help:    "Latency from submit to enqueue",
+				Buckets: prometheus.ExponentialBuckets(0.0005, 2, 18),
+			},
+			[]string{"database"},
+		),
+		assembleDuration: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "batchsql_batch_assemble_duration_seconds",
+				Help:    "Duration to assemble a batch",
+				Buckets: prometheus.ExponentialBuckets(0.0005, 2, 18),
+			},
+			[]string{"database"},
+		),
+		executeDuration: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "batchsql_execute_duration_seconds",
+				Help:    "Execute duration for a batch",
+				Buckets: prometheus.ExponentialBuckets(0.0005, 2, 18),
+			},
+			[]string{"database", "test_name"}, // 保守复用现有标签集，若需 table/status 可后续扩展
+		),
+		batchSize: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "batchsql_batch_size",
+				Help:    "Batch size distribution",
+				Buckets: prometheus.ExponentialBuckets(1, 2, 12),
+			},
+			[]string{"database"},
+		),
+
 		// 摘要指标
 		responseTime: prometheus.NewSummaryVec(
 			prometheus.SummaryOpts{
@@ -161,11 +230,20 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 		pm.testDuration,
 		pm.recordsPerSecond,
 		pm.batchProcessTime,
+		// 注册新增直方图
+		pm.enqueueLatency,
+		pm.assembleDuration,
+		pm.executeDuration,
+		pm.batchSize,
+		// 既有与新增 Gauge
 		pm.currentRPS,
 		pm.memoryUsage,
 		pm.dataIntegrityRate,
 		pm.concurrentWorkers,
 		pm.activeConnections,
+		pm.executorConcurrency,
+		pm.queueLength,
+		pm.inflightBatches,
 		pm.responseTime,
 	)
 
@@ -309,6 +387,41 @@ func (pm *PrometheusMetrics) RecordBatchProcessTime(database string, batchSize u
 // RecordResponseTime 记录响应时间
 func (pm *PrometheusMetrics) RecordResponseTime(database, operation string, duration time.Duration) {
 	pm.responseTime.WithLabelValues(database, operation).Observe(duration.Seconds())
+}
+
+// 新增：与 MetricsReporter 对齐的方法
+func (pm *PrometheusMetrics) RecordEnqueueLatency(database string, d time.Duration) {
+	pm.enqueueLatency.WithLabelValues(database).Observe(d.Seconds())
+}
+
+func (pm *PrometheusMetrics) RecordAssembleDuration(database string, d time.Duration) {
+	pm.assembleDuration.WithLabelValues(database).Observe(d.Seconds())
+}
+
+func (pm *PrometheusMetrics) RecordExecuteDuration(database, tableOrTest, status string, d time.Duration) {
+	// 目前 prometheus.go 中 executeDuration 仅有 database,test_name 两个标签
+	// 为不破坏现有集成测试结构，这里将 tableOrTest 作为 test_name 使用；status 暂不入标签
+	pm.executeDuration.WithLabelValues(database, tableOrTest).Observe(d.Seconds())
+}
+
+func (pm *PrometheusMetrics) RecordBatchSize(database string, n int) {
+	pm.batchSize.WithLabelValues(database).Observe(float64(n))
+}
+
+func (pm *PrometheusMetrics) SetExecutorConcurrency(database string, n int) {
+	pm.executorConcurrency.WithLabelValues(database).Set(float64(n))
+}
+
+func (pm *PrometheusMetrics) SetQueueLength(database string, n int) {
+	pm.queueLength.WithLabelValues(database).Set(float64(n))
+}
+
+func (pm *PrometheusMetrics) IncInflight(database string) {
+	pm.inflightBatches.WithLabelValues(database).Inc()
+}
+
+func (pm *PrometheusMetrics) DecInflight(database string) {
+	pm.inflightBatches.WithLabelValues(database).Dec()
 }
 
 // initializeBaseMetrics 初始化基础指标，确保端点始终返回有效数据

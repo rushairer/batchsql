@@ -1277,6 +1277,206 @@
       "title": "📈 数据库吞吐量对比 - 5分钟处理记录数",
       "type": "timeseries"
     }
+  ,
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 45 },
+      "id": 200,
+      "panels": [],
+      "title": "🧩 流水线阶段（核心阶段指标）",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "timeseries",
+      "title": "入队延迟 (p50/p95)",
+      "id": 201,
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 46 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, database) (rate(batchsql_enqueue_latency_seconds_bucket{database=~\"$database\"}[5m])))",
+          "legendFormat": "p50 enqueue ({{database}})"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, database) (rate(batchsql_enqueue_latency_seconds_bucket{database=~\"$database\"}[5m])))",
+          "legendFormat": "p95 enqueue ({{database}})"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "timeseries",
+      "title": "攒批耗时 (p50/p95)",
+      "id": 202,
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 46 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, database) (rate(batchsql_batch_assemble_duration_seconds_bucket{database=~\"$database\"}[5m])))",
+          "legendFormat": "p50 assemble ({{database}})"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, database) (rate(batchsql_batch_assemble_duration_seconds_bucket{database=~\"$database\"}[5m])))",
+          "legendFormat": "p95 assemble ({{database}})"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "timeseries",
+      "title": "执行耗时 (p50/p95)（按测试名）",
+      "id": 203,
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 53 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, database, test_name) (rate(batchsql_execute_duration_seconds_bucket{database=~\"$database\"}[5m])))",
+          "legendFormat": "p50 exec ({{database}}/{{test_name}})"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, database, test_name) (rate(batchsql_execute_duration_seconds_bucket{database=~\"$database\"}[5m])))",
+          "legendFormat": "p95 exec ({{database}}/{{test_name}})"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "timeseries",
+      "title": "批大小 (平均/p95)",
+      "id": 204,
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 60 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (database) (rate(batchsql_batch_size_sum{database=~\"$database\"}[5m])) / sum by (database) (rate(batchsql_batch_size_count{database=~\"$database\"}[5m]))",
+          "legendFormat": "avg ({{database}})"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, database) (rate(batchsql_batch_size_bucket{database=~\"$database\"}[5m])))",
+          "legendFormat": "p95 ({{database}})"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 67 },
+      "id": 210,
+      "panels": [],
+      "title": "⚙️ 执行器与队列",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "gauge",
+      "title": "执行并发度",
+      "id": 211,
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 68 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "batchsql_executor_concurrency{database=~\"$database\"}",
+          "legendFormat": "{{database}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "gauge",
+      "title": "队列长度",
+      "id": 212,
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 68 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1000 },
+              { "color": "red", "value": 5000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"], "fields": "" },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "batchsql_pipeline_queue_length{database=~\"$database\"}",
+          "legendFormat": "{{database}}"
+        }
+      ]
+    }
+    ,
+    {
+      "datasource": { "type": "prometheus", "uid": null },
+      "type": "timeseries",
+      "title": "在途批次数",
+      "id": 213,
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 74 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "batchsql_inflight_batches{database=~\"$database\"}",
+          "legendFormat": "{{database}}"
+        }
+      ]
+    }
   ],
   "refresh": "5s",
   "schemaVersion": 37,

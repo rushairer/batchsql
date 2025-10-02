@@ -139,6 +139,11 @@ func (e *ThrottledBatchExecutor) ExecuteBatch(ctx context.Context, schema *Schem
 
 	startTime := time.Now()
 	status := "success"
+	// 在途批次 +1（整个批次生命周期内有效）
+	if e.metricsReporter != nil {
+		e.metricsReporter.IncInflight()
+		defer e.metricsReporter.DecInflight()
+	}
 
 	var err error
 	attempts := 1
@@ -208,6 +213,14 @@ func (e *ThrottledBatchExecutor) ExecuteBatch(ctx context.Context, schema *Schem
 // WithMetricsReporter 设置指标报告器
 func (e *ThrottledBatchExecutor) WithMetricsReporter(metricsReporter MetricsReporter) BatchExecutor {
 	e.metricsReporter = metricsReporter
+	// 注入 reporter 后，立即上报一次当前并发度（如已配置）
+	if e.metricsReporter != nil {
+		if e.semaphore != nil {
+			e.metricsReporter.SetConcurrency(cap(e.semaphore))
+		} else {
+			e.metricsReporter.SetConcurrency(0)
+		}
+	}
 	return e
 }
 
@@ -218,21 +231,18 @@ func (e *ThrottledBatchExecutor) WithConcurrencyLimit(limit int) BatchExecutor {
 	} else {
 		e.semaphore = nil
 	}
+	// 配置并发上限时，上报 Gauge（0 表示不限流）
+	if e.metricsReporter != nil {
+		if e.semaphore != nil {
+			e.metricsReporter.SetConcurrency(cap(e.semaphore))
+		} else {
+			e.metricsReporter.SetConcurrency(0)
+		}
+	}
 	return e
 }
 
 // Executor 模拟批量执行器（用于测试）
-// randInt63n 返回 [0,n) 的随机数；避免额外依赖，用 time.Now 纳秒抖动
-func randInt63n(n int64) int64 {
-	if n <= 0 {
-		return 0
-	}
-	// LCG 简易随机（不要求强随机，仅用于退避抖动）
-	seed := time.Now().UnixNano()
-	seed = (seed*6364136223846793005 + 1) & 0x7fffffffffffffff
-	return int64(seed % n)
-}
-
 type MockExecutor struct {
 	ExecutedBatches [][]map[string]any
 	driver          SQLDriver
@@ -291,4 +301,15 @@ func (e *MockExecutor) SnapshotExecutedBatches() [][]map[string]any {
 	out := make([][]map[string]any, len(e.ExecutedBatches))
 	copy(out, e.ExecutedBatches)
 	return out
+}
+
+// randInt63n 返回 [0,n) 的随机数；避免额外依赖，用 time.Now 纳秒抖动
+func randInt63n(n int64) int64 {
+	if n <= 0 {
+		return 0
+	}
+	// LCG 简易随机（不要求强随机，仅用于退避抖动）
+	seed := time.Now().UnixNano()
+	seed = (seed*6364136223846793005 + 1) & 0x7fffffffffffffff
+	return int64(seed % n)
 }

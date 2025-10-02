@@ -171,9 +171,36 @@ batchSQL := batchsql.NewBatchSQL(ctx, 5000, 500, 50*time.Millisecond, executor)
 
 ```go
 type MetricsReporter interface {
-    // 已更新：请使用 ObserveExecuteDuration/ObserveBatchAssemble/ObserveEnqueueLatency/ObserveBatchSize 等新接口
+    // 阶段耗时
+    ObserveEnqueueLatency(d time.Duration)                                      // Submit -> 入队
+    ObserveBatchAssemble(d time.Duration)                                       // 攒批/组装
+    ObserveExecuteDuration(table string, n int, d time.Duration, status string) // 执行
+
+    // 其他观测
+    ObserveBatchSize(n int)
+    IncError(table string, kind string)
+    SetConcurrency(n int)
+    SetQueueLength(n int)
+
+    // 执行期负载（不限流场景也有值）
+    IncInflight()
+    DecInflight()
 }
 ```
+
+- NoopMetricsReporter：默认空实现，零依赖、零开销。未注入 Reporter 时，库内埋点不会产生任何副作用；当注入后立即开始上报。
+- 注入时机：务必在 NewBatchSQL 之前对执行器调用 WithMetricsReporter，NewBatchSQL 会尊重已注入的 Reporter，不会覆盖为 Noop。
+
+语义、单位与标签建议
+- 时间：秒（Prometheus 推荐）。将 time.Duration 转换为秒上报。
+- 批大小：整数（n）。
+- Gauge：并发度（0 表示不限流）、队列长度、在途批次。
+- 错误：Counter，kind 建议采用 retry:<reason> 或 final:<reason>。
+- 常见标签：database（mysql/postgres/sqlite/redis）、test_name 或 table（场景二选一）、status（success/fail）。
+
+进一步阅读
+- 监控快速上手：docs/guides/monitoring-quickstart.md
+- 自定义 Reporter：docs/guides/custom-metrics-reporter.md
 
 ### WithMetricsReporter 最佳实践
 

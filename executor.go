@@ -3,6 +3,7 @@ package batchsql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log"
 	"strings"
 	"sync"
@@ -100,7 +101,7 @@ func defaultRetryClassifier(err error) (bool, string) {
 		return false, ""
 	}
 	// 非可重试：上下文取消/超时
-	if err == context.Canceled || err == context.DeadlineExceeded {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false, "context"
 	}
 	// 朴素字符串分类（MySQL/PG/Redis 常见瞬态错误）

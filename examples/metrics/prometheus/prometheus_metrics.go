@@ -2,6 +2,7 @@ package prometheusmetrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -210,11 +211,12 @@ func (m *Metrics) Handler() http.Handler {
 // StartServer 启动一个简易 HTTP 服务（/metrics）
 func (m *Metrics) StartServer(port int) error {
 	if m.server != nil {
-		return fmt.Errorf("metrics server already running")
+		return errors.New("metrics server already running")
 	}
 	m.server = &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: m.Handler(),
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           m.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() { _ = m.server.ListenAndServe() }()
 	time.Sleep(100 * time.Millisecond)
@@ -260,7 +262,7 @@ func (m *Metrics) observeAssemble(database, testName string, d time.Duration) {
 	m.assembleDuration.WithLabelValues(labels...).Observe(d.Seconds())
 }
 
-func (m *Metrics) observeExecute(database, testName, table string, n int, d time.Duration, status string) {
+func (m *Metrics) observeExecute(database, testName, table string, n int, d time.Duration, _ string) {
 	// executeDuration 维度：database,[test_name],[table]
 	var labels []string
 	switch {
@@ -316,7 +318,7 @@ func (m *Metrics) decInflight(database, testName string) {
 	m.inflightBatches.WithLabelValues(labels...).Dec()
 }
 
-func hasLabel(v prometheus.Collector, name string) bool {
+func hasLabel(_ prometheus.Collector, name string) bool {
 	// CounterVec/HistogramVec/GaugeVec 都实现了 Describe，可从 Desc 文本判断标签是否存在
 	// 这里用一个简化的静态判断套路：依赖我们构造时的选择，不做反射/解析，避免开销。
 	// 在本实现中我们基于构造路径直接知道是否包含 test_name/table，因此上面直接使用 hasLabel 调用点的布尔条件。

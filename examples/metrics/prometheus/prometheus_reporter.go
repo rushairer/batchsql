@@ -54,7 +54,7 @@ func (r *Reporter) ObserveBatchSize(n int) {
 }
 
 // IncError 错误计数（支持 retry:/final: 前缀）
-func (r *Reporter) IncError(table string, reason string) {
+func (r *Reporter) IncError(_ string, reason string) {
 	if r.m == nil {
 		return
 	}

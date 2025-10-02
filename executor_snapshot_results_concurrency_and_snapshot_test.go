@@ -22,7 +22,6 @@ func TestMockExecutor_SnapshotResults_ConcurrencyAndSnapshotIsolation(t *testing
 	// 我们不容易从外部预估 args 的精确计数（与 driver 实现强相关）
 	// 因此这里只严格校验 batches/rows，总体不为 0 的 args。
 	for i := 0; i < N; i++ {
-		i := i
 		rows := (i % 5) + 1 // 1..5 行
 		totalRows += int64(rows)
 
@@ -57,7 +56,7 @@ func TestMockExecutor_SnapshotResults_ConcurrencyAndSnapshotIsolation(t *testing
 	snap1 := e.SnapshotExecutedBatches()
 	origLen := len(snap1)
 	// 在外层切片上 append 不会影响内部（不同底层数组）
-	snap1 = append(snap1, []map[string]any{{"dummy": 1}})
+	_ = append(snap1, []map[string]any{{"dummy": 1}})
 
 	snap2 := e.SnapshotExecutedBatches()
 	if len(snap2) != origLen {

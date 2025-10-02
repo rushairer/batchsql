@@ -13,6 +13,8 @@ type SQLDriver interface {
 	GenerateInsertSQL(ctx context.Context, schema *Schema, data []map[string]any) (sql string, args []any, err error)
 }
 
+var _ SQLDriver = (*MySQLDriver)(nil)
+
 var DefaultMySQLDriver = NewMySQLDriver()
 
 type MySQLDriver struct {
@@ -87,6 +89,8 @@ func (d *MySQLDriver) generatePlaceholders(columnCount, batchSize int) string {
 	d.placeholders.Store(key, out)
 	return out
 }
+
+var _ SQLDriver = (*PostgreSQLDriver)(nil)
 
 var DefaultPostgreSQLDriver = NewPostgreSQLDriver()
 
@@ -164,6 +168,8 @@ func (d *PostgreSQLDriver) generatePlaceholders(columnCount, batchSize int) stri
 	return out
 }
 
+var _ SQLDriver = (*SQLiteDriver)(nil)
+
 var DefaultSQLiteDriver = NewSQLiteDriver()
 
 type SQLiteDriver struct {
@@ -238,6 +244,8 @@ func (d *SQLiteDriver) generatePlaceholders(columnCount, batchSize int) string {
 	d.placeholders.Store(key, out)
 	return out
 }
+
+var _ SQLDriver = (*MockDriver)(nil)
 
 type MockDriver struct {
 	databaseType string
@@ -359,6 +367,8 @@ type RedisCmd []any
 type RedisDriver interface {
 	GenerateCmds(ctx context.Context, schema *Schema, data []map[string]any) ([]RedisCmd, error)
 }
+
+var _ RedisDriver = (*RedisPipelineDriver)(nil)
 
 var DefaultRedisPipelineDriver = NewRedisPipelineDriver()
 

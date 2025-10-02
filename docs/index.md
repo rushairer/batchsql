@@ -17,6 +17,7 @@
 - [监控指南](guides/monitoring.md) - Prometheus + Grafana 监控系统
 - [监控快速上手](guides/monitoring-quickstart.md) - 三步完成 Prometheus + Grafana 指标可视化
 - [自定义 MetricsReporter 指南](guides/custom-metrics-reporter.md) - 接口语义、实现建议与示例代码
+- [执行器能力与度量接口（重构后）](guides/executor-capabilities.md) - 自类型泛型能力接口 + 只读探测 + Noop 兜底
 - [故障排除](guides/troubleshooting.md) - 完整的问题诊断和解决方案
 - [集成测试](guides/integration-tests.md) - 集成测试详细说明
 

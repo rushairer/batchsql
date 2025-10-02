@@ -280,7 +280,7 @@ defer pm.StopServer()
 
 exec := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, driver)
 reporter := integration.NewPrometheusMetricsReporter(pm, "postgres", "user_batch")
-exec = exec.WithMetricsReporter(reporter).(batchsql.BatchExecutor)
+exec = exec.WithMetricsReporter(reporter)
 
 bs := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, exec)
 defer bs.Close()
@@ -330,7 +330,7 @@ make test-integration-with-monitoring     # 启动监控后运行测试
   - 观察“retry:*”与“final:*”的比值，若“final:*”持续升高需关注数据库稳定性与退避配置
   - ObserveExecuteDuration 已包含重试与退避时间，P95/99 将反映重试导致的尾部放大
 
-#### 可选接口：MetricsProvider
+#### 运行时只读探测：MetricsReporter()
 
 - 功能定位：为执行器（BatchExecutor 实现者）提供一种“可选能力”以暴露其当前 MetricsReporter；NewBatchSQL 会基于该能力安全决定是否注入默认的 NoopMetricsReporter，从而避免误覆盖自定义执行器的监控实现。
 - 适用场景：
@@ -380,7 +380,7 @@ bs := batchsql.NewBatchSQL(ctx, cfg.BufferSize, cfg.FlushSize, cfg.FlushInterval
 ```go
 exec := &MyExecutor{}
 prom := integration.NewPrometheusMetricsReporter(pm, "mysql", "user_batch")
-exec = exec.WithMetricsReporter(prom).(batchsql.BatchExecutor)
+exec = exec.WithMetricsReporter(prom)
 // NewBatchSQL 发现 MetricsProvider 返回非 nil，将复用 prom，不会覆盖
 bs := batchsql.NewBatchSQL(ctx, cfg.BufferSize, cfg.FlushSize, cfg.FlushInterval, exec)
 ```
@@ -388,7 +388,7 @@ bs := batchsql.NewBatchSQL(ctx, cfg.BufferSize, cfg.FlushSize, cfg.FlushInterval
 与 NewBatchSQL 的交互逻辑（简述）
 - 若执行器实现了 MetricsProvider：
   - MetricsReporter() 返回非 nil：直接复用该 reporter；
-  - 返回 nil：NewBatchSQL 注入 NoopMetricsReporter，并写回到执行器（确保后续有观测点可用，且零开销）。
+  - 返回 nil：BatchSQL 在内部使用本地 NoopMetricsReporter 兜底，不写回执行器。
 - 若执行器未实现 MetricsProvider：
   - 不会强制覆盖执行器内部状态；NewBatchSQL 仅在内部使用本地 Noop 进行自有观测，保持外部行为稳定。
 
@@ -775,6 +775,7 @@ BatchSQL 提供完整的文档体系，按使用场景分类：
 ### 📖 用户指南
 - [🧪 测试指南](docs/guides/testing.md) - 完整的测试文档和 Redis 测试报告
 - [📊 监控指南](docs/guides/monitoring.md) - Prometheus + Grafana 监控系统
+- [⚙️ 执行器能力与度量接口（重构后）](docs/guides/executor-capabilities.md) - 自类型泛型能力接口 + 只读探测 + Noop 兜底
 - [🔧 故障排除](docs/guides/troubleshooting.md) - 完整的问题诊断和解决方案
 - [🔗 集成测试](docs/guides/integration-tests.md) - 集成测试详细说明
 - [🛠 调优最佳实践](docs/guides/tuning.md) - 指标细化 + 自适应策略 + 基准/压力流程

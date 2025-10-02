@@ -24,6 +24,8 @@ type MetricsReporter interface {
 	DecInflight()
 }
 
+var _ MetricsReporter = (*NoopMetricsReporter)(nil)
+
 // NoopMetricsReporter 默认关闭时的无操作实现（零开销路径）
 type NoopMetricsReporter struct{}
 

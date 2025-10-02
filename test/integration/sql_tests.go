@@ -216,21 +216,21 @@ func runHighThroughputTest(db *sql.DB, dbType string, config TestConfig, prometh
 		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "高吞吐量测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "postgres":
 		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultPostgreSQLDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "高吞吐量测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "sqlite3":
 		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultSQLiteDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "高吞吐量测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	}
@@ -385,21 +385,21 @@ func runConcurrentWorkersTest(db *sql.DB, dbType string, config TestConfig, prom
 		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultMySQLDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "并发工作线程测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "postgres":
 		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultPostgreSQLDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "并发工作线程测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	case "sqlite3":
 		executor := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, batchsql.DefaultSQLiteDriver)
 		if prometheusMetrics != nil {
 			metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, dbType, "并发工作线程测试")
-			executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.ThrottledBatchExecutor)
+			executor = executor.WithMetricsReporter(metricsReporter)
 		}
 		batchSQL = batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)
 	}

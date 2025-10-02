@@ -17,7 +17,7 @@ defer pm.StopServer()
 ```go
 exec := batchsql.NewSQLThrottledBatchExecutorWithDriver(db, driver)
 reporter := integration.NewPrometheusMetricsReporter(pm, "postgres", "user_batch") // database/test_name 标签
-exec = exec.WithMetricsReporter(reporter).(batchsql.BatchExecutor)
+exec = exec.WithMetricsReporter(reporter)
 
 bs := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, exec)
 defer bs.Close()
@@ -25,7 +25,7 @@ defer bs.Close()
 
 提示：
 - 默认使用 NoopMetricsReporter（零开销）。只有在你注入 Reporter 后，库内埋点才会真正上报。
-- 一定要“先 WithMetricsReporter，再 NewBatchSQL”。NewBatchSQL 会尊重已注入的 Reporter，不会覆盖为 Noop。
+- 一定要“先 WithMetricsReporter，再 NewBatchSQL”。NewBatchSQL 会尊重已注入的 Reporter；若未设置则仅在内部使用本地 Noop 兜底，不写回执行器。
 
 ## 三、导入 Grafana 面板
 

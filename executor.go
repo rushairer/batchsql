@@ -15,15 +15,40 @@ import (
 type BatchExecutor interface {
 	// ExecuteBatch 执行批量操作
 	ExecuteBatch(ctx context.Context, schema *Schema, data []map[string]any) error
-
-	// WithMetricsReporter 设置性能监控报告器
-	WithMetricsReporter(metricsReporter MetricsReporter) BatchExecutor
 }
 
-// MetricsProvider 可选能力：执行器可暴露其当前 MetricsReporter（若未设置则返回 nil）
-type MetricsProvider interface {
+/*
+Metrics 相关接口设计说明
+
+- BatchExecutor：仅负责“执行”职责，保持最小接口。
+- MetricsCapable[T]（泛型）：提供“读 + 写”的度量能力，方法返回自类型 T，便于在具体类型或已实例化接口上进行链式配置。
+  注意：泛型接口在运行时类型断言时必须使用具体的类型实参（如 MetricsCapable[*ThrottledBatchExecutor]）。
+- 兼容性与运行时探测：
+  在 BatchSQL 等仅持有 BatchExecutor 的位置，无法统一断言到 MetricsCapable[T]，
+  因此使用一个非泛型只读探测接口（即仅调用 MetricsReporter()）来判断是否已有 Reporter；
+  若返回 nil，则在本地使用 Noop 兜底，不强制写回（写回需要具体类型 T）。
+
+这允许：
+- 在需要链式的调用点：以具体类型或已实例化能力接口使用 Set/With 风格链式；
+- 在框架内部通用路径：通过只读探测保证安全、零开销的观测兜底。
+*/
+// MetricsCapable 扩展接口：支持性能监控报告器（自类型泛型）
+type MetricsCapable[T any] interface {
+	// WithMetricsReporter 设置性能监控报告器（返回实现者类型以支持链式）
+	WithMetricsReporter(MetricsReporter) T
+	// MetricsReporter 返回当前性能监控报告器（可能为 nil）
 	MetricsReporter() MetricsReporter
 }
+
+type ConcurrencyCapable[T any] interface {
+	WithConcurrencyLimit(int) T
+}
+
+var _ MetricsCapable[*ThrottledBatchExecutor] = (*ThrottledBatchExecutor)(nil)
+
+var _ ConcurrencyCapable[*ThrottledBatchExecutor] = (*ThrottledBatchExecutor)(nil)
+
+var _ BatchExecutor = (*ThrottledBatchExecutor)(nil)
 
 // ThrottledBatchExecutor SQL数据库通用批量执行器
 // 实现 ThrottledBatchExecutor 接口，为SQL数据库提供统一的执行逻辑
@@ -224,7 +249,7 @@ RETRY:
 }
 
 // WithMetricsReporter 设置指标报告器
-func (e *ThrottledBatchExecutor) WithMetricsReporter(metricsReporter MetricsReporter) BatchExecutor {
+func (e *ThrottledBatchExecutor) WithMetricsReporter(metricsReporter MetricsReporter) *ThrottledBatchExecutor {
 	e.metricsReporter = metricsReporter
 	// 注入 reporter 后，立即上报一次当前并发度（如已配置）
 	if e.metricsReporter != nil {
@@ -240,7 +265,7 @@ func (e *ThrottledBatchExecutor) WithMetricsReporter(metricsReporter MetricsRepo
 // WithConcurrencyLimit 设置并发上限（limit <= 0 表示不启用限流）
 func (e *ThrottledBatchExecutor) MetricsReporter() MetricsReporter { return e.metricsReporter }
 
-func (e *ThrottledBatchExecutor) WithConcurrencyLimit(limit int) BatchExecutor {
+func (e *ThrottledBatchExecutor) WithConcurrencyLimit(limit int) *ThrottledBatchExecutor {
 	if limit > 0 {
 		e.semaphore = make(chan struct{}, limit)
 	} else {
@@ -257,11 +282,12 @@ func (e *ThrottledBatchExecutor) WithConcurrencyLimit(limit int) BatchExecutor {
 	return e
 }
 
+var _ BatchExecutor = (*MockExecutor)(nil)
+
 // Executor 模拟批量执行器（用于测试）
 type MockExecutor struct {
 	ExecutedBatches [][]map[string]any
 	driver          SQLDriver
-	metricsReporter MetricsReporter
 	mu              sync.RWMutex
 
 	// 并发安全的统计聚合：按表名累计批次数、行数、参数数
@@ -345,14 +371,6 @@ func (e *MockExecutor) ExecuteBatch(ctx context.Context, schema *Schema, data []
 
 	return nil
 }
-
-// WithMetricsReporter 设置指标报告器
-func (e *MockExecutor) WithMetricsReporter(metricsReporter MetricsReporter) BatchExecutor {
-	e.metricsReporter = metricsReporter
-	return e
-}
-
-func (e *MockExecutor) MetricsReporter() MetricsReporter { return e.metricsReporter }
 
 // SnapshotExecutedBatches 返回一次性快照，避免并发读写竞态
 func (e *MockExecutor) SnapshotExecutedBatches() [][]map[string]any {

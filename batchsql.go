@@ -37,19 +37,18 @@ type BatchSQL struct {
 func NewBatchSQL(ctx context.Context, buffSize uint32, flushSize uint32, flushInterval time.Duration, executor BatchExecutor) *BatchSQL {
 	// 确保 BatchSQL 始终拥有可用 reporter，但不误覆盖自定义执行器的已有配置
 	var reporter MetricsReporter
-	if mp, ok := executor.(MetricsProvider); ok {
-		// 已实现可选能力接口，可安全探测
-		if mp.MetricsReporter() != nil {
-			reporter = mp.MetricsReporter()
+	// 说明：
+	// - 由于 Go 对泛型接口的类型断言需要具体类型实参，无法在此处（仅持有 BatchExecutor）统一断言 MetricsCapable[T]。
+	// - 因此采用非泛型的只读探测接口 MetricsProvider 进行安全探测；若为 nil，则在本地使用 Noop 兜底，不强制写回。
+	if mp, ok := executor.(interface{ MetricsReporter() MetricsReporter }); ok {
+		if r := mp.MetricsReporter(); r != nil {
+			reporter = r
 		} else {
-			// 明确为空时才注入 Noop，并回写到执行器中
 			reporter = NewNoopMetricsReporter()
-			executor = executor.WithMetricsReporter(reporter)
+			// 不强制写回：写回需要具体的 T（MetricsCapable[T]），此处无法统一处理
 		}
 	} else {
-		// 未实现可选接口：不覆盖对方内部配置，仅在 BatchSQL 内部使用本地 Noop
 		reporter = NewNoopMetricsReporter()
-		// 注意：不调用 executor.WithMetricsReporter(reporter)
 	}
 
 	batchSQL := &BatchSQL{

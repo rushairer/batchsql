@@ -19,6 +19,8 @@ type BatchProcessor interface {
 	ExecuteOperations(ctx context.Context, operations Operations) error
 }
 
+var _ BatchProcessor = (*SQLBatchProcessor)(nil)
+
 // SQLBatchProcessor SQL数据库批量处理器
 // 实现 BatchProcessor 接口，专注于SQL数据库的核心处理逻辑
 type SQLBatchProcessor struct {
@@ -55,6 +57,8 @@ func (bp *SQLBatchProcessor) ExecuteOperations(ctx context.Context, operations O
 	}
 	return errors.New("invalid operation type")
 }
+
+var _ BatchProcessor = (*RedisBatchProcessor)(nil)
 
 // RedisBatchProcessor Redis批量处理器
 // 实现 BatchProcessor 接口，专注于Redis的核心处理逻辑

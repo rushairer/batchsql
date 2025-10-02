@@ -51,10 +51,10 @@ func TestExecutor_MetricsCallbacks_SuccessAndFailAndSetConcurrency(t *testing.T)
 	schema := batchsql.NewSchema("users", batchsql.ConflictIgnore, "id")
 
 	// 1) 成功路径覆盖 ObserveExecuteDuration
-	exec1 := batchsql.NewThrottledBatchExecutor(okProcessor{})
 	m1 := &execMetrics{}
-	exec1.WithMetricsReporter(m1)
-	exec1.WithConcurrencyLimit(4) // 触发 SetConcurrency
+	exec1 := batchsql.NewThrottledBatchExecutor(okProcessor{}).
+		WithConcurrencyLimit(4).
+		WithMetricsReporter(m1)
 	if err := exec1.ExecuteBatch(ctx, schema, []map[string]any{{"id": 1}}); err != nil {
 		t.Fatalf("exec1 success expected, got err: %v", err)
 	}

@@ -189,7 +189,9 @@ type MetricsReporter interface {
 ```
 
 - NoopMetricsReporter：默认空实现，零依赖、零开销。未注入 Reporter 时，库内埋点不会产生任何副作用；当注入后立即开始上报。
-- 注入时机：务必在 NewBatchSQL 之前对执行器调用 WithMetricsReporter，NewBatchSQL 会尊重已注入的 Reporter，不会覆盖为 Noop。
+- 注入时机：务必在 NewBatchSQL 之前对执行器调用 WithMetricsReporter，NewBatchSQL 会尊重已注入的 Reporter。
+  - 若执行器未设置 Reporter：BatchSQL 仅在内部使用本地 NoopMetricsReporter 进行自有观测，不写回执行器；
+  - 若执行器已设置 Reporter：BatchSQL 复用该 Reporter，绝不覆盖。
 
 语义、单位与标签建议
 - 时间：秒（Prometheus 推荐）。将 time.Duration 转换为秒上报。
@@ -228,7 +230,7 @@ metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "mysql", "bat
 // 应用到执行器
 executor := mysql.NewBatchExecutor(db)
 if prometheusMetrics != nil {
-    executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.CommonExecutor)
+    executor = executor.WithMetricsReporter(metricsReporter)
 }
 
 batchSQL := batchsql.NewBatchSQL(ctx, 5000, 200, 100*time.Millisecond, executor)
@@ -358,7 +360,7 @@ func advancedBatchInsert() {
     // 添加Prometheus监控
     if prometheusEnabled {
         metricsReporter := NewPrometheusMetricsReporter(prometheusMetrics, "mysql", "high_performance")
-        executor = executor.WithMetricsReporter(metricsReporter).(*batchsql.CommonExecutor)
+        executor = executor.WithMetricsReporter(metricsReporter)
     }
     
     batchSQL := batchsql.NewBatchSQL(ctx, config.BufferSize, config.BatchSize, config.FlushInterval, executor)

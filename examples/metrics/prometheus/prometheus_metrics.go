@@ -318,7 +318,7 @@ func (m *Metrics) decInflight(database, testName string) {
 	m.inflightBatches.WithLabelValues(labels...).Dec()
 }
 
-func hasLabel(_ prometheus.Collector, name string) bool {
+func hasLabel(_ prometheus.Collector, _ string) bool {
 	// CounterVec/HistogramVec/GaugeVec 都实现了 Describe，可从 Desc 文本判断标签是否存在
 	// 这里用一个简化的静态判断套路：依赖我们构造时的选择，不做反射/解析，避免开销。
 	// 在本实现中我们基于构造路径直接知道是否包含 test_name/table，因此上面直接使用 hasLabel 调用点的布尔条件。

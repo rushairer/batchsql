@@ -7,7 +7,7 @@
   docker-mysql-test-with-monitoring docker-postgres-test-with-monitoring docker-sqlite-test-with-monitoring docker-redis-test-with-monitoring docker-all-tests-with-monitoring \
   deps deps-update \
   monitoring monitoring-foreground monitoring-stop monitoring-status monitoring-logs monitoring-cleanup \
-  dev-setup fmt lint clean clean-all benchmark docs ci release-check docker-build docker-test quick-test full-test dev info
+  dev-setup fmt lint clean clean-all benchmark docs ci release-check docker-build docker-test quick-test full-test dev info cover
 
 # 默认目标
 help: ## 显示帮助信息
@@ -18,6 +18,7 @@ help: ## 显示帮助信息
 	@echo "  \033[36mtest\033[0m                  运行单元测试"
 	@echo "  \033[36mtest-race\033[0m             运行竞态检测测试"
 	@echo "  \033[36mbenchmark\033[0m             运行性能基准测试"
+	@echo "  \033[36mcover\033[0m                 运行覆盖率（排除 test/ 包）"
 	@echo ""
 	@echo "🔬 集成测试（本地）:"
 	@echo "  \033[36mtest-integration\033[0m      运行本地集成测试"
@@ -81,6 +82,13 @@ test: ## 运行单元测试
 test-race: ## 运行竞态检测测试
 	@echo "🏃 运行竞态检测测试..."
 	@go test -race ./...
+
+# 覆盖率（排除 test/ 包）
+cover: ## 运行覆盖率并输出 coverage.txt（排除 github.com/rushairer/batchsql/test/）
+	@echo "🧪 运行覆盖率（排除 test/ 包）..."
+	@PKGS=$$(go list ./... | grep -v '^github.com/rushairer/batchsql/test/'); \
+	go test -v -cover -coverpkg="$$(echo $$PKGS | tr ' ' ',')" $$PKGS -coverprofile=coverage.out; \
+	go tool cover -func=coverage.out | tee coverage.txt
 
 # 集成测试相关
 test-integration: ## 运行集成测试

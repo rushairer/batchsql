@@ -1,4 +1,8 @@
 # BatchSQL
+
+## 项目迁移至  [https://github.com/rushairer/batchflow](https://github.com/rushairer/batchflow)
+
+
 [![Release](https://img.shields.io/github/v/release/rushairer/batchsql?display_name=tag&include_prereleases&sort=semver)](https://github.com/rushairer/batchsql/releases)
 [![Go Reference](https://pkg.go.dev/badge/github.com/rushairer/batchsql.svg)](https://pkg.go.dev/github.com/rushairer/batchsql)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rushairer/batchsql)](https://goreportcard.com/report/github.com/rushairer/batchsql)
